@@ -294,7 +294,10 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
           .eq("vehiculo_id", orderData.vehiculo_id)
           .eq("resuelto", false)
           .order("created_at", { ascending: false });
-        if (difData) setDeferredWorks(difData);
+        if (difData) {
+          setDeferredWorks(difData);
+          setOrder((prev: any) => ({ ...prev, trabajos_diferidos: difData }));
+        }
       }
     }
 

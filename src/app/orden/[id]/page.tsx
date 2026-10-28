@@ -268,8 +268,10 @@ function getStageIndex(estado: string | null | undefined): number {
 }
 
 function getInitials(name: string | null | undefined): string {
-  if (!name) return 'TL'
-  const parts = name.trim().split(/\s+/)
+  if (!name) return 'CT'
+  const clean = name.replace(/[^a-zA-Z0-9\s]/g, ' ').trim()
+  const parts = clean.split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return 'CT'
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
   return (parts[0][0] + parts[1][0]).toUpperCase()
 }
@@ -747,14 +749,14 @@ export default function OrdenCustomerPortalPage() {
                 <MessageCircle className="w-4 h-4" />
                 <span>WhatsApp Taller</span>
               </a>
-              <button
-                type="button"
-                onClick={() => window.print()}
+              <Link
+                href={`/orden/${orden.id}/imprimir`}
+                target="_blank"
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-sm font-medium border border-white/15 transition-colors"
               >
                 <Printer className="w-4 h-4" />
-                <span>Imprimir / PDF</span>
-              </button>
+                <span>Imprimir Nota / PDF</span>
+              </Link>
             </div>
           </div>
         </div>
@@ -1012,8 +1014,8 @@ export default function OrdenCustomerPortalPage() {
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1">
                     Motivo de Ingreso / Reporte del Cliente
                   </span>
-                  <p className="text-sm text-slate-800 leading-relaxed">
-                    {orden.problema_reportado}
+                  <p className="text-sm text-slate-800 leading-relaxed whitespace-pre-line">
+                    {(orden.problema_reportado || "").replace(/\\n/g, "\n")}
                   </p>
                 </div>
               )}
@@ -1022,8 +1024,8 @@ export default function OrdenCustomerPortalPage() {
                   <span className="text-xs font-bold uppercase tracking-wider text-sky-800 block mb-1">
                     Diagnóstico Técnico del Especialista
                   </span>
-                  <p className="text-sm text-slate-800 leading-relaxed">
-                    {orden.diagnostico_tecnico}
+                  <p className="text-sm text-slate-800 leading-relaxed whitespace-pre-line">
+                    {(orden.diagnostico_tecnico || "").replace(/\\n/g, "\n")}
                   </p>
                 </div>
               )}
