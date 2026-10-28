@@ -62,7 +62,7 @@ const QUICK_CASH_AMOUNTS = [100, 200, 500, 1000];
 
 export default function CajaPage() {
   const supabase = createClient();
-  const { empresa, sucursalActiva, sucursales } = useTenant();
+  const { empresa, sucursalActiva, sucursales, perfil } = useTenant();
 
   const [activeTab, setActiveTab] = useState<TabType>("POS");
   const [loading, setLoading] = useState(true);
@@ -2373,7 +2373,7 @@ export default function CajaPage() {
         onSuccess={loadData}
         empresaId={empresa?.id || "a0000000-0000-0000-0000-000000000001"}
         sucursalId={sucursalActiva?.id || sucursales[0]?.id || "b0000000-0000-0000-0000-000000000001"}
-        usuarioId="b001bc99-9c0b-4ef8-bb6d-6bb9bd380e51"
+        usuarioId={perfil?.id || ""}
         fondos={fondos}
       />
 
@@ -2385,7 +2385,7 @@ export default function CajaPage() {
           onSuccess={loadData}
           turnoActivo={turnoActivo}
           fondos={fondos}
-          usuarioId="b001bc99-9c0b-4ef8-bb6d-6bb9bd380e51"
+          usuarioId={perfil?.id || ""}
         />
       )}
 
@@ -2402,7 +2402,7 @@ export default function CajaPage() {
           turnoActivo={turnoActivo}
           fondos={fondos}
           cuentasBancarias={cuentasBancarias}
-          usuarioId="b001bc99-9c0b-4ef8-bb6d-6bb9bd380e51"
+          usuarioId={perfil?.id || ""}
         />
       )}
 
