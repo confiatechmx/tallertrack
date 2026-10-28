@@ -122,7 +122,7 @@ export async function generatePaymentLink(
     } else {
       // Efectivo o Transferencia: URL de comprobante
       externalTransactionId = `manual_${timestamp}`;
-      paymentUrl = `https://autolisto.mx/recibo/${ordenId}?t=${timestamp}`;
+      paymentUrl = `https://tallertrack.com/recibo/${ordenId}?t=${timestamp}`;
     }
 
     // Generar código QR en base64 de alta resolución

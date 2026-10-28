@@ -25,10 +25,20 @@ export async function login(formData: FormData) {
 export async function loginDemo() {
   const supabase = await createClient()
 
-  const { error } = await supabase.auth.signInWithPassword({
-    email: 'demo@autolisto.mx',
-    password: 'AutoListo2026!',
+  // Intento con credenciales oficiales TallerTrack
+  let { error } = await supabase.auth.signInWithPassword({
+    email: 'demo@tallertrack.com',
+    password: 'TallerTrack2026!',
   })
+
+  // Retrocompatibilidad con entorno Supabase existente
+  if (error) {
+    const fallback = await supabase.auth.signInWithPassword({
+      email: 'demo@autolisto.mx',
+      password: 'AutoListo2026!',
+    })
+    error = fallback.error
+  }
 
   if (error) {
     redirect('/login?message=Error+al+iniciar+modo+demo')

@@ -20,7 +20,7 @@ vi.mock("../lib/supabase/client", () => ({
         data: {
           user: {
             id: "usr-superadmin-01",
-            email: "superadmin@autolisto.mx",
+            email: "superadmin@tallertrack.com",
           },
         },
       }),
@@ -147,7 +147,7 @@ vi.mock("../lib/supabase/client", () => ({
               maybeSingle: vi.fn().mockResolvedValue({
                 data: {
                   id: "usr-superadmin-01",
-                  nombre: "SuperAdmin AutoListo",
+                  nombre: "SuperAdmin TallerTrack",
                   rol: "SuperAdmin",
                   empresa_id: "empresa-01",
                 },
@@ -223,7 +223,7 @@ vi.mock("../lib/supabase/client", () => ({
               single: vi.fn().mockResolvedValue({
                 data: {
                   id: "dom-new",
-                  domain: "cova.autolisto.mx",
+                  domain: "cova.tallertrack.com",
                   empresa_id: "empresa-01",
                   verified: true,
                   is_primary: true,
@@ -251,7 +251,7 @@ vi.mock("../lib/supabase/client", () => ({
   }),
 }));
 
-describe("🛡️ AutoListo HQ & Infraestructura Multi-Tenant (Transplantada de Cargatek)", () => {
+describe("🛡️ TallerTrack HQ & Infraestructura Multi-Tenant (Transplantada de Cargatek)", () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
@@ -348,11 +348,11 @@ describe("🛡️ AutoListo HQ & Infraestructura Multi-Tenant (Transplantada de 
     // Registro de nuevo dominio
     const nuevo = await tenantDomainService.registrarDominio(
       "empresa-01",
-      "cova.autolisto.mx",
+      "cova.tallertrack.com",
       true,
       { app_title: "Cova Performance" }
     );
     expect(nuevo).toBeDefined();
-    expect(nuevo.domain).toBe("cova.autolisto.mx");
+    expect(nuevo.domain).toBe("cova.tallertrack.com");
   });
 });

@@ -1,7 +1,7 @@
 {
-  "id": "cova-erp-pwa",
-  "name": "Cova ERP - Sistema de Taller y Llantera",
-  "short_name": "Cova ERP",
+  "id": "tallertrack-pwa",
+  "name": "TallerTrack - Sistema de Taller y Llantera",
+  "short_name": "TallerTrack",
   "description": "Sistema de Punto de Venta (POS), Workflow Operativo, Inspección DVI y Facturación",
   "start_url": "/",
   "scope": "/",

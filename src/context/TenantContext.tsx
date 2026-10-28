@@ -231,7 +231,7 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
 
       if (sucData) {
         setSucursales(sucData as Sucursal[]);
-        const savedBranch = typeof window !== "undefined" ? localStorage.getItem("autolisto_sucursal_id") : null;
+        const savedBranch = typeof window !== "undefined" ? (localStorage.getItem("tallertrack_sucursal_id") || localStorage.getItem("autolisto_sucursal_id")) : null;
         if (savedBranch && savedBranch !== "ALL" && sucData.some((s: any) => s.id === savedBranch)) {
           setSucursalActivaIdState(savedBranch);
         } else if (savedBranch === "ALL") {
@@ -255,8 +255,10 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
     };
 
     if (typeof window !== "undefined") {
+      window.addEventListener("tallertrack:empresa_changed", handleEmpresaChanged);
       window.addEventListener("autolisto:empresa_changed", handleEmpresaChanged);
       return () => {
+        window.removeEventListener("tallertrack:empresa_changed", handleEmpresaChanged);
         window.removeEventListener("autolisto:empresa_changed", handleEmpresaChanged);
       };
     }
@@ -265,7 +267,7 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
   const setSucursalActivaId = (id: string | null) => {
     setSucursalActivaIdState(id);
     if (typeof window !== "undefined") {
-      localStorage.setItem("autolisto_sucursal_id", id || "ALL");
+      localStorage.setItem("tallertrack_sucursal_id", id || "ALL");
     }
   };
 

@@ -35,7 +35,7 @@ const PLAN_MONTHLY_VALUES: Record<string, number> = {
   ENTERPRISE: 9999,
 };
 
-export default function AutoListoHQView() {
+export default function TallerTrackHQView() {
   const router = useRouter();
   const [empresas, setEmpresas] = useState<EmpresaHqRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -191,7 +191,7 @@ export default function AutoListoHQView() {
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              AutoListo Control Plane
+              TallerTrack Control Plane
             </h1>
             <p className="text-xs sm:text-sm text-slate-400 max-w-2xl leading-relaxed">
               Gestión centralizada de talleres mecánicos, facturación recurrente (MRR), marca blanca, asignación de dominios y modo soporte con impersonación segura.

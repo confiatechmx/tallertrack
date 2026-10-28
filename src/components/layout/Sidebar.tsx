@@ -51,7 +51,7 @@ export function Sidebar() {
     { href: "/caja?tab=Comisiones", label: "Nómina de Comisiones", icon: Landmark },
   ];
 
-  const brandName = empresa?.nombre_comercial || "AutoListo";
+  const brandName = empresa?.nombre_comercial || "TallerTrack";
   const brandInitials = brandName
     .split(" ")
     .filter(Boolean)

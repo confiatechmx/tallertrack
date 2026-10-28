@@ -12,9 +12,9 @@ interface SuspendedTenantViewProps {
 
 export default function SuspendedTenantView({ empresa, onLogout }: SuspendedTenantViewProps) {
   const companyName = empresa.nombre_comercial || "Taller Automotriz";
-  const supportWhatsapp = "528123456789"; // Soporte oficial AutoListo
+  const supportWhatsapp = "528123456789"; // Soporte oficial TallerTrack
   const whatsappUrl = `https://wa.me/${supportWhatsapp}?text=${encodeURIComponent(
-    `Hola equipo de AutoListo, me comunico sobre la reactivación de cuenta para mi taller "${companyName}" (ID: ${empresa.id}).`
+    `Hola equipo de TallerTrack, me comunico sobre la reactivación de cuenta para mi taller "${companyName}" (ID: ${empresa.id}).`
   )}`;
 
   const handleLogout = async () => {
@@ -70,7 +70,7 @@ export default function SuspendedTenantView({ empresa, onLogout }: SuspendedTena
             className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 active:scale-98 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
           >
             <MessageCircle className="h-4 w-4" />
-            <span>Contactar a Soporte AutoListo por WhatsApp</span>
+            <span>Contactar a Soporte TallerTrack por WhatsApp</span>
           </a>
 
           <button

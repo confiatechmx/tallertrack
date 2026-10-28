@@ -42,19 +42,19 @@ export const tenantDomainService = {
       }
 
       // En desarrollo local o dominios genéricos principales
-      if (['localhost', '127.0.0.1', 'autolisto.mx', 'www.autolisto.mx', 'app.autolisto.mx'].includes(hostname)) {
+      if (['localhost', '127.0.0.1', 'tallertrack.com', 'www.tallertrack.com', 'app.tallertrack.com', 'autolisto.mx', 'www.autolisto.mx', 'app.autolisto.mx'].includes(hostname)) {
         return null
       }
 
       // Check cache en sessionStorage para evitar roundtrips innecesarios
-      const cacheKey = `autolisto_domain_${hostname}`
+      const cacheKey = `tallertrack_domain_${hostname}`
       if (typeof sessionStorage !== 'undefined') {
         const cached = sessionStorage.getItem(cacheKey)
         if (cached) {
           try {
             const parsed = JSON.parse(cached) as TenantDomainInfo
             if (parsed.custom_theme?.app_title && typeof document !== 'undefined') {
-              document.title = `${parsed.custom_theme.app_title} | AutoListo Shop OS`
+              document.title = `${parsed.custom_theme.app_title} | TallerTrack Shop OS`
             }
             if (parsed.custom_theme?.primary_color || parsed.custom_theme?.sidebar_color) {
               applyThemeCssVariables(
@@ -89,7 +89,7 @@ export const tenantDomainService = {
         }
 
         if (result.custom_theme?.app_title && typeof document !== 'undefined') {
-          document.title = `${result.custom_theme.app_title} | AutoListo Shop OS`
+          document.title = `${result.custom_theme.app_title} | TallerTrack Shop OS`
         }
         if (result.custom_theme?.primary_color || result.custom_theme?.sidebar_color) {
           applyThemeCssVariables(
@@ -243,12 +243,12 @@ export const tenantDomainService = {
 
       if (data.Answer && data.Answer.length > 0) {
         const cnameTarget = data.Answer[0].data || ''
-        const isVercel = cnameTarget.includes('vercel') || cnameTarget.includes('autolisto')
+        const isVercel = cnameTarget.includes('vercel') || cnameTarget.includes('tallertrack') || cnameTarget.includes('autolisto')
         return {
           ok: isVercel,
           message: isVercel
             ? `DNS CNAME configurado correctamente hacia ${cnameTarget}`
-            : `CNAME detectado apuntando a ${cnameTarget}. Debe apuntar a cname.autolisto.mx o Vercel.`,
+            : `CNAME detectado apuntando a ${cnameTarget}. Debe apuntar a cname.tallertrack.com o Vercel.`,
         }
       }
 

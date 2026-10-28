@@ -82,7 +82,7 @@ export default function TenantSwitcher({ collapsed = false }: TenantSwitcherProp
     e.nombre_comercial.toLowerCase().includes(search.toLowerCase())
   );
 
-  const brandName = empresa?.nombre_comercial || "AutoListo";
+  const brandName = empresa?.nombre_comercial || "TallerTrack";
 
   return (
     <div className="relative" ref={dropdownRef}>

@@ -1,11 +1,11 @@
 import { Metadata } from "next";
-import AutoListoHQView from "@/components/hq/AutoListoHQView";
+import TallerTrackHQView from "@/components/hq/TallerTrackHQView";
 
 export const metadata: Metadata = {
-  title: "Control HQ • Centro de Mando SaaS | AutoListo",
-  description: "Panel de administración y control plane multi-tenant para AutoListo",
+  title: "Control HQ • Centro de Mando SaaS | TallerTrack",
+  description: "Panel de administración y control plane multi-tenant para TallerTrack",
 };
 
 export default function HqPage() {
-  return <AutoListoHQView />;
+  return <TallerTrackHQView />;
 }

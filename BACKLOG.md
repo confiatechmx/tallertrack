@@ -1,6 +1,6 @@
-[[00 - Ecosistema & Flujo Maestro]] | [[00 - Autolisto MOC]]
+[[00 - Ecosistema & Flujo Maestro]] | [[00 - TallerTrack MOC]]
 
-# Backlog del Proyecto - Autolisto
+# Backlog del Proyecto - TallerTrack
 
 ## Pendientes
 - [ ] CI/CD y Separación de Entornos #devops @alta <!-- asana:1216816770799595 --> ➔ [[Pipeline CI-CD y Separacion de Entornos (Staging vs Prod)]]

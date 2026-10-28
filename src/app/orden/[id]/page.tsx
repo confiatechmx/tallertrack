@@ -1820,7 +1820,7 @@ export default function OrdenCustomerPortalPage() {
                           </div>
                           <div className="flex justify-between items-center text-slate-700">
                             <span className="font-semibold">Beneficiario:</span>
-                            <span className="font-bold text-slate-900">{empresa?.nombre_comercial || 'AutoListo Taller'}</span>
+                            <span className="font-bold text-slate-900">{empresa?.nombre_comercial || 'TallerTrack Taller'}</span>
                           </div>
                           <div className="flex justify-between items-center bg-white p-2 rounded border border-slate-200">
                             <div>

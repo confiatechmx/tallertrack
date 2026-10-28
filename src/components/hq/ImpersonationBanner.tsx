@@ -50,7 +50,7 @@ export default function ImpersonationBanner({ impersonation, onExit }: Impersona
         onClick={handleExit}
         disabled={loading}
         className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold text-xs rounded-lg transition-all flex items-center gap-1.5 shadow-sm hover:shadow-blue-500/25 border border-blue-400/20 cursor-pointer disabled:opacity-50"
-        title="Finalizar sesión de impersonación y regresar a AutoListo HQ"
+        title="Finalizar sesión de impersonación y regresar a TallerTrack HQ"
       >
         {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin text-white" /> : <LogOut className="h-3.5 w-3.5 text-white" />}
         <span>Finalizar Soporte</span>

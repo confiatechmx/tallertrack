@@ -193,11 +193,11 @@ export default function CustomDomainModal({
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-slate-500 block text-[10px]">VALOR DESTINO</span>
-                  <span className="text-emerald-400 font-bold">cname.autolisto.mx</span>
+                  <span className="text-emerald-400 font-bold">cname.tallertrack.com</span>
                 </div>
                 <button
                   type="button"
-                  onClick={() => copiarPortapapeles("cname.autolisto.mx")}
+                  onClick={() => copiarPortapapeles("cname.tallertrack.com")}
                   className="p-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded transition-colors cursor-pointer"
                   title="Copiar CNAME"
                 >

@@ -19,13 +19,13 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Cova ERP - Sistema Operativo y Llantera",
-  description: "Sistema de gestión a la medida para taller automotriz y llantera",
+  title: "TallerTrack • Sistema Operativo para Talleres y Llanteras",
+  description: "Sistema integral de gestión de órdenes de trabajo, inspección digital DVI y control para talleres y llanteras",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Cova ERP",
+    title: "TallerTrack",
   },
 };
 

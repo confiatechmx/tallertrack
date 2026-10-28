@@ -52,8 +52,8 @@ export interface ImpersonationSession {
   startedAt: string
 }
 
-const STORAGE_KEY_IMPERSONATION = 'autolisto_impersonation'
-const STORAGE_KEY_AUDIT_LOGS = 'autolisto_superadmin_audit_logs'
+const STORAGE_KEY_IMPERSONATION = 'tallertrack_impersonation'
+const STORAGE_KEY_AUDIT_LOGS = 'tallertrack_superadmin_audit_logs'
 
 export const isHqEnvironment = (): boolean => {
   if (typeof window === 'undefined') return false
@@ -90,7 +90,7 @@ export const saasHqService = {
         const isSuper = perfil?.rol === 'SuperAdmin' || perfil?.rol === 'SUPERADMIN'
         // Si no está registrado como SuperAdmin, permitir si está en desarrollo o consultar si tiene permiso
         if (perfil && !isSuper && process.env.NODE_ENV === 'production') {
-          throw new Error('Acceso no autorizado al Control Plane de AutoListo HQ.')
+          throw new Error('Acceso no autorizado al Control Plane de TallerTrack HQ.')
         }
       }
 
@@ -348,7 +348,7 @@ export const saasHqService = {
     const impersonationData: ImpersonationSession = {
       isImpersonating: true,
       originalSuperAdminId: user?.id || 'admin-super',
-      originalSuperAdminEmail: user?.email || 'superadmin@autolisto.mx',
+      originalSuperAdminEmail: user?.email || 'superadmin@tallertrack.com',
       originalSuperAdminNombre: userNombre,
       targetEmpresaId,
       targetEmpresaNombre,
@@ -371,6 +371,7 @@ export const saasHqService = {
     })
 
     if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('tallertrack:empresa_changed', { detail: impersonationData }))
       window.dispatchEvent(new CustomEvent('autolisto:empresa_changed', { detail: impersonationData }))
     }
 
@@ -401,6 +402,7 @@ export const saasHqService = {
     }
 
     if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('tallertrack:empresa_changed', { detail: null }))
       window.dispatchEvent(new CustomEvent('autolisto:empresa_changed', { detail: null }))
     }
   },
@@ -525,7 +527,7 @@ export const saasHqService = {
           detalles: {
             version: '2.0.0',
             seguridad: 'RLS_ISOLATION_ACTIVE',
-            modulo: 'AUTOLISTO_SHOP_OS',
+            modulo: 'TALLERTRACK_SHOP_OS',
           },
           ip_address: '127.0.0.1',
           created_at: new Date(Date.now() - 3600000).toISOString(),

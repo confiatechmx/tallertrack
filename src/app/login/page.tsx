@@ -16,7 +16,7 @@ export default async function LoginPage({
             <Gauge size={20} />
           </div>
           <div>
-            <span className="font-bold text-lg tracking-tight">AutoListo</span>
+            <span className="font-bold text-lg tracking-tight">TallerTrack</span>
             <span className="ml-2 text-[10px] font-mono uppercase tracking-wider bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded">
               Shop OS
             </span>
@@ -59,7 +59,7 @@ export default async function LoginPage({
             <div className="w-8 h-8 bg-blue-600 rounded-md flex items-center justify-center text-white">
               <Gauge size={18} />
             </div>
-            <span className="font-bold text-lg text-slate-900">AutoListo Shop OS</span>
+            <span className="font-bold text-lg text-slate-900">TallerTrack Shop OS</span>
           </div>
 
           {/* 1-Click Demo Banner (Recommended for immediate showcase) */}
@@ -106,7 +106,7 @@ export default async function LoginPage({
                 id="email"
                 name="email"
                 type="email"
-                defaultValue="demo@autolisto.mx"
+                defaultValue="demo@tallertrack.com"
                 placeholder="servicio@torqueyruta.mx"
                 required
                 className="border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md bg-white text-xs p-2.5 w-full transition-all text-slate-900 outline-none"
@@ -121,7 +121,7 @@ export default async function LoginPage({
                 id="password"
                 name="password"
                 type="password"
-                defaultValue="AutoListo2026!"
+                defaultValue="TallerTrack2026!"
                 placeholder="••••••••"
                 required
                 className="border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md bg-white text-xs p-2.5 w-full transition-all text-slate-900 outline-none"
