@@ -1,5 +1,5 @@
-import TenantBrandLogo from "@/components/brand/TenantBrandLogo";
 "use client";
+import TenantBrandLogo from "@/components/brand/TenantBrandLogo";
 
 import React, { useState, useEffect } from "react";
 import {

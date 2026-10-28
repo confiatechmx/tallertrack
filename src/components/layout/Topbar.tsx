@@ -1,5 +1,6 @@
-import TenantBrandLogo from "@/components/brand/TenantBrandLogo";
 "use client";
+
+import TenantBrandLogo from "@/components/brand/TenantBrandLogo";
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";

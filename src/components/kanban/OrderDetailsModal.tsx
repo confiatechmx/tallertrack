@@ -9,6 +9,7 @@ import { generatePaymentLink } from "@/app/actions/payments";
 import { calcularCuotasBNPL } from "@/lib/bnpl";
 import { ReceiptModal } from "@/components/caja/ReceiptModal";
 import { OrderPrintSheet } from "./OrderPrintSheet";
+import { AuditTimeline } from "@/components/audit/AuditTimeline";
 import {
   Loader2,
   User,
@@ -48,7 +49,7 @@ interface OrderDetailsModalProps {
   onUpdate: () => void;
 }
 
-type WorkspaceTab = "cotizacion" | "dvi" | "pagos" | "impresion";
+type WorkspaceTab = "cotizacion" | "dvi" | "pagos" | "impresion" | "auditoria";
 
 const PROVEEDORES_REFACCIONES = [
   "AutoZone Comercial",
@@ -1247,6 +1248,19 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
         >
           <Printer size={14} />
           4. Hoja de Recepción / Impresión
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("auditoria")}
+          className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
+            activeTab === "auditoria"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <ShieldCheck size={14} />
+          5. Bitácora Forense
         </button>
       </div>
 
@@ -2713,6 +2727,18 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
         {/* TAB 4: HOJA DE RECEPCIÓN / IMPRESIÓN */}
         {activeTab === "impresion" && (
           <OrderPrintSheet order={order} mechanicName={assignedMechanic?.nombre} />
+        )}
+
+        {/* TAB 5: BITÁCORA FORENSE */}
+        {activeTab === "auditoria" && (
+          <div className="p-2 sm:p-4">
+            <AuditTimeline
+              entityType="ordenes_servicio"
+              entityId={order.id}
+              title={`Historial Forense de la Orden #${folioStr}`}
+              subtitle="Trazabilidad inmutable de cualquier cambio de estatus, bahía, cotización o pago realizado por el equipo."
+            />
+          </div>
         )}
       </div>
     </div>

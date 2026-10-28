@@ -14,6 +14,84 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_nombre: string
+          actor_rol: string
+          changes: Json | null
+          created_at: string
+          empresa_id: string
+          entity_id: string
+          entity_label: string | null
+          entity_type: string
+          id: string
+          ip_address: string | null
+          motivo: string | null
+          severity: string
+          snapshot: Json | null
+          sucursal_id: string | null
+          summary: string
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_nombre?: string
+          actor_rol?: string
+          changes?: Json | null
+          created_at?: string
+          empresa_id: string
+          entity_id: string
+          entity_label?: string | null
+          entity_type: string
+          id?: string
+          ip_address?: string | null
+          motivo?: string | null
+          severity?: string
+          snapshot?: Json | null
+          sucursal_id?: string | null
+          summary: string
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_nombre?: string
+          actor_rol?: string
+          changes?: Json | null
+          created_at?: string
+          empresa_id?: string
+          entity_id?: string
+          entity_label?: string | null
+          entity_type?: string
+          id?: string
+          ip_address?: string | null
+          motivo?: string | null
+          severity?: string
+          snapshot?: Json | null
+          sucursal_id?: string | null
+          summary?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_logs_sucursal_id_fkey"
+            columns: ["sucursal_id"]
+            isOneToOne: false
+            referencedRelation: "sucursales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       caja_arqueos_denominaciones: {
         Row: {
           b100: number
@@ -2262,6 +2340,22 @@ export type Database = {
         Returns: Json
       }
       is_superadmin: { Args: never; Returns: boolean }
+      jsonb_diff: {
+        Args: { ignored_keys?: string[]; new_rec: Json; old_rec: Json }
+        Returns: Json
+      }
+      log_custom_audit: {
+        Args: {
+          p_action: string
+          p_details?: Json
+          p_entity_id: string
+          p_entity_type: string
+          p_motivo?: string
+          p_severity?: string
+          p_summary: string
+        }
+        Returns: string
+      }
       obtener_orden_portal_publico: {
         Args: { p_orden_id: string }
         Returns: Json

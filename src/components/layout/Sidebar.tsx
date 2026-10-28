@@ -1,5 +1,5 @@
-import TenantBrandLogo from "@/components/brand/TenantBrandLogo";
 "use client";
+import TenantBrandLogo from "@/components/brand/TenantBrandLogo";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -22,6 +22,7 @@ import {
   MessageSquare,
   Receipt,
   ShieldCheck,
+  ShieldAlert,
 } from "lucide-react";
 import { useTenant } from "@/context/TenantContext";
 import TenantSwitcher from "@/components/auth/TenantSwitcher";
@@ -233,6 +234,19 @@ export function Sidebar() {
           )}
 
           <Link
+            href="/auditoria"
+            title={isCollapsed ? "Bitácora Forense" : undefined}
+            className={`flex items-center gap-2.5 px-2.5 py-2 rounded-md text-[13px] transition-colors group ${
+              pathname.startsWith("/auditoria")
+                ? "bg-white/12 text-white font-medium"
+                : "text-slate-300/80 hover:text-white hover:bg-white/6 font-normal"
+            }`}
+          >
+            <ShieldAlert {...iconProps} className="shrink-0 text-slate-400 group-hover:text-white" />
+            {!isCollapsed && <span className="truncate">Bitácora Forense</span>}
+          </Link>
+
+          <Link
             href="/configuracion"
             title={isCollapsed ? "Configuración y Marca" : undefined}
             className={`flex items-center gap-2.5 px-2.5 py-2 rounded-md text-[13px] transition-colors group ${
@@ -317,6 +331,7 @@ export function Sidebar() {
                 ...commercialItems,
                 ...catalogAndFinanceItems,
                 ...(isSuperAdmin ? [{ href: "/hq", label: "Control HQ SaaS", icon: ShieldCheck }] : []),
+                { href: "/auditoria", label: "Bitácora Forense", icon: ShieldAlert },
                 { href: "/configuracion", label: "Configuración y Marca", icon: Settings },
               ].map((item) => (
                 <Link
