@@ -11,7 +11,7 @@ const geist = Geist({
 });
 
 export const viewport: Viewport = {
-  themeColor: "#0ea5e9",
+  themeColor: "#1C3EFF",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -22,6 +22,16 @@ export const metadata: Metadata = {
   title: "TallerTrack • Sistema Operativo para Talleres y Llanteras",
   description: "Sistema integral de gestión de órdenes de trabajo, inspección digital DVI y control para talleres y llanteras",
   manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
