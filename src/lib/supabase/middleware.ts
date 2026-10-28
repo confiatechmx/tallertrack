@@ -31,15 +31,31 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (
-    !user &&
-    !request.nextUrl.pathname.startsWith('/login') &&
-    !request.nextUrl.pathname.startsWith('/auth') &&
-    !request.nextUrl.pathname.startsWith('/orden') &&
-    !request.nextUrl.pathname.startsWith('/api')
-  ) {
+  const pathname = request.nextUrl.pathname
+
+  // Rutas públicas que no requieren autenticación:
+  // - '/' (Landing page pública oficial en tallertrack.com)
+  // - '/login'
+  // - '/auth/*'
+  // - '/orden/*' (Portal público del cliente para DVI y presupuestos)
+  // - '/api/*'
+  const isPublicRoute =
+    pathname === '/' ||
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/auth') ||
+    pathname.startsWith('/orden') ||
+    pathname.startsWith('/api')
+
+  if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
+    return NextResponse.redirect(url)
+  }
+
+  // Si ya tiene sesión activa y visita /login, mandarlo al dashboard
+  if (user && pathname === '/login') {
+    const url = request.nextUrl.clone()
+    url.pathname = '/tablero'
     return NextResponse.redirect(url)
   }
 
