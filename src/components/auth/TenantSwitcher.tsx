@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   Search,
   ExternalLink,
+  Layers,
 } from "lucide-react";
 import { useTenant } from "@/context/TenantContext";
 import { createClient } from "@/lib/supabase/client";
@@ -21,7 +22,7 @@ interface TenantSwitcherProps {
 }
 
 export default function TenantSwitcher({ collapsed = false }: TenantSwitcherProps) {
-  const { empresa, isSuperAdmin, switchEmpresa } = useTenant();
+  const { empresa, perfil, isSuperAdmin, switchEmpresa } = useTenant();
   const [open, setOpen] = useState(false);
   const [empresas, setEmpresas] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -29,8 +30,10 @@ export default function TenantSwitcher({ collapsed = false }: TenantSwitcherProp
   const [search, setSearch] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const canManageTenants = isSuperAdmin || perfil?.rol === "Administrador";
+
   const loadEmpresas = async () => {
-    if (!isSuperAdmin) return;
+    if (!canManageTenants) return;
     try {
       setLoading(true);
       const supabase = createClient();
@@ -47,10 +50,10 @@ export default function TenantSwitcher({ collapsed = false }: TenantSwitcherProp
   };
 
   useEffect(() => {
-    if (isSuperAdmin) {
+    if (canManageTenants) {
       loadEmpresas();
     }
-  }, [isSuperAdmin, empresa?.id]);
+  }, [canManageTenants, empresa?.id]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -62,15 +65,14 @@ export default function TenantSwitcher({ collapsed = false }: TenantSwitcherProp
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleSelectEmpresa = async (targetId: string) => {
-    if (targetId === empresa?.id) {
+  const handleSelectEmpresa = async (id: string) => {
+    if (id === empresa?.id) {
       setOpen(false);
       return;
     }
-
     try {
-      await switchEmpresa(targetId);
-      const target = empresas.find((e) => e.id === targetId);
+      await switchEmpresa(id);
+      const target = empresas.find((e) => e.id === id);
       toast.success(`Cambiando a "${target?.nombre_comercial || "Taller"}"`);
       setOpen(false);
     } catch (err: any) {
@@ -79,23 +81,23 @@ export default function TenantSwitcher({ collapsed = false }: TenantSwitcherProp
   };
 
   const filtered = empresas.filter((e) =>
-    e.nombre_comercial.toLowerCase().includes(search.toLowerCase())
+    (e.nombre_comercial || "").toLowerCase().includes(search.toLowerCase())
   );
 
   const brandName = empresa?.nombre_comercial || "TallerTrack";
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative w-full" ref={dropdownRef}>
       <button
         onClick={() => {
-          if (isSuperAdmin) setOpen(!open);
+          if (canManageTenants) setOpen(!open);
         }}
         className={`w-full flex items-center justify-between p-2 rounded-xl text-left transition-all ${
-          isSuperAdmin
+          canManageTenants
             ? "hover:bg-white/10 cursor-pointer"
             : "cursor-default"
         }`}
-        title={isSuperAdmin ? "Conmutador de Talleres (SuperAdmin)" : brandName}
+        title={canManageTenants ? "Conmutador y Gestión de Talleres" : brandName}
       >
         <div className="flex items-center gap-2.5 min-w-0 overflow-hidden">
           {empresa?.logo_url ? (
@@ -130,26 +132,28 @@ export default function TenantSwitcher({ collapsed = false }: TenantSwitcherProp
           )}
         </div>
 
-        {!collapsed && isSuperAdmin && (
+        {!collapsed && canManageTenants && (
           <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0 ml-1 opacity-70" />
         )}
       </button>
 
-      {/* Dropdown Menu para SuperAdmin */}
-      {open && isSuperAdmin && (
+      {/* Dropdown Menu para Administradores y SuperAdmin */}
+      {open && canManageTenants && (
         <div className="absolute left-0 top-full mt-1.5 w-64 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 text-xs text-slate-100">
           <div className="px-2 py-1.5 border-b border-slate-800 flex items-center justify-between">
             <span className="font-bold text-[11px] text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-blue-400" /> Conmutador Multi-Taller
+              <Layers className="w-3.5 h-3.5 text-blue-400" /> Directorio de Talleres
             </span>
-            <Link
-              href="/hq"
-              onClick={() => setOpen(false)}
-              className="text-[10px] text-blue-400 hover:underline flex items-center gap-1"
-            >
-              <span>HQ</span>
-              <ExternalLink className="w-2.5 h-2.5" />
-            </Link>
+            {isSuperAdmin && (
+              <Link
+                href="/hq"
+                onClick={() => setOpen(false)}
+                className="text-[10px] text-blue-400 hover:underline flex items-center gap-1 font-semibold"
+              >
+                <span>HQ</span>
+                <ExternalLink className="w-2.5 h-2.5" />
+              </Link>
+            )}
           </div>
 
           {/* Search */}
@@ -185,7 +189,7 @@ export default function TenantSwitcher({ collapsed = false }: TenantSwitcherProp
                       style={{ backgroundColor: e.color_primario || "#2563EB" }}
                       className="w-5 h-5 rounded-md flex items-center justify-center font-bold text-white text-[9px] shrink-0"
                     >
-                      {e.nombre_comercial.slice(0, 2).toUpperCase()}
+                      {(e.nombre_comercial || "TT").slice(0, 2).toUpperCase()}
                     </div>
                     <div className="truncate text-xs font-medium">{e.nombre_comercial}</div>
                   </div>

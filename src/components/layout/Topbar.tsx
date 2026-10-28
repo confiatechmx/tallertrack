@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useTenant, WHITE_LABEL_PRESETS } from "@/context/TenantContext";
 import { createClient } from "@/lib/supabase/client";
+import TenantsManagementModal from "@/components/auth/TenantsManagementModal";
 
 export function Topbar() {
   const router = useRouter();
@@ -30,6 +31,7 @@ export function Topbar() {
   const [branchMenuOpen, setBranchMenuOpen] = useState(false);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
+  const [showTenantsModal, setShowTenantsModal] = useState(false);
 
   // Global search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -228,7 +230,17 @@ export function Topbar() {
                   {sucursalActiva?.id === suc.id && <Check size={14} className="text-blue-600 shrink-0" />}
                 </button>
               ))}
-              <div className="border-t border-slate-100 mt-1 pt-1 px-2">
+              <div className="border-t border-slate-100 mt-1 pt-1 px-2 space-y-0.5">
+                <button
+                  onClick={() => {
+                    setBranchMenuOpen(false);
+                    setShowTenantsModal(true);
+                  }}
+                  className="w-full text-left px-2 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-100 rounded transition-colors flex items-center justify-between"
+                >
+                  <span>Cambiar de Taller / Empresa...</span>
+                  <span className="text-[9px] bg-blue-100 text-blue-700 font-bold px-1.5 py-0.2 rounded">Multi-Taller</span>
+                </button>
                 <button
                   onClick={() => {
                     setBranchMenuOpen(false);
@@ -604,6 +616,12 @@ export function Topbar() {
           </button>
         </div>
       </div>
+    {showTenantsModal && (
+      <TenantsManagementModal
+        isOpen={showTenantsModal}
+        onClose={() => setShowTenantsModal(false)}
+      />
+    )}
     </header>
   );
 }
