@@ -166,7 +166,7 @@ export default function DashboardPage() {
           const granTotal = totalManoObra + totalRefacciones + totalLlantas;
 
           const totalPagado = (o.pagos_orden || [])
-            .filter((p: any) => p.estatus === "Aprobado" && !p.deleted_at)
+            .filter((p: any) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO") && !p.deleted_at)
             .reduce((acc: number, p: any) => acc + Number(p.monto_total || 0), 0);
 
           const saldo = Math.max(0, granTotal - totalPagado);

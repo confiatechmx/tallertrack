@@ -118,7 +118,7 @@ function cleanWhatsAppPhone(phone: string): string {
 
 function computeOrderFinancials(order: ServiceOrder, tasaIva = 16) {
   const validPayments = (order.pagos_orden || []).filter(
-    (p) => p.estatus === "Aprobado" && !p.deleted_at
+    (p) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO") && !p.deleted_at
   );
   const paidAmount = validPayments.reduce(
     (acc, p) => acc + Number(p.monto_total || 0),

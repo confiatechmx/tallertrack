@@ -360,7 +360,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   const margenBrutoPct = granTotal > 0 ? (utilidadBruta / granTotal) * 100 : 0;
 
   const totalPagado = pagosList
-    .filter((p: any) => p.estatus === "Aprobado" && !p.deleted_at)
+    .filter((p: any) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO") && !p.deleted_at)
     .reduce((acc: number, p: any) => acc + Number(p.monto_total || 0), 0);
   const saldoPendiente = Math.max(0, granTotal - totalPagado);
 
@@ -973,7 +973,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
     if (!error && intent) {
       const newPagos = [...(order.pagos_orden || []), intent];
       const newTotalPagado = newPagos
-        .filter((p: any) => p.estatus === "Aprobado" && !p.deleted_at)
+        .filter((p: any) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO") && !p.deleted_at)
         .reduce((acc: number, curr: any) => acc + Number(curr.monto_total), 0);
 
       let newEstatus = "Pendiente";
@@ -1006,7 +1006,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
     if (!error) {
       const newPagos = (order.pagos_orden || []).filter((p: any) => p.id !== pagoId);
       const newTotalPagado = newPagos
-        .filter((p: any) => p.estatus === "Aprobado")
+        .filter((p: any) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO"))
         .reduce((acc: number, curr: any) => acc + Number(curr.monto_total), 0);
       let newEstatus = "Pendiente";
       if (newTotalPagado > 0 && newTotalPagado < granTotal) newEstatus = "Parcial";
@@ -2514,7 +2514,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                           <td className="py-2.5 px-3 text-center">
                             <span
                               className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                                p.estatus === "Aprobado"
+                                (p.estatus === "Aprobado" || p.estatus === "COMPLETADO")
                                   ? "bg-emerald-100 text-emerald-800"
                                   : "bg-amber-100 text-amber-800"
                               }`}

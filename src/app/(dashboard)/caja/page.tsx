@@ -309,7 +309,7 @@ export default function CajaPage() {
           const granTotal = srvTotal + refTotal + llantasTotal;
 
           const pagado = (order.pagos_orden || [])
-            .filter((p: any) => p.estatus === "Aprobado" && !p.deleted_at)
+            .filter((p: any) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO") && !p.deleted_at)
             .reduce((acc: number, curr: any) => acc + Number(curr.monto_total || 0), 0);
 
           const saldo = Math.max(0, granTotal - pagado);
@@ -456,7 +456,7 @@ export default function CajaPage() {
   const cashShortage = Math.max(0, amountToPay - cashGivenNum);
 
   // Financial KPIs for Tab 2
-  const pagosActivos = pagos.filter((p) => p.estatus === "Aprobado" && !p.deleted_at);
+  const pagosActivos = pagos.filter((p) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO") && !p.deleted_at);
 
   const cobrosEfectivo = pagosActivos
     .filter((p) => p.proveedor_pago === "Efectivo")
