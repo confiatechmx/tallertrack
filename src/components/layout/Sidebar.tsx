@@ -33,7 +33,7 @@ export function Sidebar() {
   const iconProps = { strokeWidth: 1.85, size: 18 };
 
   const operationItems = [
-    { href: "/", label: "Resumen Operativo", icon: LayoutDashboard },
+    { href: "/resumen", label: "Resumen Operativo", icon: LayoutDashboard },
     { href: "/tablero", label: "Workflow (Órdenes)", icon: Kanban },
     { href: "/caja", label: "Caja / Punto de Venta (POS)", icon: Receipt },
     { href: "/clientes", label: "Clientes y Vehículos", icon: Contact },
@@ -254,7 +254,7 @@ export function Sidebar() {
         <div className="flex flex-row w-full justify-around items-center">
           {[
             { href: "/tablero", label: "Workflow", icon: Kanban },
-            { href: "/", label: "Resumen", icon: LayoutDashboard },
+            { href: "/resumen", label: "Resumen", icon: LayoutDashboard },
             { href: "/caja", label: "Caja POS", icon: Receipt },
             { href: "/reportes", label: "Reportes", icon: TrendingUp },
           ].map((item) => {
