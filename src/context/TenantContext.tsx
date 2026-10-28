@@ -20,6 +20,7 @@ export interface EmpresaConfig {
   telefono: string | null;
   email_contacto: string | null;
   sitio_web: string | null;
+  subdominio?: string | null;
   margen_refacciones_default: number;
   terminos_condiciones: string | null;
   plan_suscripcion?: "STARTER" | "PRO" | "ENTERPRISE" | "BASICO";
@@ -110,6 +111,7 @@ export const DEFAULT_EMPRESA: EmpresaConfig = {
   telefono: "81 8356 4290",
   email_contacto: "servicio@torqueyruta.mx",
   sitio_web: "www.torqueyruta.mx",
+  subdominio: "torqueyruta",
   margen_refacciones_default: 35,
   terminos_condiciones:
     "Garantía de 30 días o 1,000 km en mano de obra. Refacciones y neumáticos sujetos a garantía del fabricante.",

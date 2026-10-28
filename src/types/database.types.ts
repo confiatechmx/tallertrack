@@ -1031,6 +1031,7 @@ export type Database = {
           plan_suscripcion: string | null
           rfc: string | null
           sitio_web: string | null
+          subdominio: string | null
           tasa_iva: number | null
           telefono: string | null
           terminos_condiciones: string | null
@@ -1055,6 +1056,7 @@ export type Database = {
           plan_suscripcion?: string | null
           rfc?: string | null
           sitio_web?: string | null
+          subdominio?: string | null
           tasa_iva?: number | null
           telefono?: string | null
           terminos_condiciones?: string | null
@@ -1079,6 +1081,7 @@ export type Database = {
           plan_suscripcion?: string | null
           rfc?: string | null
           sitio_web?: string | null
+          subdominio?: string | null
           tasa_iva?: number | null
           telefono?: string | null
           terminos_condiciones?: string | null

@@ -31,6 +31,7 @@
 - [x] Interfaz de Usuario Híbrida y Dashboard #frontend @media <!-- asana:1216817669286333 --> ➔ [[Diseno de Interfaz Hibrida (Movil para Taller, Desktop para Caja)]] & [[Design System Dirty Hands UX y Mobile PWA]]
 - [x] Flujo Auto-Asistido de Configuración SaaS #frontend @media <!-- asana:1216817669366210 --> ➔ [[Onboarding Asistido vs Self-Serve para Mecanicos]]
 - [x] Branding Consistente (White-labeling básico) #frontend @baja <!-- asana:1216814441029630 --> ➔ [[Estrategia de White-labeling (Marca Blanca)]]
+- [x] Subdominios Nativos Multi-Tenant y Dominios Personalizados (SSO Cross-Subdomain, Portal Dedicado por Tenant e Infraestructura DNS) #arquitectura #multitenant @alta ➔ [[Control HQ, Impersonacion y Marca Blanca]] & [[Estrategia de White-labeling (Marca Blanca)]]
 - [x] Módulo de Cotizaciones Formal (Refactorización) #backend @media <!-- asana:1216816152156071 --> ➔ [[Modulo de Cotizaciones Formal (Logica Backend)]] & [[SOP - Cotizador de Llantas 3 Niveles y Despacho WhatsApp]]
 - [x] PWA Mobile & Responsive Bottom Navigation #frontend #pwa @alta ➔ [[Design System Dirty Hands UX y Mobile PWA]] & [[Fatiga de Pantalla y Botones de Alto Contraste (Dirty Hands UX)]]
 - [x] Portal Público del Cliente (DVI & Aprobación en Línea) #frontend #clientes @alta ➔ [[Checklist de Recepcion Digital (Daños Previos)]] & [[SOP - Recepción Express en Patio y Órdenes de Trabajo]]

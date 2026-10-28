@@ -2,23 +2,47 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
+import { getTenantRedirectAfterLogin } from '@/lib/tenantServer'
 
 export async function login(formData: FormData) {
   const supabase = await createClient()
 
-  const data = {
-    email: formData.get('email') as string,
-    password: formData.get('password') as string,
-  }
+  const email = (formData.get('email') as string) || ''
+  const password = (formData.get('password') as string) || ''
+  const testDomain = (formData.get('test_domain') as string) || undefined
 
-  const { error } = await supabase.auth.signInWithPassword(data)
+  const { data: authData, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  })
 
   if (error) {
-    redirect('/login?message=Credenciales+inv%C3%A1lidas.+Usa+el+bot%C3%B3n+de+Acceso+Demo+instant%C3%A1neo.')
+    const errorParam = encodeURIComponent('Credenciales inválidas. Verifica tu correo y contraseña.')
+    const testDomainParam = testDomain ? `&test_domain=${encodeURIComponent(testDomain)}` : ''
+    redirect(`/login?message=${errorParam}${testDomainParam}`)
   }
 
   revalidatePath('/', 'layout')
+
+  if (authData?.user) {
+    let host = ''
+    try {
+      const headersList = await headers()
+      host = headersList.get('host') || ''
+    } catch {
+      // Sin headers activos
+    }
+
+    const redirectUrl = await getTenantRedirectAfterLogin(
+      authData.user.id,
+      host,
+      testDomain ? { test_domain: testDomain } : undefined
+    )
+    redirect(redirectUrl)
+  }
+
   redirect('/tablero')
 }
 
