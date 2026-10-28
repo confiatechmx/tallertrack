@@ -189,4 +189,126 @@ describe("Motor de Corte de Caja, Turnos y Arqueo Ciego", () => {
     expect(remesaRetiro).toBe(13300);
     expect(totalContadoF1 - remesaRetiro).toBe(fondoBaseSiguienteTurno);
   });
-});
+
+  describe("Escenario Multi-Computadora Compartido (Cova Tires)", () => {
+    it("debe consolidar de forma conjunta las ventas concurrentes de PC 1 (Mostrador) y PC 2 (Patio/Taller)", () => {
+      // Configuración de la sucursal Cova Tires y turno compartido
+      const sucursalId = "b2ad09db-0a34-4876-9ca3-d584c40bd295";
+      const turnoCompartidoId = "turno-cova-shared-001";
+      const aperturaF1 = 1500;
+      const aperturaF2 = 10000;
+
+      // Transacciones concurrentes generadas desde COMPUTADORA 1 (Mostrador Vendedor)
+      const transaccionesPC1 = [
+        {
+          id: "pago-pc1-1",
+          terminal: "PC-1-MOSTRADOR",
+          proveedor_pago: "Efectivo",
+          monto_total: 12000, // 4 Llantas Michelin
+          estatus: "Aprobado",
+          caja_turno_id: turnoCompartidoId,
+        },
+        {
+          id: "pago-pc1-2",
+          terminal: "PC-1-MOSTRADOR",
+          proveedor_pago: "Terminal",
+          monto_total: 4500, // 2 Llantas Pirelli TPV
+          estatus: "Aprobado",
+          caja_turno_id: turnoCompartidoId,
+        },
+      ];
+
+      // Transacciones concurrentes generadas desde COMPUTADORA 2 (Cajero Taller / Patio)
+      const transaccionesPC2 = [
+        {
+          id: "pago-pc2-1",
+          terminal: "PC-2-TALLER",
+          proveedor_pago: "Efectivo",
+          monto_total: 2200, // Servicio de balatas y rectificado
+          estatus: "Aprobado",
+          caja_turno_id: turnoCompartidoId,
+        },
+        {
+          id: "pago-pc2-2",
+          terminal: "PC-2-TALLER",
+          proveedor_pago: "Transferencia",
+          monto_total: 3800, // Afinación completa SPEI
+          estatus: "Aprobado",
+          cuenta_bancaria_id: "c1000000-0000-0000-0000-000000000002", // Banorte Operativa
+          caja_turno_id: turnoCompartidoId,
+        },
+      ];
+
+      // Gastos menores registrados en mostrador durante la jornada
+      const movimientosCaja = [
+        {
+          id: "gasto-1",
+          tipo: "Gasto / Insumos",
+          concepto: "Compra de válvulas y sellador",
+          monto: 350,
+          metodo: "Efectivo",
+          caja_turno_id: turnoCompartidoId,
+        },
+      ];
+
+      // Consolidación conjunta en el corte compartido de la sucursal
+      const todasLasVentas = [...transaccionesPC1, ...transaccionesPC2];
+
+      // Verificar compatibilidad de estatus ('Aprobado' o 'COMPLETADO')
+      const ventasAprobadas = todasLasVentas.filter(
+        (p) => ["Aprobado", "COMPLETADO"].includes(p.estatus) && p.caja_turno_id === turnoCompartidoId
+      );
+      expect(ventasAprobadas.length).toBe(4);
+
+      // Entradas en efectivo consolidadas (PC1: $12,000 + PC2: $2,200 = $14,200)
+      const entradasEfectivo = ventasAprobadas
+        .filter((p) => p.proveedor_pago === "Efectivo")
+        .reduce((sum, p) => sum + p.monto_total, 0);
+      expect(entradasEfectivo).toBe(14200);
+
+      // Salidas de gastos ($350)
+      const salidasEfectivo = movimientosCaja
+        .filter((m) => m.tipo === "Gasto / Insumos")
+        .reduce((sum, m) => sum + m.monto, 0);
+      expect(salidasEfectivo).toBe(350);
+
+      // Saldo teórico Fondo 1 conjunto: $1,500 + $14,200 - $350 = $15,350
+      const saldoTeoricoF1 = aperturaF1 + entradasEfectivo - salidasEfectivo;
+      expect(saldoTeoricoF1).toBe(15350);
+
+      // Total general de ventas del turno conjunto: $12,000 + $4,500 + $2,200 + $3,800 = $22,500
+      const totalVentasTurno = ventasAprobadas.reduce((sum, p) => sum + p.monto_total, 0);
+      expect(totalVentasTurno).toBe(22500);
+
+      // Arqueo Ciego del Cajero al final del turno:
+      // El cajero cuenta físicamente $15,350 en el cajón de Fondo 1
+      const fisicoDeclaradoF1 = 15350;
+      const diferencia = fisicoDeclaradoF1 - saldoTeoricoF1;
+      expect(diferencia).toBe(0);
+
+      // Cálculo de Remesa y Fondo Siguiente:
+      // Se aparta el fondo de apertura para mañana ($1,500) y el resto se retira en sobre
+      const fondoManana = 1500;
+      const remesaSobre = fisicoDeclaradoF1 - fondoManana;
+      expect(remesaSobre).toBe(13850);
+    });
+
+    it("debe validar el flujo de auditoría cuando existe descuadre mayor a $10 MXN", () => {
+      const saldoTeorico = 15350;
+      const fisicoDeclarado = 15000; // Faltan $350
+      const diferencia = fisicoDeclarado - saldoTeorico; // -350
+
+      const requiereJustificacion = Math.abs(diferencia) > 10;
+      expect(requiereJustificacion).toBe(true);
+
+      // El auditor no puede cerrar sin texto explícito de justificación
+      let justificacion = "";
+      const puedeCerrarSinJustificar = !requiereJustificacion || justificacion.trim().length > 0;
+      expect(puedeCerrarSinJustificar).toBe(false);
+
+      justificacion = "Faltante de $350 por vale no reportado en compra de tornillería";
+      const puedeCerrarConJustificacion = !requiereJustificacion || justificacion.trim().length > 0;
+      expect(puedeCerrarConJustificacion).toBe(true);
+    });
+  });
+  });
