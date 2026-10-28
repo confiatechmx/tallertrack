@@ -2,15 +2,19 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import TallerTrackLogo, { TallerTrackLogoProps } from "./TallerTrackLogo";
+import TallerTrackLogo from "./TallerTrackLogo";
 
 export interface TenantBrandLogoProps {
   empresa?: {
     logo_url?: string | null;
+    logo_url_dark?: string | null;
+    isotipo_url?: string | null;
     nombre_comercial?: string | null;
     color_primario?: string | null;
   } | null;
   logoUrl?: string | null;
+  logoUrlDark?: string | null;
+  isotipoUrl?: string | null;
   tenantName?: string | null;
   size?: "xs" | "sm" | "md" | "lg" | "xl" | "2xl";
   layout?: "symbol-only" | "horizontal" | "stacked";
@@ -42,13 +46,18 @@ const TEXT_SIZES: Record<string, string> = {
 
 /**
  * TenantBrandLogo:
- * Renderiza el logo del tenant de forma predeterminada (si existe logo_url).
- * Si el tenant no tiene logo configurado (null, vacío) o si la imagen falla al cargar,
- * se muestra automáticamente el isotipo/logotipo oficial de TallerTrack como fallback garantizado.
+ * Sistema inteligente de colocación de marca multi-activo:
+ * 1. Para fondos oscuros (Sidebar, cabecera oscura del portal): prioriza `logo_url_dark`.
+ * 2. Para espacios compactos / símbolo (conmutador de talleres, avatar 24-28px): prioriza `isotipo_url`.
+ * 3. Para documentos impresos, tickets y fondos claros: prioriza `logo_url`.
+ * 4. Si el tenant solo cargó un logo genérico, lo reutiliza con contenedor de contraste.
+ * 5. Si el tenant no tiene logo o falla al cargar, conmuta automáticamente a TallerTrackLogo.
  */
 export default function TenantBrandLogo({
   empresa,
   logoUrl,
+  logoUrlDark,
+  isotipoUrl,
   tenantName,
   size = "md",
   layout = "symbol-only",
@@ -61,18 +70,39 @@ export default function TenantBrandLogo({
 }: TenantBrandLogoProps) {
   const [imageError, setImageError] = useState(false);
 
-  const resolvedLogoUrl = (logoUrl !== undefined ? logoUrl : empresa?.logo_url)?.trim();
-  const resolvedName = tenantName || empresa?.nombre_comercial || "TallerTrack";
-  const effectiveSize = size === "2xl" ? "xl" : size; // Map to TallerTrack supported sizes
+  // Selector inteligente de imagen según el contexto visual
+  const candidateIsotipo = isotipoUrl ?? empresa?.isotipo_url;
+  const candidateDark = logoUrlDark ?? empresa?.logo_url_dark;
+  const candidateLight = logoUrl ?? empresa?.logo_url;
 
-  // Reset error if URL changes
+  let resolvedLogoUrl: string | undefined;
+
+  const isSmallCompact = (size === "xs" || size === "sm") && layout === "symbol-only";
+  const isDark = variant === "dark";
+
+  if (isSmallCompact && candidateIsotipo) {
+    resolvedLogoUrl = candidateIsotipo;
+  } else if (isDark && candidateDark) {
+    resolvedLogoUrl = candidateDark;
+  } else if (!isDark && candidateLight) {
+    resolvedLogoUrl = candidateLight;
+  } else {
+    // Fallback en cascada a cualquier activo disponible del tenant
+    resolvedLogoUrl = candidateLight || candidateDark || candidateIsotipo || undefined;
+  }
+
+  resolvedLogoUrl = resolvedLogoUrl?.trim();
+  const resolvedName = tenantName || empresa?.nombre_comercial || "TallerTrack";
+  const effectiveSize = size === "2xl" ? "xl" : size;
+
+  // Reset error if target URL changes
   useEffect(() => {
     setImageError(false);
   }, [resolvedLogoUrl]);
 
-  // Si no hay logo o la imagen falló al cargar, usamos el logo oficial de TallerTrack
+  // Si no hay logo del tenant o falló la imagen remota, fallback garantizado a TallerTrack
   if (!resolvedLogoUrl || imageError) {
-    const fallbackElement = (
+    return (
       <TallerTrackLogo
         size={effectiveSize}
         variant={variant}
@@ -82,18 +112,19 @@ export default function TenantBrandLogo({
         className={className}
       />
     );
-    return fallbackElement;
   }
 
-  // Si el tenant tiene su propio logo válido
   const containerDimension = CONTAINER_SIZES[size] || CONTAINER_SIZES.md;
-  const isDark = variant === "dark";
+
+  // Si usamos el logo oscuro sobre fondo oscuro o isotipo, podemos dejarlo transparente
+  // Si usamos logo claro sobre fondo oscuro, le aplicamos contenedor de contraste
+  const needsContrastBg = !isDark || (!candidateDark && resolvedLogoUrl === candidateLight);
 
   const logoImage = (
     <div
-      className={`${containerDimension} rounded-lg bg-white p-0.5 shrink-0 flex items-center justify-center border shadow-xs overflow-hidden ${
-        isDark ? "border-white/20" : "border-slate-200"
-      } ${imgClassName}`}
+      className={`${containerDimension} rounded-lg ${
+        needsContrastBg ? "bg-white p-0.5 border border-slate-200 shadow-xs" : "bg-transparent p-0"
+      } shrink-0 flex items-center justify-center overflow-hidden ${imgClassName}`}
     >
       <img
         src={resolvedLogoUrl}

@@ -74,6 +74,8 @@ export default function ConfiguracionPage() {
     margen_refacciones_default: 35,
     terminos_condiciones: "",
     logo_url: "",
+    logo_url_dark: "",
+    isotipo_url: "",
     color_primario: "#2563EB",
     color_sidebar: "#0F172A",
   });
@@ -192,6 +194,8 @@ export default function ConfiguracionPage() {
           ),
           terminos_condiciones: sourceEmp.terminos_condiciones || "",
           logo_url: sourceEmp.logo_url || "",
+          logo_url_dark: sourceEmp.logo_url_dark || "",
+          isotipo_url: sourceEmp.isotipo_url || "",
           color_primario: sourceEmp.color_primario || "#2563EB",
           color_sidebar: sourceEmp.color_sidebar || "#0F172A",
         });
@@ -238,6 +242,8 @@ export default function ConfiguracionPage() {
         ),
         terminos_condiciones: formEmpresa.terminos_condiciones || null,
         logo_url: formEmpresa.logo_url || null,
+        logo_url_dark: formEmpresa.logo_url_dark || null,
+        isotipo_url: formEmpresa.isotipo_url || null,
         color_primario: formEmpresa.color_primario,
         color_sidebar: formEmpresa.color_sidebar,
       });
@@ -753,6 +759,8 @@ export default function ConfiguracionPage() {
                     <div className="flex items-center gap-2.5">
                       <TenantBrandLogo
                         logoUrl={formEmpresa.logo_url}
+                        logoUrlDark={formEmpresa.logo_url_dark}
+                        isotipoUrl={formEmpresa.isotipo_url}
                         tenantName={formEmpresa.nombre_comercial}
                         size="sm"
                         variant="dark"

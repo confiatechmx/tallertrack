@@ -945,7 +945,9 @@ export type Database = {
           email_contacto: string | null
           eslogan: string | null
           id: string
+          isotipo_url: string | null
           logo_url: string | null
+          logo_url_dark: string | null
           margen_refacciones_default: number | null
           nombre_comercial: string
           plan_suscripcion: string | null
@@ -967,7 +969,9 @@ export type Database = {
           email_contacto?: string | null
           eslogan?: string | null
           id?: string
+          isotipo_url?: string | null
           logo_url?: string | null
+          logo_url_dark?: string | null
           margen_refacciones_default?: number | null
           nombre_comercial: string
           plan_suscripcion?: string | null
@@ -989,7 +993,9 @@ export type Database = {
           email_contacto?: string | null
           eslogan?: string | null
           id?: string
+          isotipo_url?: string | null
           logo_url?: string | null
+          logo_url_dark?: string | null
           margen_refacciones_default?: number | null
           nombre_comercial?: string
           plan_suscripcion?: string | null

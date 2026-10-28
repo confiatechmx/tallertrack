@@ -20,6 +20,70 @@ describe("TenantBrandLogo - Dynamic Fallback System", () => {
     expect(img.getAttribute("alt")).toBe("Cova - Taller & Llantera");
   });
 
+  it("selects isotipo_url for compact symbol-only layouts (e.g. switcher avatar)", () => {
+    const empresaMultiAsset = {
+      id: "tenant-cova-01",
+      nombre_comercial: "Cova - Taller & Llantera",
+      logo_url: "https://example.com/cova-light.png",
+      logo_url_dark: "https://example.com/cova-dark.png",
+      isotipo_url: "https://example.com/cova-isotipo.png",
+    };
+
+    render(
+      <TenantBrandLogo
+        empresa={empresaMultiAsset}
+        size="sm"
+        layout="symbol-only"
+        variant="dark"
+      />
+    );
+
+    const img = screen.getByRole("img");
+    expect(img.getAttribute("src")).toBe("https://example.com/cova-isotipo.png");
+  });
+
+  it("selects logo_url_dark for dark background surfaces when horizontal or large", () => {
+    const empresaMultiAsset = {
+      id: "tenant-cova-01",
+      nombre_comercial: "Cova - Taller & Llantera",
+      logo_url: "https://example.com/cova-light.png",
+      logo_url_dark: "https://example.com/cova-dark.png",
+      isotipo_url: "https://example.com/cova-isotipo.png",
+    };
+
+    render(
+      <TenantBrandLogo
+        empresa={empresaMultiAsset}
+        size="lg"
+        variant="dark"
+      />
+    );
+
+    const img = screen.getByRole("img");
+    expect(img.getAttribute("src")).toBe("https://example.com/cova-dark.png");
+  });
+
+  it("selects logo_url for light/printed surfaces (Carta PDF, receipt ticket)", () => {
+    const empresaMultiAsset = {
+      id: "tenant-cova-01",
+      nombre_comercial: "Cova - Taller & Llantera",
+      logo_url: "https://example.com/cova-light.png",
+      logo_url_dark: "https://example.com/cova-dark.png",
+      isotipo_url: "https://example.com/cova-isotipo.png",
+    };
+
+    render(
+      <TenantBrandLogo
+        empresa={empresaMultiAsset}
+        size="lg"
+        variant="light"
+      />
+    );
+
+    const img = screen.getByRole("img");
+    expect(img.getAttribute("src")).toBe("https://example.com/cova-light.png");
+  });
+
   it("falls back to TallerTrack official logo when empresa.logo_url is null or empty", () => {
     const empresaSinLogo = {
       id: "tenant-sin-logo",

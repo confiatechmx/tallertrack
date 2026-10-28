@@ -12,6 +12,8 @@ export interface EmpresaConfig {
   direccion: string | null;
   tasa_iva: number;
   logo_url: string | null;
+  logo_url_dark?: string | null;
+  isotipo_url?: string | null;
   color_primario: string;
   color_sidebar: string;
   eslogan: string | null;
@@ -100,6 +102,8 @@ export const DEFAULT_EMPRESA: EmpresaConfig = {
   direccion: "Av. José Vasconcelos 450 Pte, Col. Del Valle, San Pedro Garza García, N.L.",
   tasa_iva: 16,
   logo_url: null,
+  logo_url_dark: null,
+  isotipo_url: null,
   color_primario: "#2563EB",
   color_sidebar: "#0F172A",
   eslogan: "Especialistas en Frenos, Suspensión, Mecánica y Llantas Multimarca",
@@ -286,6 +290,8 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
         direccion: next.direccion,
         tasa_iva: next.tasa_iva,
         logo_url: next.logo_url,
+        logo_url_dark: next.logo_url_dark,
+        isotipo_url: next.isotipo_url,
         color_primario: next.color_primario,
         color_sidebar: next.color_sidebar,
         eslogan: next.eslogan,
