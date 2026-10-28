@@ -1,3 +1,4 @@
+import TenantBrandLogo from "@/components/brand/TenantBrandLogo";
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -201,12 +202,13 @@ export default function TenantsManagementModal({
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <div
-                          style={{ backgroundColor: emp.color_primario || "#2563EB" }}
-                          className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white text-xs shrink-0"
-                        >
-                          {emp.nombre_comercial.slice(0, 2).toUpperCase()}
-                        </div>
+                        <TenantBrandLogo
+                          logoUrl={emp.logo_url}
+                          tenantName={emp.nombre_comercial}
+                          size="sm"
+                          variant="dark"
+                          className="shrink-0"
+                        />
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-white">{emp.nombre_comercial}</span>

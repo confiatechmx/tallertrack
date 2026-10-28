@@ -1,3 +1,4 @@
+import TenantBrandLogo from "@/components/brand/TenantBrandLogo";
 'use client'
 
 import React, { useEffect, useState, useMemo, useCallback } from 'react'
@@ -685,20 +686,12 @@ export default function OrdenCustomerPortalPage() {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
             {/* Brand Identity */}
             <div className="flex items-start sm:items-center gap-4">
-              {empresa?.logo_url ? (
-                <img
-                  src={empresa.logo_url}
-                  alt={empresa.nombre_comercial}
-                  className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl object-contain bg-white p-1.5 shrink-0 border border-white/15"
-                />
-              ) : (
-                <div
-                  style={{ backgroundColor: brandPrimary }}
-                  className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center text-white font-bold text-xl tracking-tight shrink-0 shadow-sm border border-white/15"
-                >
-                  {getInitials(empresa?.nombre_comercial)}
-                </div>
-              )}
+              <TenantBrandLogo
+                empresa={empresa}
+                size="xl"
+                variant="dark"
+                className="shrink-0"
+              />
 
               <div>
                 <div className="flex flex-wrap items-center gap-2">

@@ -1,3 +1,4 @@
+import TenantBrandLogo from "@/components/brand/TenantBrandLogo";
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -165,20 +166,12 @@ export function OrderPrintSheet({ order, mechanicName, isStandalone = false }: O
         style={{ borderColor: primaryColor }}
       >
         <div className="flex items-center gap-3">
-          {activeEmpresa?.logo_url ? (
-            <img
-              src={activeEmpresa.logo_url}
-              alt={activeEmpresa.nombre_comercial}
-              className="w-11 h-11 object-contain rounded border border-slate-200 p-0.5 bg-white shrink-0"
-            />
-          ) : (
-            <div
-              className="w-10 h-10 rounded flex items-center justify-center text-white font-black text-base shrink-0 shadow-xs"
-              style={{ backgroundColor: primaryColor }}
-            >
-              {(activeEmpresa?.nombre_comercial || "CT").slice(0, 2).toUpperCase()}
-            </div>
-          )}
+          <TenantBrandLogo
+            empresa={activeEmpresa}
+            size="lg"
+            variant="light"
+            className="shrink-0"
+          />
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-sm sm:text-base font-black text-slate-900 tracking-tight uppercase">

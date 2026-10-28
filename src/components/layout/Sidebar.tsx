@@ -1,3 +1,4 @@
+import TenantBrandLogo from "@/components/brand/TenantBrandLogo";
 "use client";
 
 import { useState } from "react";
@@ -296,9 +297,12 @@ export function Sidebar() {
           />
           <div className="bg-white w-full rounded-t-2xl p-5 relative max-h-[85vh] overflow-y-auto shadow-2xl">
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">{brandName}</h2>
-                <p className="text-xs text-slate-500">Módulos del Taller</p>
+              <div className="flex items-center gap-2.5">
+                <TenantBrandLogo empresa={empresa} size="sm" variant="light" />
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900">{brandName}</h2>
+                  <p className="text-xs text-slate-500">Módulos del Taller</p>
+                </div>
               </div>
               <button
                 onClick={() => setIsMobileMenuOpen(false)}

@@ -25,7 +25,12 @@ import {
   Phone,
   Check,
   Globe,
+  Trash2,
+  ImageIcon,
+  Upload,
 } from "lucide-react";
+import { toast } from "sonner";
+import TenantBrandLogo from "@/components/brand/TenantBrandLogo";
 import CustomDomainModal from "@/components/hq/CustomDomainModal";
 
 type ConfigTab = "WhiteLabel" | "Sucursales" | "Personal" | "Pagos";
@@ -746,14 +751,12 @@ export default function ConfiguracionPage() {
                     style={{ backgroundColor: formEmpresa.color_sidebar }}
                   >
                     <div className="flex items-center gap-2.5">
-                      <div
-                        className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs text-white"
-                        style={{ backgroundColor: formEmpresa.color_primario }}
-                      >
-                        {formEmpresa.nombre_comercial
-                          .slice(0, 2)
-                          .toUpperCase() || "TR"}
-                      </div>
+                      <TenantBrandLogo
+                        logoUrl={formEmpresa.logo_url}
+                        tenantName={formEmpresa.nombre_comercial}
+                        size="sm"
+                        variant="dark"
+                      />
                       <div>
                         <p className="text-xs font-bold leading-tight">
                           {formEmpresa.nombre_comercial || "Nombre del Taller"}

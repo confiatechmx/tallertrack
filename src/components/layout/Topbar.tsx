@@ -1,3 +1,4 @@
+import TenantBrandLogo from "@/components/brand/TenantBrandLogo";
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -172,12 +173,12 @@ export function Topbar() {
             onClick={() => setBranchMenuOpen(!branchMenuOpen)}
             className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md hover:bg-slate-50 transition-colors border border-slate-200/80 cursor-pointer"
           >
-            <div
-              style={{ backgroundColor: empresa?.color_primario || "#2563EB" }}
-              className="p-1.5 rounded text-white shadow-2xs"
-            >
-              <Building2 size={14} strokeWidth={2} />
-            </div>
+            <TenantBrandLogo
+              empresa={empresa}
+              size="xs"
+              variant="light"
+              className="shrink-0"
+            />
             <div className="flex flex-col text-left">
               <span className="text-xs font-semibold text-slate-900 leading-none">
                 {sucursalActiva ? sucursalActiva.nombre : "Todas las Sucursales"}

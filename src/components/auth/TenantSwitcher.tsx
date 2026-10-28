@@ -15,6 +15,7 @@ import { useTenant } from "@/context/TenantContext";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import TenantsManagementModal from "./TenantsManagementModal";
+import TenantBrandLogo from "@/components/brand/TenantBrandLogo";
 import Link from "next/link";
 
 interface TenantSwitcherProps {
@@ -100,20 +101,11 @@ export default function TenantSwitcher({ collapsed = false }: TenantSwitcherProp
         title={canManageTenants ? "Conmutador y Gestión de Talleres" : brandName}
       >
         <div className="flex items-center gap-2.5 min-w-0 overflow-hidden">
-          {empresa?.logo_url ? (
-            <img
-              src={empresa.logo_url}
-              alt={brandName}
-              className="w-7 h-7 rounded-lg object-contain bg-white shrink-0 p-0.5 border border-white/20"
-            />
-          ) : (
-            <div
-              style={{ backgroundColor: empresa?.color_primario || "#2563EB" }}
-              className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-xs"
-            >
-              {brandName.slice(0, 2).toUpperCase()}
-            </div>
-          )}
+          <TenantBrandLogo
+            empresa={empresa}
+            size="sm"
+            variant="dark"
+          />
 
           {!collapsed && (
             <div className="flex flex-col min-w-0">
@@ -185,12 +177,12 @@ export default function TenantSwitcher({ collapsed = false }: TenantSwitcherProp
                   }`}
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <div
-                      style={{ backgroundColor: e.color_primario || "#2563EB" }}
-                      className="w-5 h-5 rounded-md flex items-center justify-center font-bold text-white text-[9px] shrink-0"
-                    >
-                      {(e.nombre_comercial || "TT").slice(0, 2).toUpperCase()}
-                    </div>
+                    <TenantBrandLogo
+                      logoUrl={e.logo_url}
+                      tenantName={e.nombre_comercial}
+                      size="xs"
+                      variant="dark"
+                    />
                     <div className="truncate text-xs font-medium">{e.nombre_comercial}</div>
                   </div>
                   {isSelected && <Check className="w-3.5 h-3.5 text-blue-400 shrink-0" />}
