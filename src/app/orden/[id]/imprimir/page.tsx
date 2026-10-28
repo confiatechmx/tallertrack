@@ -175,7 +175,7 @@ export default function StandaloneOrderPrintPage() {
       <style jsx global>{`
         @page {
           size: letter portrait;
-          margin: 10mm;
+          margin: 6mm 8mm;
         }
         @media print {
           html, body {

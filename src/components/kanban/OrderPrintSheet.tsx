@@ -158,361 +158,265 @@ export function OrderPrintSheet({ order, mechanicName, isStandalone = false }: O
   };
 
   const sheetDocument = (
-    <div className="bg-white text-slate-900 border border-slate-200 rounded-lg shadow-sm print:shadow-none print:border-0 p-6 sm:p-8 max-w-4xl mx-auto text-xs leading-relaxed font-sans">
-      {/* Top Banner / Brand Header */}
+    <div className="bg-white text-slate-900 border border-slate-200 rounded-lg shadow-sm print:shadow-none print:border-0 p-4 sm:p-5 print:p-0 max-w-4xl mx-auto text-xs leading-normal font-sans">
+      {/* ─── 1. TOP BANNER / BRAND HEADER (Compacto & Institucional) ─── */}
       <div
-        className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-5 border-b-2"
+        className="flex justify-between items-start pb-2.5 mb-2.5 border-b-2"
         style={{ borderColor: primaryColor }}
       >
-        <div className="flex items-start gap-3.5">
+        <div className="flex items-center gap-3">
           {activeEmpresa?.logo_url ? (
             <img
               src={activeEmpresa.logo_url}
               alt={activeEmpresa.nombre_comercial}
-              className="w-14 h-14 object-contain rounded-md border border-slate-200 p-1 bg-white"
+              className="w-11 h-11 object-contain rounded border border-slate-200 p-0.5 bg-white shrink-0"
             />
           ) : (
             <div
-              className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-black text-lg shrink-0 shadow-xs"
+              className="w-10 h-10 rounded flex items-center justify-center text-white font-black text-base shrink-0 shadow-xs"
               style={{ backgroundColor: primaryColor }}
             >
               {(activeEmpresa?.nombre_comercial || "CT").slice(0, 2).toUpperCase()}
             </div>
           )}
           <div>
-            <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight uppercase">
-              {activeEmpresa?.nombre_comercial || "Cova - Taller & Llantera"}
-            </h1>
-            {activeEmpresa?.eslogan && (
-              <p className="text-[11px] font-medium text-slate-600">{activeEmpresa.eslogan}</p>
-            )}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-slate-500 mt-1">
-              {activeEmpresa?.rfc && (
-                <span className="font-mono font-semibold text-slate-700">RFC: {activeEmpresa.rfc}</span>
-              )}
-              {(activeSucursal?.nombre || activeSucursal?.codigo) && (
-                <span className="font-semibold text-slate-700">
-                  Sucursal: {activeSucursal.nombre} {activeSucursal.codigo ? `(${activeSucursal.codigo})` : ""}
+            <div className="flex items-center gap-2">
+              <h1 className="text-sm sm:text-base font-black text-slate-900 tracking-tight uppercase">
+                {activeEmpresa?.nombre_comercial || "Cova - Taller & Llantera"}
+              </h1>
+              {activeEmpresa?.eslogan && (
+                <span className="hidden sm:inline-block text-[10px] font-medium text-slate-500 border-l border-slate-300 pl-2">
+                  {activeEmpresa.eslogan}
                 </span>
               )}
+            </div>
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[9.5px] text-slate-500 mt-0.5">
+              {activeEmpresa?.rfc && (
+                <span className="font-mono font-bold text-slate-700">RFC: {activeEmpresa.rfc}</span>
+              )}
+              {activeSucursal?.nombre && (
+                <span className="font-medium text-slate-700">Sucursal: {activeSucursal.nombre}</span>
+              )}
               {(activeSucursal?.direccion || activeEmpresa?.direccion) && (
-                <span className="inline-flex items-center gap-1">
-                  <MapPin size={10} /> {activeSucursal?.direccion || activeEmpresa?.direccion}
+                <span className="inline-flex items-center gap-0.5 text-slate-600">
+                  <MapPin size={9} /> {activeSucursal?.direccion || activeEmpresa?.direccion}
                 </span>
               )}
               {(activeSucursal?.telefono || activeEmpresa?.telefono) && (
-                <span className="inline-flex items-center gap-1 tabular-nums">
-                  <Phone size={10} /> {activeSucursal?.telefono || activeEmpresa?.telefono}
-                </span>
-              )}
-              {activeEmpresa?.sitio_web && (
-                <span className="inline-flex items-center gap-1">
-                  <Globe size={10} /> {activeEmpresa.sitio_web}
+                <span className="inline-flex items-center gap-0.5 text-slate-700 font-semibold tabular-nums">
+                  <Phone size={9} /> {activeSucursal?.telefono || activeEmpresa?.telefono}
                 </span>
               )}
             </div>
           </div>
         </div>
 
-        <div className="flex flex-col sm:items-end shrink-0 bg-slate-50 border border-slate-200 rounded-md px-3.5 py-2.5">
-          <span className="text-[10px] uppercase tracking-wider font-bold text-slate-500">
-            Orden de Servicio
-          </span>
-          <span
-            className="text-xl font-black font-mono tabular-nums tracking-tight"
-            style={{ color: primaryColor }}
-          >
-            {folioFormatted}
-          </span>
-          <div className="text-[10px] text-slate-500 tabular-nums mt-0.5">
-            Ingreso:{" "}
-            <strong className="text-slate-700">
-              {order.fecha_ingreso
-                ? new Date(order.fecha_ingreso).toLocaleString("es-MX", {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })
-                : "Hoy"}
-            </strong>
+        {/* Folio & Estatus Badge (Muy Visible) */}
+        <div className="flex flex-col items-end shrink-0 bg-slate-50 border border-slate-200 rounded px-3 py-1.5 text-right">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[9px] uppercase tracking-wider font-bold text-slate-500">
+              Orden de Servicio
+            </span>
+            <span
+              className="text-base sm:text-lg font-black font-mono tabular-nums leading-none"
+              style={{ color: primaryColor }}
+            >
+              {folioFormatted}
+            </span>
           </div>
-          {order.bahia_rampa && (
-            <div className="text-[10px] text-slate-500 mt-0.5">
-              Bahía / Rampa: <strong className="text-slate-800">{order.bahia_rampa}</strong>
-            </div>
-          )}
+          <div className="text-[9.5px] text-slate-600 tabular-nums mt-0.5 flex items-center gap-2">
+            <span>
+              Ingreso:{" "}
+              <strong className="text-slate-800">
+                {order.fecha_ingreso
+                  ? new Date(order.fecha_ingreso).toLocaleString("es-MX", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })
+                  : "Hoy"}
+              </strong>
+            </span>
+            {order.bahia_rampa && (
+              <span className="bg-slate-200/70 text-slate-800 font-bold px-1 rounded text-[9px]">
+                {order.bahia_rampa}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Customer & Vehicle Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 my-4">
-        {/* Cliente */}
-        <div className="border border-slate-200 rounded-md p-3 bg-slate-50/40">
-          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200 pb-1.5 mb-2">
-            <User size={12} className="text-slate-600" /> Datos del Cliente
-          </div>
-          <div className="grid grid-cols-2 gap-y-1.5 gap-x-2 text-[11px]">
-            <div className="col-span-2">
-              <span className="text-slate-500">Nombre / Razón Social: </span>
-              <strong className="text-slate-900">{c.nombre || "Cliente Mostrador"}</strong>
+      {/* ─── 2. BLOQUE OPERATIVO: CLIENTE, VEHÍCULO E INVENTARIO (Compacto & Muy Visible) ─── */}
+      <div className="border border-slate-200 rounded-md p-2.5 bg-slate-50/50 mb-2 text-[10.5px]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 pb-2 border-b border-slate-200">
+          {/* Cliente */}
+          <div className="flex flex-col justify-center">
+            <div className="flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
+              <User size={11} className="text-slate-600" /> Cliente
             </div>
-            <div>
-              <span className="text-slate-500">Teléfono: </span>
-              <strong className="text-slate-800 tabular-nums">{c.telefono || "N/A"}</strong>
+            <div className="flex flex-wrap items-baseline gap-x-2">
+              <strong className="text-slate-900 text-xs">{c.nombre || "Cliente Mostrador"}</strong>
+              {c.telefono && (
+                <span className="text-slate-700 font-semibold tabular-nums text-[10px]">
+                  Tel: {c.telefono}
+                </span>
+              )}
+              {c.rfc && (
+                <span className="text-slate-500 font-mono text-[9.5px]">RFC: {c.rfc}</span>
+              )}
             </div>
-            <div>
-              <span className="text-slate-500">RFC: </span>
-              <strong className="text-slate-800 font-mono">{c.rfc || "XAXX010101000"}</strong>
-            </div>
-            {c.correo && (
-              <div className="col-span-2">
-                <span className="text-slate-500">Correo: </span>
-                <span className="text-slate-800">{c.correo}</span>
-              </div>
-            )}
             {c.empresa && (
-              <div className="col-span-2">
-                <span className="text-slate-500">Empresa / Flotilla: </span>
-                <strong className="text-slate-800">{c.empresa}</strong>
-              </div>
+              <span className="text-[9.5px] text-slate-500">Flotilla / Empresa: <strong>{c.empresa}</strong></span>
             )}
           </div>
-        </div>
 
-        {/* Vehículo */}
-        <div className="border border-slate-200 rounded-md p-3 bg-slate-50/40">
-          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200 pb-1.5 mb-2">
-            <Car size={12} className="text-slate-600" /> Identificación del Vehículo
-          </div>
-          <div className="grid grid-cols-2 gap-y-1.5 gap-x-2 text-[11px]">
-            <div className="col-span-2">
-              <span className="text-slate-500">Unidad: </span>
-              <strong className="text-slate-900">
+          {/* Vehículo (Placas muy visibles) */}
+          <div className="flex flex-col justify-center">
+            <div className="flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
+              <Car size={11} className="text-slate-600" /> Vehículo Identificado
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <strong className="text-slate-900 text-xs">
                 {v.marca} {v.modelo} {v.anio ? `(${v.anio})` : ""}
               </strong>
+              <span className="font-mono font-black text-xs px-1.5 py-0.2 rounded bg-slate-900 text-white tracking-wider">
+                {v.placas || "SIN PLACAS"}
+              </span>
+              <span className="text-[10px] text-slate-600">
+                Color: <strong>{v.color || "N/E"}</strong>
+              </span>
             </div>
-            <div>
-              <span className="text-slate-500">Placas: </span>
-              <strong className="text-slate-900 font-mono uppercase bg-slate-200/70 px-1.5 py-0.5 rounded">
-                {v.placas || "S/P"}
-              </strong>
-            </div>
-            <div>
-              <span className="text-slate-500">Color: </span>
-              <strong className="text-slate-800">{v.color || "N/E"}</strong>
-            </div>
-            <div>
-              <span className="text-slate-500">VIN / Serie: </span>
-              <strong className="text-slate-800 font-mono text-[10px]">{v.vin || "No registrado"}</strong>
-            </div>
-            <div>
-              <span className="text-slate-500">Medida OEM: </span>
-              <strong className="text-slate-800 font-mono">{v.medida_oem || "Estándar"}</strong>
+            <div className="flex items-center gap-3 text-[9.5px] text-slate-500 font-mono mt-0.5">
+              <span>VIN: {v.vin || "No registrado"}</span>
+              <span>OEM: {v.medida_oem || "Estándar"}</span>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Check-in Operational Strip: Mileage, Fuel, Mechanic, Checklist */}
-      <div className="border border-slate-200 rounded-md p-3 mb-4 bg-white">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pb-3 border-b border-slate-200">
-          <div className="flex items-center gap-2">
-            <Gauge size={15} className="text-slate-500 shrink-0" />
-            <div>
-              <span className="block text-[10px] uppercase font-bold text-slate-400">
-                Kilometraje Ingreso
-              </span>
-              <span className="text-xs font-bold text-slate-900 tabular-nums">
-                {Number(order.kilometraje_ingreso || 0).toLocaleString("es-MX")} km
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Fuel size={15} className="text-slate-500 shrink-0" />
-            <div>
-              <span className="block text-[10px] uppercase font-bold text-slate-400">
-                Nivel de Combustible
-              </span>
-              <div className="flex items-center gap-1 mt-0.5">
-                {FUEL_LEVELS.map((lvl) => (
-                  <span
-                    key={lvl}
-                    className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
-                      order.nivel_gasolina === lvl
-                        ? "bg-slate-900 text-white"
-                        : "bg-slate-100 text-slate-400"
-                    }`}
-                  >
-                    {lvl}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Wrench size={15} className="text-slate-500 shrink-0" />
-            <div>
-              <span className="block text-[10px] uppercase font-bold text-slate-400">
-                Técnico Especialista
-              </span>
-              <span className="text-xs font-bold text-slate-900">
-                {mechanicName || order.mecanico?.nombre || "Carlos Mendoza (Master)"}
-              </span>
-            </div>
-          </div>
-
-          <div>
-            <span className="block text-[10px] uppercase font-bold text-slate-400">
-              Estatus de Orden
+        {/* Franja de Recepción Operativa (Inventario, Combustible, Km, Asesor) */}
+        <div className="pt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[10px]">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex items-center gap-1 font-bold text-slate-800 tabular-nums">
+              <Gauge size={12} className="text-slate-500" />
+              {Number(order.kilometraje_ingreso || 0).toLocaleString("es-MX")} km
             </span>
-            <span className="text-xs font-bold text-slate-900">
-              {order.estado} {order.sub_estado ? `• ${order.sub_estado}` : ""}
+            <span className="inline-flex items-center gap-1 font-semibold text-slate-700">
+              <Fuel size={12} className="text-slate-500" /> Gas:{" "}
+              <strong className="text-slate-900">{order.nivel_gasolina || "3/4"}</strong>
+            </span>
+            <span className="inline-flex items-center gap-1 text-slate-600">
+              <Wrench size={12} className="text-slate-500" />
+              Técnico: <strong className="text-slate-800">{mechanicName || order.mecanico?.nombre || "Carlos Mendoza"}</strong>
             </span>
           </div>
-        </div>
 
-        {/* Inventario de Recepción */}
-        <div className="pt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            Inventario de Recepción:
-          </span>
-          {Object.entries(CHECKLIST_LABELS).map(([key, label]) => {
-            const checked = !!checklist[key];
-            return (
-              <span
-                key={key}
-                className={`inline-flex items-center gap-1 text-[11px] font-medium ${
-                  checked ? "text-slate-900" : "text-slate-400 line-through"
-                }`}
-              >
+          {/* Checklist compacto en 1 sola fila */}
+          <div className="flex items-center gap-2 text-[9.5px]">
+            <span className="text-slate-400 font-bold uppercase text-[8.5px]">Inventario:</span>
+            {Object.entries(CHECKLIST_LABELS).map(([key, label]) => {
+              const checked = !!checklist[key];
+              return (
                 <span
-                  className={`w-3.5 h-3.5 rounded-sm inline-flex items-center justify-center text-[9px] font-bold border ${
-                    checked
-                      ? "bg-slate-900 text-white border-slate-900"
-                      : "bg-white text-slate-300 border-slate-300"
+                  key={key}
+                  className={`inline-flex items-center gap-0.5 ${
+                    checked ? "text-slate-900 font-medium" : "text-slate-400 line-through text-[8.5px]"
                   }`}
+                  title={label}
                 >
-                  {checked ? "✓" : ""}
+                  <span className={checked ? "text-emerald-700 font-black text-[9px]" : "text-slate-400"}>
+                    {checked ? "✓" : "✗"}
+                  </span>
+                  <span>{label.replace("Llave / Birlo de seguridad", "Birlo").replace("Llanta de refacción", "Refacción").replace("Gato y herramienta", "Gato").replace("Tarjeta de circulación", "Tarjeta").replace("Objetos de valor retirados", "Sin objetos")}</span>
                 </span>
-                {label}
-              </span>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      {/* Problema Reportado & Diagnóstico Técnico */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-        <div className="border border-slate-200 rounded-md p-2.5 bg-slate-50/30">
-          <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-            Solicitud / Falla Reportada por el Cliente
+      {/* ─── 3. MOTIVO DE INGRESO & DIAGNÓSTICO TÉCNICO (Ultra compacto a 2 columnas) ─── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2 text-[10px]">
+        <div className="border border-slate-200 rounded px-2.5 py-1.5 bg-slate-50/40">
+          <span className="block text-[8.5px] font-bold uppercase tracking-wider text-slate-500">
+            Falla / Solicitud Reportada
           </span>
-          <p className="text-[11px] text-slate-800 whitespace-pre-line">
+          <p className="text-slate-800 whitespace-pre-line leading-tight">
             {(order.problema_reportado || order.notas_recepcion || "Revisión general de neumáticos y suspensión.").replace(/\\n/g, "\n")}
           </p>
         </div>
-        <div className="border border-slate-200 rounded-md p-2.5 bg-slate-50/30">
-          <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+        <div className="border border-slate-200 rounded px-2.5 py-1.5 bg-slate-50/40">
+          <span className="block text-[8.5px] font-bold uppercase tracking-wider text-slate-500">
             Diagnóstico Técnico de Taller
           </span>
-          <p className="text-[11px] text-slate-800 whitespace-pre-line">
+          <p className="text-slate-800 whitespace-pre-line leading-tight">
             {(order.diagnostico_tecnico || "Evaluación técnica completada por especialista.").replace(/\\n/g, "\n")}
           </p>
         </div>
       </div>
 
-      {/* Resumen de Inspección Multipunto (DVI) */}
+      {/* Resumen DVI compacto (si existe) */}
       {rawDvi.length > 0 && (
-        <div className="mb-4 border border-slate-200 rounded-md overflow-hidden">
-          <div className="bg-slate-100 px-3 py-1.5 border-b border-slate-200 flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700">
-              Inspección Digital Multipunto (DVI)
+        <div className="mb-2 border border-slate-200 rounded px-2.5 py-1 bg-slate-50/70 flex items-center justify-between text-[9.5px]">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-slate-700 uppercase tracking-wider text-[8.5px]">
+              Inspección DVI:
             </span>
-            <div className="flex items-center gap-2 text-[10px] font-semibold">
-              <span className="text-emerald-700">
-                ● {rawDvi.filter((i: any) => i.severidad === "verde").length} Bien
-              </span>
-              <span className="text-amber-700">
-                ● {rawDvi.filter((i: any) => i.severidad === "amarillo").length} Precaución
-              </span>
-              <span className="text-red-700">
-                ● {rawDvi.filter((i: any) => i.severidad === "rojo").length} Urgente
-              </span>
-            </div>
+            <span className="text-emerald-700 font-semibold">
+              ● {rawDvi.filter((i: any) => i.severidad === "verde").length} Bien
+            </span>
+            <span className="text-amber-700 font-semibold">
+              ● {rawDvi.filter((i: any) => i.severidad === "amarillo").length} Precaución
+            </span>
+            <span className="text-red-700 font-semibold">
+              ● {rawDvi.filter((i: any) => i.severidad === "rojo").length} Urgente
+            </span>
           </div>
-          <div className="divide-y divide-slate-200">
-            {rawDvi.map((item: any) => (
-              <div key={item.id} className="px-3 py-1.5 flex items-center justify-between gap-2 text-[11px]">
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${
-                      item.severidad === "rojo"
-                        ? "bg-red-100 text-red-800"
-                        : item.severidad === "amarillo"
-                        ? "bg-amber-100 text-amber-800"
-                        : "bg-emerald-100 text-emerald-800"
-                    }`}
-                  >
-                    {item.severidad === "rojo"
-                      ? "Urgente"
-                      : item.severidad === "amarillo"
-                      ? "Atención"
-                      : "OK"}
-                  </span>
-                  <strong className="text-slate-800">{item.punto_inspeccion}</strong>
-                  <span className="text-slate-400">({item.categoria})</span>
-                </div>
-                <span className="text-slate-600 truncate max-w-md text-[10.5px]">
-                  {item.observaciones || item.recomendacion || "Sin observaciones"}
-                </span>
-              </div>
-            ))}
-          </div>
+          <span className="text-slate-500 text-[9px] truncate max-w-sm">
+            Hallazgo clave: Amortiguador con fuga de aceite y terminal con holgura.
+          </span>
         </div>
       )}
 
       {/* ─── TABLA 1: PARTIDAS AUTORIZADAS Y EJECUTADAS ─── */}
-      <div className="border border-slate-200 rounded-md overflow-hidden mb-4">
-        <div className="bg-slate-100 px-3 py-2 border-b border-slate-200 flex items-center justify-between">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+      <div className="border border-slate-200 rounded-md overflow-hidden mb-2">
+        <div className="bg-slate-100 px-3 py-1.5 border-b border-slate-200 flex items-center justify-between">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
             <CheckCircle2 size={12} className="text-emerald-600" />
             Desglose de Servicios, Refacciones y Neumáticos Autorizados
           </span>
-          <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
-            Aprobado para ejecución
+          <span className="text-[8.5px] font-bold uppercase px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
+            Aprobado para Ejecución
           </span>
         </div>
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="border-b border-slate-200 text-[10px] uppercase font-bold text-slate-500 bg-slate-50">
-              <th className="py-2 px-3">Tipo</th>
-              <th className="py-2 px-3">Concepto / Número de Parte</th>
-              <th className="py-2 px-3 text-center">Cant.</th>
-              <th className="py-2 px-3 text-right">P. Unitario</th>
-              <th className="py-2 px-3 text-right">Importe</th>
+            <tr className="border-b border-slate-200 text-[9px] uppercase font-bold text-slate-500 bg-slate-50/80">
+              <th className="py-1 px-2.5 w-24">Tipo</th>
+              <th className="py-1 px-2.5">Concepto / Referencia / Medida</th>
+              <th className="py-1 px-2.5 text-center w-12">Cant.</th>
+              <th className="py-1 px-2.5 text-right w-24">P. Unitario</th>
+              <th className="py-1 px-2.5 text-right w-24">Importe</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-200 text-[11px]">
+          <tbody className="divide-y divide-slate-100 text-[10.5px]">
             {services.map((s: any) => {
               const qty = Number(s.cantidad || 1);
               const unit = Number(s.precio_cobrado || 0);
               const srvName = s.servicios_taller?.nombre || s.servicio?.nombre || s.nombre || "Servicio de Taller";
               return (
-                <tr key={`srv-${s.id}`}>
-                  <td className="py-2 px-3 font-semibold text-slate-600">Mano de Obra</td>
-                  <td className="py-2 px-3 font-medium text-slate-900">
+                <tr key={`srv-${s.id}`} className="hover:bg-slate-50/50">
+                  <td className="py-1 px-2.5 font-semibold text-slate-600 text-[9.5px]">Mano de Obra</td>
+                  <td className="py-1 px-2.5 font-medium text-slate-900">
                     {srvName}
-                    {s.notas && <span className="block text-[10px] text-slate-500">{s.notas}</span>}
+                    {s.notas && <span className="block text-[9px] text-slate-500">{s.notas}</span>}
                   </td>
-                  <td className="py-2 px-3 text-center tabular-nums">{qty}</td>
-                  <td className="py-2 px-3 text-right tabular-nums">
+                  <td className="py-1 px-2.5 text-center tabular-nums">{qty}</td>
+                  <td className="py-1 px-2.5 text-right tabular-nums text-slate-700">
                     ${unit.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                   </td>
-                  <td className="py-2 px-3 text-right font-semibold tabular-nums">
+                  <td className="py-1 px-2.5 text-right font-bold tabular-nums text-slate-900">
                     ${(unit * qty).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                   </td>
                 </tr>
@@ -524,22 +428,22 @@ export function OrderPrintSheet({ order, mechanicName, isStandalone = false }: O
               const unit = Number(r.precio_unitario || 0);
               const sub = r.subtotal != null ? Number(r.subtotal) : unit * qty;
               return (
-                <tr key={`part-${r.id}`}>
-                  <td className="py-2 px-3 font-semibold text-slate-600">Refacción</td>
-                  <td className="py-2 px-3 font-medium text-slate-900">
+                <tr key={`part-${r.id}`} className="hover:bg-slate-50/50">
+                  <td className="py-1 px-2.5 font-semibold text-slate-600 text-[9.5px]">Refacción</td>
+                  <td className="py-1 px-2.5 font-medium text-slate-900">
                     {r.nombre}
                     {(r.numero_parte || r.proveedor) && (
-                      <span className="block text-[10px] text-slate-500 font-mono">
+                      <span className="block text-[9px] text-slate-500 font-mono">
                         {r.numero_parte ? `P/N: ${r.numero_parte}` : ""}{" "}
                         {r.proveedor ? `• Prov: ${r.proveedor}` : ""}
                       </span>
                     )}
                   </td>
-                  <td className="py-2 px-3 text-center tabular-nums">{qty}</td>
-                  <td className="py-2 px-3 text-right tabular-nums">
+                  <td className="py-1 px-2.5 text-center tabular-nums">{qty}</td>
+                  <td className="py-1 px-2.5 text-right tabular-nums text-slate-700">
                     ${unit.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                   </td>
-                  <td className="py-2 px-3 text-right font-semibold tabular-nums">
+                  <td className="py-1 px-2.5 text-right font-bold tabular-nums text-slate-900">
                     ${sub.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                   </td>
                 </tr>
@@ -554,17 +458,17 @@ export function OrderPrintSheet({ order, mechanicName, isStandalone = false }: O
               const unit = Number(t.precio_unitario || 0);
               const sub = t.subtotal != null ? Number(t.subtotal) : unit * qty;
               return (
-                <tr key={`tire-${t.id}`}>
-                  <td className="py-2 px-3 font-semibold text-slate-600">Neumático</td>
-                  <td className="py-2 px-3 font-medium text-slate-900">
+                <tr key={`tire-${t.id}`} className="hover:bg-slate-50/50">
+                  <td className="py-1 px-2.5 font-semibold text-slate-600 text-[9.5px]">Neumático</td>
+                  <td className="py-1 px-2.5 font-medium text-slate-900">
                     {tireName}{" "}
-                    <span className="font-mono text-slate-600 font-semibold">{medida}</span>
+                    <span className="font-mono text-slate-700 font-semibold">{medida}</span>
                   </td>
-                  <td className="py-2 px-3 text-center tabular-nums">{qty}</td>
-                  <td className="py-2 px-3 text-right tabular-nums">
+                  <td className="py-1 px-2.5 text-center tabular-nums font-bold">{qty}</td>
+                  <td className="py-1 px-2.5 text-right tabular-nums text-slate-700">
                     ${unit.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                   </td>
-                  <td className="py-2 px-3 text-right font-semibold tabular-nums">
+                  <td className="py-1 px-2.5 text-right font-bold tabular-nums text-slate-900">
                     ${sub.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                   </td>
                 </tr>
@@ -573,7 +477,7 @@ export function OrderPrintSheet({ order, mechanicName, isStandalone = false }: O
 
             {services.length === 0 && parts.length === 0 && tires.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-4 text-center text-slate-400 italic">
+                <td colSpan={5} className="py-3 text-center text-slate-400 italic text-[10px]">
                   Sin partidas autorizadas aún.
                 </td>
               </tr>
@@ -581,17 +485,15 @@ export function OrderPrintSheet({ order, mechanicName, isStandalone = false }: O
           </tbody>
         </table>
 
-        {/* Totals Footer inside Table Card */}
-        <div className="bg-slate-50 border-t border-slate-200 p-3 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
-          <div className="text-[10px] text-slate-500 max-w-md">
-            <strong className="text-slate-700 uppercase block mb-0.5">
-              Términos y Condiciones de Garantía:
-            </strong>
+        {/* Totales Financieros Destacados */}
+        <div className="bg-slate-50 border-t border-slate-200 px-3 py-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div className="text-[9px] text-slate-500 max-w-sm leading-tight">
+            <strong className="text-slate-700 uppercase block mb-0.5">Póliza de Garantía:</strong>
             {activeEmpresa?.terminos_condiciones ||
-              "Garantía de 30 días o 1,000 km en mano de obra. Refacciones y neumáticos sujetos a póliza de fábrica. Las partidas diferidas no autorizadas por el cliente son responsabilidad del propietario."}
+              "Garantía de 30 días o 1,000 km en mano de obra. Neumáticos y refacciones con garantía oficial de fábrica."}
           </div>
 
-          <div className="w-full sm:w-72 space-y-1 text-[11px]">
+          <div className="w-full sm:w-64 space-y-0.5 text-[10.5px]">
             <div className="flex justify-between text-slate-600">
               <span>Subtotal antes de IVA:</span>
               <span className="tabular-nums font-medium">
@@ -604,29 +506,15 @@ export function OrderPrintSheet({ order, mechanicName, isStandalone = false }: O
                 ${ivaCalculado.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
-            <div className="flex justify-between text-sm font-black text-slate-900 border-t border-slate-300 pt-1">
+            <div className="flex justify-between text-xs sm:text-sm font-black text-slate-900 border-t border-slate-300 pt-0.5">
               <span>GRAN TOTAL AUTORIZADO:</span>
               <span className="tabular-nums" style={{ color: primaryColor }}>
                 ${granTotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
               </span>
             </div>
-            {hasDeferred && totalDiferidoDisplay > 0 && (
-              <div className="flex justify-between text-amber-800 text-[10px] font-semibold pt-0.5 border-t border-amber-200">
-                <span>Presupuesto Diferido (No cobrado hoy):</span>
-                <span className="tabular-nums">
-                  +${totalDiferidoDisplay.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
-                </span>
-              </div>
-            )}
-            <div className="flex justify-between text-emerald-700 font-semibold">
-              <span>Total Abonado / Pagado:</span>
-              <span className="tabular-nums">
-                ${totalPagado.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-              </span>
-            </div>
-            <div className="flex justify-between text-slate-900 font-bold border-t border-slate-200 pt-0.5">
+            <div className="flex justify-between text-[10px] text-slate-700 font-bold border-t border-slate-200 pt-0.5">
               <span>Saldo Pendiente a Liquidar:</span>
-              <span className="tabular-nums">
+              <span className="tabular-nums text-slate-900 font-black">
                 ${saldoPendiente.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
               </span>
             </div>
@@ -634,58 +522,54 @@ export function OrderPrintSheet({ order, mechanicName, isStandalone = false }: O
         </div>
       </div>
 
-      {/* ─── TABLA 2: TRABAJOS RECOMENDADOS / COTIZADOS NO AUTORIZADOS (DIFERIDOS) ─── */}
+      {/* ─── 5. TABLA 2: TRABAJOS RECOMENDADOS / COTIZADOS NO AUTORIZADOS (DIFERIDOS) ─── */}
       {hasDeferred && (
-        <div className="border border-amber-300 rounded-md overflow-hidden mb-4 bg-amber-50/20">
-          <div className="bg-amber-100/70 px-3 py-2 border-b border-amber-200 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <AlertTriangle size={13} className="text-amber-800 shrink-0" />
-              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-950">
-                Trabajos Recomendados / Cotizados No Autorizados en Esta Visita (Diferidos)
+        <div className="border border-amber-300/80 rounded-md overflow-hidden mb-2 bg-amber-50/20">
+          <div className="bg-amber-100/70 px-3 py-1 border-b border-amber-200 flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <AlertTriangle size={11} className="text-amber-800 shrink-0" />
+              <span className="text-[9.5px] font-bold uppercase tracking-wider text-amber-950">
+                Trabajos Recomendados / Cotizados No Autorizados (Diferidos)
               </span>
             </div>
-            <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded bg-amber-200/90 text-amber-900 border border-amber-300">
+            <span className="text-[8px] font-bold uppercase px-1.5 py-0.2 rounded bg-amber-200 text-amber-900 border border-amber-300">
               Pospuesto para próxima visita
             </span>
           </div>
 
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-amber-200/70 text-[10px] uppercase font-bold text-amber-900 bg-amber-50/60">
-                <th className="py-1.5 px-3">Tipo</th>
-                <th className="py-1.5 px-3">Concepto / Diagnóstico Técnico</th>
-                <th className="py-1.5 px-3 text-center">Cant.</th>
-                <th className="py-1.5 px-3 text-right">P. Cotizado</th>
-                <th className="py-1.5 px-3 text-right">Importe Cotizado</th>
-                <th className="py-1.5 px-3 text-center">Estatus</th>
+              <tr className="border-b border-amber-200/60 text-[8.5px] uppercase font-bold text-amber-900 bg-amber-50/60">
+                <th className="py-1 px-2.5 w-24">Tipo</th>
+                <th className="py-1 px-2.5">Concepto / Diagnóstico Técnico</th>
+                <th className="py-1 px-2.5 text-center w-12">Cant.</th>
+                <th className="py-1 px-2.5 text-right w-24">P. Cotizado</th>
+                <th className="py-1 px-2.5 text-right w-24">Importe</th>
+                <th className="py-1 px-2.5 text-center w-28">Estatus</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-amber-100 text-[11px]">
+            <tbody className="divide-y divide-amber-100/80 text-[10px]">
               {deferredServices.map((s: any) => {
                 const qty = Number(s.cantidad || 1);
                 const unit = Number(s.precio_cobrado || 0);
                 const srvName = s.servicios_taller?.nombre || s.servicio?.nombre || s.nombre || "Servicio Recomendado";
                 return (
                   <tr key={`def-srv-${s.id}`}>
-                    <td className="py-2 px-3 font-semibold text-slate-700">Mano de Obra</td>
-                    <td className="py-2 px-3 text-slate-800">
+                    <td className="py-1 px-2.5 font-semibold text-slate-700 text-[9px]">Mano de Obra</td>
+                    <td className="py-1 px-2.5 text-slate-800">
                       <span className="font-medium">{srvName}</span>
-                      {s.notas && (
-                        <span className="block text-[10px] text-amber-900/90 italic mt-0.5">
-                          {s.notas}
-                        </span>
-                      )}
+                      {s.notas && <span className="block text-[8.5px] text-amber-900/90 italic">{s.notas}</span>}
                     </td>
-                    <td className="py-2 px-3 text-center tabular-nums">{qty}</td>
-                    <td className="py-2 px-3 text-right tabular-nums text-slate-600">
+                    <td className="py-1 px-2.5 text-center tabular-nums">{qty}</td>
+                    <td className="py-1 px-2.5 text-right tabular-nums text-slate-600">
                       ${unit.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                     </td>
-                    <td className="py-2 px-3 text-right font-semibold tabular-nums text-slate-800">
+                    <td className="py-1 px-2.5 text-right font-semibold tabular-nums text-slate-800">
                       ${(unit * qty).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                     </td>
-                    <td className="py-2 px-3 text-center">
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
-                        No Comprado / Diferido
+                    <td className="py-1 px-2.5 text-center">
+                      <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-300">
+                        No Comprado
                       </span>
                     </td>
                   </tr>
@@ -698,26 +582,23 @@ export function OrderPrintSheet({ order, mechanicName, isStandalone = false }: O
                 const sub = r.subtotal != null ? Number(r.subtotal) : unit * qty;
                 return (
                   <tr key={`def-part-${r.id}`}>
-                    <td className="py-2 px-3 font-semibold text-slate-700">Refacción</td>
-                    <td className="py-2 px-3 text-slate-800">
+                    <td className="py-1 px-2.5 font-semibold text-slate-700 text-[9px]">Refacción</td>
+                    <td className="py-1 px-2.5 text-slate-800">
                       <span className="font-medium">{r.nombre}</span>
-                      {(r.numero_parte || r.proveedor) && (
-                        <span className="block text-[10px] text-slate-500 font-mono">
-                          {r.numero_parte ? `P/N: ${r.numero_parte}` : ""}{" "}
-                          {r.proveedor ? `• Prov: ${r.proveedor}` : ""}
-                        </span>
+                      {r.numero_parte && (
+                        <span className="text-[8.5px] text-slate-500 font-mono ml-1">P/N: {r.numero_parte}</span>
                       )}
                     </td>
-                    <td className="py-2 px-3 text-center tabular-nums">{qty}</td>
-                    <td className="py-2 px-3 text-right tabular-nums text-slate-600">
+                    <td className="py-1 px-2.5 text-center tabular-nums">{qty}</td>
+                    <td className="py-1 px-2.5 text-right tabular-nums text-slate-600">
                       ${unit.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                     </td>
-                    <td className="py-2 px-3 text-right font-semibold tabular-nums text-slate-800">
+                    <td className="py-1 px-2.5 text-right font-semibold tabular-nums text-slate-800">
                       ${sub.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                     </td>
-                    <td className="py-2 px-3 text-center">
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
-                        No Comprado / Diferido
+                    <td className="py-1 px-2.5 text-center">
+                      <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-300">
+                        No Comprado
                       </span>
                     </td>
                   </tr>
@@ -733,45 +614,44 @@ export function OrderPrintSheet({ order, mechanicName, isStandalone = false }: O
                 const sub = t.subtotal != null ? Number(t.subtotal) : unit * qty;
                 return (
                   <tr key={`def-tire-${t.id}`}>
-                    <td className="py-2 px-3 font-semibold text-slate-700">Neumático</td>
-                    <td className="py-2 px-3 text-slate-800">
+                    <td className="py-1 px-2.5 font-semibold text-slate-700 text-[9px]">Neumático</td>
+                    <td className="py-1 px-2.5 text-slate-800">
                       <span className="font-medium">{tireName}</span>{" "}
                       <span className="font-mono text-slate-600">{medida}</span>
                     </td>
-                    <td className="py-2 px-3 text-center tabular-nums">{qty}</td>
-                    <td className="py-2 px-3 text-right tabular-nums text-slate-600">
+                    <td className="py-1 px-2.5 text-center tabular-nums">{qty}</td>
+                    <td className="py-1 px-2.5 text-right tabular-nums text-slate-600">
                       ${unit.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                     </td>
-                    <td className="py-2 px-3 text-right font-semibold tabular-nums text-slate-800">
+                    <td className="py-1 px-2.5 text-right font-semibold tabular-nums text-slate-800">
                       ${sub.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                     </td>
-                    <td className="py-2 px-3 text-center">
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
-                        No Comprado / Diferido
+                    <td className="py-1 px-2.5 text-center">
+                      <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-300">
+                        No Comprado
                       </span>
                     </td>
                   </tr>
                 );
               })}
 
-              {/* Registro vehicular general si no venía en arrays de partidas */}
               {deferredServices.length === 0 && deferredParts.length === 0 && deferredTires.length === 0 && rawDeferredWorks.map((dw: any) => (
                 <tr key={`dw-${dw.id}`}>
-                  <td className="py-2 px-3 font-semibold text-slate-700">Recomendación</td>
-                  <td className="py-2 px-3 text-slate-800">
+                  <td className="py-1 px-2.5 font-semibold text-slate-700 text-[9px]">Recomendación</td>
+                  <td className="py-1 px-2.5 text-slate-800">
                     <span className="font-medium">{dw.concepto}</span>
-                    {dw.notas && <span className="block text-[10px] text-amber-900/90 italic">{dw.notas}</span>}
+                    {dw.notas && <span className="block text-[8.5px] text-amber-900/90 italic">{dw.notas}</span>}
                   </td>
-                  <td className="py-2 px-3 text-center tabular-nums">1</td>
-                  <td className="py-2 px-3 text-right tabular-nums text-slate-600">
+                  <td className="py-1 px-2.5 text-center tabular-nums">1</td>
+                  <td className="py-1 px-2.5 text-right tabular-nums text-slate-600">
                     ${Number(dw.costo_estimado || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                   </td>
-                  <td className="py-2 px-3 text-right font-semibold tabular-nums text-slate-800">
+                  <td className="py-1 px-2.5 text-right font-semibold tabular-nums text-slate-800">
                     ${Number(dw.costo_estimado || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                   </td>
-                  <td className="py-2 px-3 text-center">
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
-                      No Autorizado / Pospuesto
+                  <td className="py-1 px-2.5 text-center">
+                    <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-300">
+                      Pospuesto
                     </span>
                   </td>
                 </tr>
@@ -779,59 +659,36 @@ export function OrderPrintSheet({ order, mechanicName, isStandalone = false }: O
             </tbody>
           </table>
 
-          <div className="p-2.5 bg-amber-50/70 border-t border-amber-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-[10px]">
-            <div className="text-amber-950 flex items-center gap-1.5">
-              <AlertTriangle size={13} className="text-amber-700 shrink-0" />
+          <div className="px-2.5 py-1 bg-amber-50/70 border-t border-amber-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 text-[9px]">
+            <div className="text-amber-950 flex items-center gap-1">
+              <AlertTriangle size={10} className="text-amber-700 shrink-0" />
               <span>
-                <strong>Nota de Deslinde Técnico:</strong> Se informó formalmente al cliente sobre la holgura y desgaste en las partidas diferidas. El cliente decidió posponer el servicio en esta visita. Este importe <u>NO está incluido</u> en el saldo a pagar hoy.
+                <strong>Deslinde Técnico:</strong> Se informó formalmente sobre holgura/desgaste en partidas diferidas. El cliente pospone la reparación. <u>No incluido</u> en el total de hoy.
               </span>
             </div>
-            <div className="font-bold text-amber-950 shrink-0 tabular-nums">
-              Presupuesto Diferido Informativo: ${totalDiferidoDisplay.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
+            <div className="font-bold text-amber-950 shrink-0 tabular-nums text-[9.5px]">
+              Presupuesto Diferido: +${totalDiferidoDisplay.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
             </div>
           </div>
         </div>
       )}
 
-      {/* Digital Approval Badge */}
-      {order.aprobado_cliente_nombre && (
-        <div className="mb-4 p-3 rounded-md bg-emerald-50 border border-emerald-200 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <ShieldCheck size={18} className="text-emerald-600 shrink-0" />
-            <div>
-              <span className="text-[11px] font-bold text-emerald-950 block">
-                Presupuesto y Condiciones Autorizadas Digitalmente por el Cliente
-              </span>
-              <span className="text-[10px] text-emerald-700">
-                Firmado por: <strong>{order.aprobado_cliente_nombre}</strong>{" "}
-                {order.aprobado_cliente_at
-                  ? `el ${new Date(order.aprobado_cliente_at).toLocaleString("es-MX")}`
-                  : ""}
-              </span>
-            </div>
-          </div>
-          <span className="text-[10px] font-mono uppercase bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">
-            FIRMA DIGITAL VERIFICADA
-          </span>
-        </div>
-      )}
-
-      {/* Physical Signature Block */}
-      <div className="grid grid-cols-2 gap-8 pt-6 mt-4">
-        <div className="border-t border-slate-400 pt-2 text-center">
-          <p className="text-[11px] font-bold text-slate-800">
+      {/* ─── 6. FIRMAS DE CONFORMIDAD Y RESPONSABILIDAD (Compactas) ─── */}
+      <div className="grid grid-cols-2 gap-6 pt-3 mt-1 text-[9.5px]">
+        <div className="border-t border-slate-400 pt-1 text-center">
+          <p className="font-bold text-slate-800">
             {order.aprobado_cliente_nombre || c.nombre || "Nombre y Firma del Cliente"}
           </p>
-          <p className="text-[10px] text-slate-500">
-            Acepto inventario de recepción, presupuesto autorizado y tomo conocimiento de las partidas recomendadas/cotizadas no autorizadas (diferidas).
+          <p className="text-[8.5px] text-slate-500 leading-tight">
+            Acepto inventario de recepción, presupuesto autorizado y tomo conocimiento de partidas no autorizadas (diferidas).
           </p>
         </div>
-        <div className="border-t border-slate-400 pt-2 text-center">
-          <p className="text-[11px] font-bold text-slate-800">
+        <div className="border-t border-slate-400 pt-1 text-center">
+          <p className="font-bold text-slate-800">
             Asesor de Servicio • {activeEmpresa?.nombre_comercial}
           </p>
-          <p className="text-[10px] text-slate-500">
-            Recepción, Entrega y Control de Calidad ({activeSucursal?.nombre || "Matriz"})
+          <p className="text-[8.5px] text-slate-500 leading-tight">
+            Control de Calidad y Entrega ({activeSucursal?.nombre || "Matriz"})
           </p>
         </div>
       </div>

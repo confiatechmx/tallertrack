@@ -140,150 +140,170 @@ export function ReceiptModal({
 
   // ─── 1. DISEÑO EN HOJA TAMAÑO CARTA (LETTER 8.5" x 11") ──────────────────────
   const renderDocumentoCarta = (
-    <div className="bg-white text-slate-900 border border-slate-200 rounded-lg p-6 sm:p-8 max-w-4xl mx-auto text-xs leading-relaxed font-sans print:border-0 print:p-0 print:m-0 print:shadow-none">
-      {/* Top Banner / Brand Header */}
+    <div className="bg-white text-slate-900 border border-slate-200 rounded-lg p-4 sm:p-5 max-w-4xl mx-auto text-xs leading-normal font-sans print:border-0 print:p-0 print:m-0 print:shadow-none">
+      {/* ─── Top Banner / Brand Header (Compacto) ─── */}
       <div
-        className="flex justify-between items-start pb-4 border-b-2"
+        className="flex justify-between items-start pb-2.5 mb-2.5 border-b-2"
         style={{ borderColor: primaryColor }}
       >
-        <div className="flex items-start gap-3.5">
+        <div className="flex items-center gap-3">
           {empresa?.logo_url ? (
             <img
               src={empresa.logo_url}
               alt={empresa.nombre_comercial}
-              className="w-14 h-14 object-contain rounded-md border border-slate-200 p-1 bg-white"
+              className="w-11 h-11 object-contain rounded border border-slate-200 p-0.5 bg-white shrink-0"
             />
           ) : (
             <div
-              className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-black text-lg shrink-0 shadow-xs"
+              className="w-10 h-10 rounded flex items-center justify-center text-white font-black text-base shrink-0 shadow-xs"
               style={{ backgroundColor: primaryColor }}
             >
               {(empresa?.nombre_comercial || "CT").slice(0, 2).toUpperCase()}
             </div>
           )}
           <div>
-            <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight uppercase">
-              {empresa?.nombre_comercial || "Cova - Taller & Llantera"}
-            </h1>
-            {empresa?.eslogan && (
-              <p className="text-[11px] font-medium text-slate-600">{empresa.eslogan}</p>
-            )}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-slate-500 mt-1">
+            <div className="flex items-center gap-2">
+              <h1 className="text-sm sm:text-base font-black text-slate-900 tracking-tight uppercase">
+                {empresa?.nombre_comercial || "Cova - Taller & Llantera"}
+              </h1>
+              {empresa?.eslogan && (
+                <span className="hidden sm:inline-block text-[10px] font-medium text-slate-500 border-l border-slate-300 pl-2">
+                  {empresa.eslogan}
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[9.5px] text-slate-500 mt-0.5">
               {empresa?.rfc && (
-                <span className="font-mono font-semibold text-slate-700">RFC: {empresa.rfc}</span>
+                <span className="font-mono font-bold text-slate-700">RFC: {empresa.rfc}</span>
               )}
               {sucursal?.nombre && (
-                <span className="font-semibold text-slate-700">Sucursal: {sucursal.nombre}</span>
+                <span className="font-medium text-slate-700">Sucursal: {sucursal.nombre}</span>
               )}
               {(sucursal?.direccion || empresa?.direccion) && (
-                <span className="inline-flex items-center gap-1">
-                  <MapPin size={10} /> {sucursal?.direccion || empresa?.direccion}
+                <span className="inline-flex items-center gap-0.5 text-slate-600">
+                  <MapPin size={9} /> {sucursal?.direccion || empresa?.direccion}
                 </span>
               )}
               {(sucursal?.telefono || empresa?.telefono) && (
-                <span className="inline-flex items-center gap-1 tabular-nums">
-                  <Phone size={10} /> {sucursal?.telefono || empresa?.telefono}
+                <span className="inline-flex items-center gap-0.5 text-slate-700 font-semibold tabular-nums">
+                  <Phone size={9} /> {sucursal?.telefono || empresa?.telefono}
                 </span>
               )}
             </div>
           </div>
         </div>
 
-        <div className="flex flex-col items-end shrink-0 bg-slate-50 border border-slate-200 rounded-md px-3.5 py-2.5">
-          <span className="text-[10px] uppercase tracking-wider font-bold text-slate-500">
-            Recibo Oficial de Pago
-          </span>
-          <span
-            className="text-xl font-black font-mono tabular-nums tracking-tight"
-            style={{ color: primaryColor }}
-          >
-            {ticketFolio}
-          </span>
-          <div className="text-[10px] text-slate-500 tabular-nums mt-0.5">
-            Orden de Servicio: <strong className="text-slate-800">{folioDisplay}</strong>
+        {/* Folio Recibo & Orden */}
+        <div className="flex flex-col items-end shrink-0 bg-slate-50 border border-slate-200 rounded px-3 py-1.5 text-right">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[9px] uppercase tracking-wider font-bold text-slate-500">
+              Recibo de Pago
+            </span>
+            <span
+              className="text-base sm:text-lg font-black font-mono tabular-nums leading-none"
+              style={{ color: primaryColor }}
+            >
+              {ticketFolio}
+            </span>
           </div>
-          <div className="text-[10px] text-slate-500 tabular-nums mt-0.5">
-            Fecha: <strong className="text-slate-700">{nowStr}</strong>
-          </div>
-        </div>
-      </div>
-
-      {/* Customer & Vehicle Grid */}
-      <div className="grid grid-cols-2 gap-4 my-3.5">
-        <div className="border border-slate-200 rounded-md p-2.5 bg-slate-50/50">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
-            Datos del Cliente
-          </span>
-          <p className="text-xs font-bold text-slate-900">{cli.nombre || "Cliente Mostrador"}</p>
-          <div className="grid grid-cols-2 gap-1 text-[10.5px] mt-1 text-slate-600">
-            <div>RFC: <span className="font-mono font-semibold text-slate-800">{cli.rfc || "XAXX010101000"}</span></div>
-            <div>Tel: <span className="tabular-nums font-semibold text-slate-800">{cli.telefono || "N/A"}</span></div>
-            {cli.empresa && <div className="col-span-2 text-slate-700">Empresa: <strong>{cli.empresa}</strong></div>}
-          </div>
-        </div>
-
-        <div className="border border-slate-200 rounded-md p-2.5 bg-slate-50/50">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
-            Identificación del Vehículo
-          </span>
-          <p className="text-xs font-bold text-slate-900">
-            {veh.marca} {veh.modelo} {veh.anio ? `(${veh.anio})` : ""}
-          </p>
-          <div className="grid grid-cols-2 gap-1 text-[10.5px] mt-1 text-slate-600">
-            <div>
-              Placas: <strong className="font-mono bg-slate-200/80 px-1 py-0.2 rounded text-slate-900">{veh.placas || "S/P"}</strong>
-            </div>
-            <div>Color: <strong className="text-slate-800">{veh.color || "N/E"}</strong></div>
-            <div className="col-span-2 text-[10px] text-slate-500 font-mono">
-              VIN: {veh.vin || "No registrado"} • KM: {Number(veh.kilometraje_actual || order.kilometraje_ingreso || 0).toLocaleString("es-MX")} km
-            </div>
+          <div className="text-[9.5px] text-slate-600 tabular-nums mt-0.5 flex items-center gap-2">
+            <span>Orden: <strong className="text-slate-900">{folioDisplay}</strong></span>
+            <span>Fecha: <strong className="text-slate-800">{nowStr}</strong></span>
           </div>
         </div>
       </div>
 
-      {/* Conceptos Amparados en la Orden */}
-      <div className="border border-slate-200 rounded-md overflow-hidden mb-3.5">
-        <div className="bg-slate-100 px-3 py-1.5 border-b border-slate-200 flex justify-between items-center text-[10px] font-bold uppercase text-slate-700">
+      {/* ─── Customer & Vehicle Grid (Compacto) ─── */}
+      <div className="border border-slate-200 rounded-md p-2.5 bg-slate-50/50 mb-2 text-[10.5px]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+          {/* Cliente */}
+          <div className="flex flex-col justify-center">
+            <div className="flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
+              <User size={11} className="text-slate-600" /> Cliente
+            </div>
+            <div className="flex flex-wrap items-baseline gap-x-2">
+              <strong className="text-slate-900 text-xs">{cli.nombre || "Cliente Mostrador"}</strong>
+              {cli.telefono && (
+                <span className="text-slate-700 font-semibold tabular-nums text-[10px]">
+                  Tel: {cli.telefono}
+                </span>
+              )}
+              {cli.rfc && (
+                <span className="text-slate-500 font-mono text-[9.5px]">RFC: {cli.rfc}</span>
+              )}
+            </div>
+            {cli.empresa && (
+              <span className="text-[9.5px] text-slate-500">Flotilla / Empresa: <strong>{cli.empresa}</strong></span>
+            )}
+          </div>
+
+          {/* Vehículo */}
+          <div className="flex flex-col justify-center">
+            <div className="flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
+              <Car size={11} className="text-slate-600" /> Vehículo Identificado
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <strong className="text-slate-900 text-xs">
+                {veh.marca} {veh.modelo} {veh.anio ? `(${veh.anio})` : ""}
+              </strong>
+              <span className="font-mono font-black text-xs px-1.5 py-0.2 rounded bg-slate-900 text-white tracking-wider">
+                {veh.placas || "SIN PLACAS"}
+              </span>
+              <span className="text-[10px] text-slate-600">
+                Color: <strong>{veh.color || "N/E"}</strong>
+              </span>
+            </div>
+            <div className="flex items-center gap-3 text-[9.5px] text-slate-500 font-mono mt-0.5">
+              <span>VIN: {veh.vin || "No registrado"}</span>
+              <span>Odómetro: {Number(veh.kilometraje_actual || order.kilometraje_ingreso || 0).toLocaleString("es-MX")} km</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── Conceptos Amparados en la Orden (Tabla Compacta) ─── */}
+      <div className="border border-slate-200 rounded-md overflow-hidden mb-2">
+        <div className="bg-slate-100 px-3 py-1 border-b border-slate-200 flex justify-between items-center text-[9.5px] font-bold uppercase text-slate-700">
           <span>Conceptos Amparados por la Orden de Servicio</span>
           <span>{folioDisplay}</span>
         </div>
-        <table className="w-full text-left border-collapse text-[11px]">
+        <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="border-b border-slate-200 text-[10px] uppercase font-bold text-slate-500 bg-slate-50">
-              <th className="py-1.5 px-3">Tipo</th>
-              <th className="py-1.5 px-3">Descripción</th>
-              <th className="py-1.5 px-3 text-center">Cant.</th>
-              <th className="py-1.5 px-3 text-right">P. Unitario</th>
-              <th className="py-1.5 px-3 text-right">Importe</th>
+            <tr className="border-b border-slate-200 text-[9px] uppercase font-bold text-slate-500 bg-slate-50/80">
+              <th className="py-1 px-2.5 w-24">Tipo</th>
+              <th className="py-1 px-2.5">Descripción</th>
+              <th className="py-1 px-2.5 text-center w-12">Cant.</th>
+              <th className="py-1 px-2.5 text-right w-24">P. Unitario</th>
+              <th className="py-1 px-2.5 text-right w-24">Importe</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-200">
+          <tbody className="divide-y divide-slate-100 text-[10.5px]">
             {servicios.map((s: any) => (
-              <tr key={`srv-${s.id}`}>
-                <td className="py-1.5 px-3 font-semibold text-slate-600">Mano de Obra</td>
-                <td className="py-1.5 px-3 text-slate-900">
+              <tr key={`srv-${s.id}`} className="hover:bg-slate-50/50">
+                <td className="py-1 px-2.5 font-semibold text-slate-600 text-[9.5px]">Mano de Obra</td>
+                <td className="py-1 px-2.5 text-slate-900 font-medium">
                   {s.servicios_taller?.nombre || s.servicio?.nombre || s.nombre || "Servicio Técnico"}
                 </td>
-                <td className="py-1.5 px-3 text-center tabular-nums">{s.cantidad || 1}</td>
-                <td className="py-1.5 px-3 text-right tabular-nums">
+                <td className="py-1 px-2.5 text-center tabular-nums">{s.cantidad || 1}</td>
+                <td className="py-1 px-2.5 text-right tabular-nums text-slate-700">
                   ${Number(s.precio_cobrado || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                 </td>
-                <td className="py-1.5 px-3 text-right font-semibold tabular-nums">
+                <td className="py-1 px-2.5 text-right font-bold tabular-nums text-slate-900">
                   ${(Number(s.precio_cobrado || 0) * Number(s.cantidad || 1)).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                 </td>
               </tr>
             ))}
             {refacciones.map((r: any) => (
-              <tr key={`ref-${r.id}`}>
-                <td className="py-1.5 px-3 font-semibold text-slate-600">Refacción</td>
-                <td className="py-1.5 px-3 text-slate-900">
+              <tr key={`ref-${r.id}`} className="hover:bg-slate-50/50">
+                <td className="py-1 px-2.5 font-semibold text-slate-600 text-[9.5px]">Refacción</td>
+                <td className="py-1 px-2.5 text-slate-900 font-medium">
                   {r.nombre} {r.numero_parte ? `(P/N: ${r.numero_parte})` : ""}
                 </td>
-                <td className="py-1.5 px-3 text-center tabular-nums">{r.cantidad || 1}</td>
-                <td className="py-1.5 px-3 text-right tabular-nums">
+                <td className="py-1 px-2.5 text-center tabular-nums">{r.cantidad || 1}</td>
+                <td className="py-1 px-2.5 text-right tabular-nums text-slate-700">
                   ${Number(r.precio_unitario || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                 </td>
-                <td className="py-1.5 px-3 text-right font-semibold tabular-nums">
+                <td className="py-1 px-2.5 text-right font-bold tabular-nums text-slate-900">
                   ${Number(r.subtotal || (r.precio_unitario || 0) * (r.cantidad || 1)).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                 </td>
               </tr>
@@ -293,16 +313,16 @@ export function ReceiptModal({
               const tireName = tire ? `${tire.marca} ${tire.modelo_llanta}` : (l.nombre || "Neumático");
               const medida = tire ? `${tire.ancho}/${tire.perfil} R${tire.rin}` : "";
               return (
-                <tr key={`lla-${l.id}`}>
-                  <td className="py-1.5 px-3 font-semibold text-slate-600">Neumático</td>
-                  <td className="py-1.5 px-3 text-slate-900">
-                    {tireName} <span className="font-mono text-slate-600 font-semibold">{medida}</span>
+                <tr key={`lla-${l.id}`} className="hover:bg-slate-50/50">
+                  <td className="py-1 px-2.5 font-semibold text-slate-600 text-[9.5px]">Neumático</td>
+                  <td className="py-1 px-2.5 text-slate-900 font-medium">
+                    {tireName} <span className="font-mono text-slate-700 font-semibold">{medida}</span>
                   </td>
-                  <td className="py-1.5 px-3 text-center tabular-nums">{l.cantidad || 1}</td>
-                  <td className="py-1.5 px-3 text-right tabular-nums">
+                  <td className="py-1 px-2.5 text-center tabular-nums font-bold">{l.cantidad || 1}</td>
+                  <td className="py-1 px-2.5 text-right tabular-nums text-slate-700">
                     ${Number(l.precio_unitario || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                   </td>
-                  <td className="py-1.5 px-3 text-right font-semibold tabular-nums">
+                  <td className="py-1 px-2.5 text-right font-bold tabular-nums text-slate-900">
                     ${Number(l.subtotal || (l.precio_unitario || 0) * (l.cantidad || 1)).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                   </td>
                 </tr>
@@ -312,15 +332,15 @@ export function ReceiptModal({
         </table>
       </div>
 
-      {/* Recuadro Destacado del Pago / Cobro Liquidado */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+      {/* ─── Recuadro Destacado del Pago / Cobro Liquidado ─── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-2">
         {/* Desglose Fiscal & Totales */}
-        <div className="border border-slate-200 rounded-md p-3 bg-slate-50 space-y-1.5 text-[11px]">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+        <div className="border border-slate-200 rounded-md p-2.5 bg-slate-50 space-y-0.5 text-[10.5px]">
+          <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500 block mb-0.5">
             Resumen de Cuenta
           </span>
           <div className="flex justify-between text-slate-600">
-            <span>Subtotal de la Orden (antes de IVA):</span>
+            <span>Subtotal de la Orden (sin IVA):</span>
             <span className="tabular-nums font-medium">
               ${subtotalSinIva.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
             </span>
@@ -331,59 +351,53 @@ export function ReceiptModal({
               ${iva.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
             </span>
           </div>
-          <div className="flex justify-between font-black text-slate-900 text-xs border-t border-slate-300 pt-1">
+          <div className="flex justify-between font-black text-slate-900 text-xs border-t border-slate-300 pt-0.5">
             <span>TOTAL DE LA ORDEN:</span>
             <span className="tabular-nums">
               ${total.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
             </span>
           </div>
-          <div className="flex justify-between font-bold text-slate-700 border-t border-slate-200 pt-1">
+          <div className="flex justify-between font-bold text-slate-700 border-t border-slate-200 pt-0.5 text-[10px]">
             <span>Saldo Restante por Liquidar:</span>
-            <span className={`tabular-nums ${saldo > 0 ? "text-amber-700" : "text-emerald-700"}`}>
+            <span className={`tabular-nums ${saldo > 0 ? "text-amber-700" : "text-emerald-700 font-black"}`}>
               ${saldo.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
             </span>
           </div>
         </div>
 
         {/* Movimiento de Cobro Actual */}
-        <div className="border-2 border-emerald-300 rounded-md p-3 bg-emerald-50/50 flex flex-col justify-between">
+        <div className="border-2 border-emerald-400 rounded-md p-2.5 bg-emerald-50/50 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-950 flex items-center gap-1">
-                <CheckCircle2 size={12} className="text-emerald-600" />
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[9.5px] font-bold uppercase tracking-wider text-emerald-950 flex items-center gap-1">
+                <CheckCircle2 size={11} className="text-emerald-600" />
                 Comprobante de Cobro en Caja
               </span>
-              <span className="text-[9px] font-mono font-bold uppercase bg-emerald-200/80 text-emerald-900 px-1.5 py-0.5 rounded">
+              <span className="text-[8.5px] font-mono font-bold uppercase bg-emerald-200/90 text-emerald-900 px-1.5 py-0.2 rounded">
                 PAGO REGISTRADO
               </span>
             </div>
 
-            <div className="bg-white border border-emerald-200 rounded p-2 mb-2">
-              <span className="text-[10px] text-slate-500 uppercase font-bold block">
+            <div className="bg-white border border-emerald-200 rounded px-2 py-1 mb-1.5">
+              <span className="text-[8.5px] text-slate-500 uppercase font-bold block">
                 Monto Cobrado en este Movimiento:
               </span>
-              <span className="text-lg font-black text-emerald-800 font-mono tabular-nums">
+              <span className="text-base sm:text-lg font-black text-emerald-800 font-mono tabular-nums leading-tight">
                 ${montoCobrado.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
               </span>
             </div>
 
-            <div className="text-[11px] space-y-1 text-slate-800">
+            <div className="text-[10px] space-y-0.5 text-slate-800">
               <div className="flex justify-between">
                 <span className="text-slate-600">Forma de Pago:</span>
                 <strong className="text-slate-900">
                   {payment?.metodo_detalle || payment?.proveedor_pago || "Efectivo en Ventanilla"}
                 </strong>
               </div>
-              {payment?.referencia && (
-                <div className="flex justify-between font-mono text-[10px]">
-                  <span className="text-slate-600">Ref. / Folio Autorización:</span>
-                  <span className="text-slate-900 font-bold">{payment.referencia}</span>
-                </div>
-              )}
               {cashGiven != null && cashGiven > 0 && (
                 <>
                   <div className="flex justify-between text-slate-600">
-                    <span>Efectivo entregado por cliente:</span>
+                    <span>Efectivo entregado:</span>
                     <span className="tabular-nums font-medium">${cashGiven.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
                   </div>
                   <div className="flex justify-between text-emerald-800 font-bold">
@@ -395,7 +409,7 @@ export function ReceiptModal({
             </div>
           </div>
 
-          <div className="text-[9.5px] text-emerald-900 pt-1.5 mt-2 border-t border-emerald-200/80">
+          <div className="text-[9px] text-emerald-900 pt-1 mt-1 border-t border-emerald-200/80">
             {saldo <= 0 ? (
               <span className="font-bold text-emerald-800 uppercase flex items-center gap-1">
                 ✓ Cuenta liquidada en su totalidad • No presenta adeudo
@@ -407,26 +421,26 @@ export function ReceiptModal({
         </div>
       </div>
 
-      {/* Términos y Condiciones */}
-      <div className="border border-slate-200 rounded-md p-2.5 bg-slate-50/40 text-[9.5px] text-slate-500 leading-normal mb-6">
-        <strong className="text-slate-700 block uppercase mb-0.5">Póliza de Garantía y Condiciones:</strong>
+      {/* ─── Términos y Condiciones (Compactos) ─── */}
+      <div className="border border-slate-200 rounded p-2 bg-slate-50/40 text-[8.5px] text-slate-500 leading-tight mb-2">
+        <strong className="text-slate-700 uppercase block mb-0.5">Póliza de Garantía y Condiciones:</strong>
         {empresa?.terminos_condiciones ||
-          "Garantía de 30 días o 1,000 km en mano de obra. Refacciones y neumáticos sujetos a póliza del fabricante. En caso de requerir comprobante fiscal digital por internet (CFDI 4.0), favor de solicitarlo durante el mes corriente presentando su constancia de situación fiscal."}
+          "Garantía de 30 días o 1,000 km en mano de obra. Refacciones y neumáticos con garantía oficial del fabricante. En caso de requerir CFDI 4.0, favor de solicitarlo durante el mes corriente presentando su constancia fiscal."}
       </div>
 
-      {/* Bloque de Firmas y Sello */}
-      <div className="grid grid-cols-2 gap-8 pt-4">
-        <div className="border-t border-slate-400 pt-2 text-center">
-          <p className="text-[11px] font-bold text-slate-800">
+      {/* ─── Bloque de Firmas y Sello (Compactas) ─── */}
+      <div className="grid grid-cols-2 gap-6 pt-2 text-[9.5px]">
+        <div className="border-t border-slate-400 pt-1 text-center">
+          <p className="font-bold text-slate-800">
             {cli.nombre || "Nombre y Firma del Cliente"}
           </p>
-          <p className="text-[9.5px] text-slate-500">Recibí comprobante de pago de conformidad</p>
+          <p className="text-[8.5px] text-slate-500">Recibí comprobante de pago de conformidad</p>
         </div>
-        <div className="border-t border-slate-400 pt-2 text-center">
-          <p className="text-[11px] font-bold text-slate-800">
+        <div className="border-t border-slate-400 pt-1 text-center">
+          <p className="font-bold text-slate-800">
             Caja y Cobranza • {empresa?.nombre_comercial}
           </p>
-          <p className="text-[9.5px] text-slate-500">
+          <p className="text-[8.5px] text-slate-500">
             Sello de Pagado ({sucursal?.nombre || "Matriz Cova"})
           </p>
         </div>
