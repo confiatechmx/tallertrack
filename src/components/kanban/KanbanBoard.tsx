@@ -205,7 +205,7 @@ export function KanbanBoard() {
         const totalAmount = totalServicios + totalParts + totalTires;
 
         const paidAmount = (d.pagos_orden || [])
-          .filter((p: any) => p.estatus === "Aprobado" && !p.deleted_at)
+          .filter((p: any) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO") && !p.deleted_at)
           .reduce((acc: number, p: any) => acc + Number(p.monto_total || 0), 0);
 
         const serviceLabels: string[] = [

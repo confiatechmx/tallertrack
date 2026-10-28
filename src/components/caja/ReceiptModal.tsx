@@ -98,7 +98,7 @@ export function ReceiptModal({
 
   const pagosList = order.pagos_orden || order.pagos || [];
   const totalPagadoHistorico = pagosList
-    .filter((p: any) => p.estatus === "Aprobado" && !p.deleted_at)
+    .filter((p: any) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO") && !p.deleted_at)
     .reduce((acc: number, p: any) => acc + Number(p.monto_total || 0), 0);
 
   const montoCobrado = Number(

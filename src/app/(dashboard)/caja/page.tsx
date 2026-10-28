@@ -62,7 +62,7 @@ const QUICK_CASH_AMOUNTS = [100, 200, 500, 1000];
 
 export default function CajaPage() {
   const supabase = createClient();
-  const { empresa, sucursalActiva, sucursales } = useTenant();
+  const { empresa, sucursalActiva, sucursales, perfil } = useTenant();
 
   const [activeTab, setActiveTab] = useState<TabType>("POS");
   const [loading, setLoading] = useState(true);
@@ -309,7 +309,7 @@ export default function CajaPage() {
           const granTotal = srvTotal + refTotal + llantasTotal;
 
           const pagado = (order.pagos_orden || [])
-            .filter((p: any) => p.estatus === "Aprobado" && !p.deleted_at)
+            .filter((p: any) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO") && !p.deleted_at)
             .reduce((acc: number, curr: any) => acc + Number(curr.monto_total || 0), 0);
 
           const saldo = Math.max(0, granTotal - pagado);
@@ -456,7 +456,7 @@ export default function CajaPage() {
   const cashShortage = Math.max(0, amountToPay - cashGivenNum);
 
   // Financial KPIs for Tab 2
-  const pagosActivos = pagos.filter((p) => p.estatus === "Aprobado" && !p.deleted_at);
+  const pagosActivos = pagos.filter((p) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO") && !p.deleted_at);
 
   const cobrosEfectivo = pagosActivos
     .filter((p) => p.proveedor_pago === "Efectivo")
@@ -2373,7 +2373,7 @@ export default function CajaPage() {
         onSuccess={loadData}
         empresaId={empresa?.id || "a0000000-0000-0000-0000-000000000001"}
         sucursalId={sucursalActiva?.id || sucursales[0]?.id || "b0000000-0000-0000-0000-000000000001"}
-        usuarioId="b001bc99-9c0b-4ef8-bb6d-6bb9bd380e51"
+        usuarioId={perfil?.id || ""}
         fondos={fondos}
       />
 
@@ -2385,7 +2385,7 @@ export default function CajaPage() {
           onSuccess={loadData}
           turnoActivo={turnoActivo}
           fondos={fondos}
-          usuarioId="b001bc99-9c0b-4ef8-bb6d-6bb9bd380e51"
+          usuarioId={perfil?.id || ""}
         />
       )}
 
@@ -2402,7 +2402,7 @@ export default function CajaPage() {
           turnoActivo={turnoActivo}
           fondos={fondos}
           cuentasBancarias={cuentasBancarias}
-          usuarioId="b001bc99-9c0b-4ef8-bb6d-6bb9bd380e51"
+          usuarioId={perfil?.id || ""}
         />
       )}
 

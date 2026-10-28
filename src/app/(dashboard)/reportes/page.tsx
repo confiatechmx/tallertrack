@@ -113,7 +113,7 @@ export default function ReportesPage() {
           comision_pasarela,
           deleted_at
         `)
-        .eq("estatus", "Aprobado")
+        .in("estatus", ["Aprobado", "COMPLETADO"])
         .is("deleted_at", null);
 
       if (selectedBranchId !== "all") {

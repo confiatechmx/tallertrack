@@ -230,7 +230,7 @@ export const CajaTurnoService = {
       const { data, error } = await (supabase.rpc as any)("fn_abrir_turno_caja", {
         p_empresa_id: params.empresaId,
         p_sucursal_id: params.sucursalId,
-        p_usuario_id: params.usuarioId,
+        p_usuario_id: params.usuarioId || (await supabase.auth.getUser()).data.user?.id || null,
         p_monto_fondo1: params.montoFondo1,
         p_monto_fondo2: params.montoFondo2,
       });
@@ -266,7 +266,7 @@ export const CajaTurnoService = {
         p_fondo_destino_id: params.fondoDestinoId,
         p_monto: params.monto,
         p_concepto: params.concepto,
-        p_usuario_id: params.usuarioId,
+        p_usuario_id: params.usuarioId || (await supabase.auth.getUser()).data.user?.id || null,
       });
 
       if (error) {
@@ -439,7 +439,7 @@ export const CajaTurnoService = {
     try {
       const { data, error } = await (supabase.rpc as any)("fn_cerrar_turno_caja", {
         p_turno_id: params.turnoId,
-        p_usuario_cierre_id: params.usuarioCierreId,
+        p_usuario_cierre_id: params.usuarioCierreId || (await supabase.auth.getUser()).data.user?.id || null,
         p_declarado_f1: params.declaradoF1,
         p_declarado_f2: params.declaradoF2,
         p_denominaciones_f1: params.denominacionesF1 || null,
