@@ -1,5 +1,6 @@
 import { createClient } from '../lib/supabase/client'
 import { applyThemeCssVariables } from '../context/TenantContext'
+import { parseTenantFromHost } from '../lib/tenantRouting'
 
 export interface TenantDomainInfo {
   id: string
@@ -17,10 +18,14 @@ export interface TenantDomainInfo {
   empresa?: {
     id: string
     nombre_comercial: string
+    subdominio?: string | null
     rfc: string | null
     logo_url: string | null
+    logo_url_dark?: string | null
+    isotipo_url?: string | null
     color_primario: string | null
     color_sidebar: string | null
+    eslogan?: string | null
   }
 }
 
@@ -29,25 +34,23 @@ export const tenantDomainService = {
   async resolverTenantPorDominio(hostnameOverride?: string): Promise<TenantDomainInfo | null> {
     try {
       let hostname = (hostnameOverride || '').toLowerCase().trim()
+      let searchParams: URLSearchParams | undefined
 
       // Si no viene override explícito, verificar query param test_domain para pruebas locales
-      if (!hostname && typeof window !== 'undefined') {
-        const urlParams = new URLSearchParams(window.location.search)
-        const testDomain = urlParams.get('test_domain')
-        if (testDomain) {
-          hostname = testDomain.toLowerCase().trim()
-        } else {
+      if (typeof window !== 'undefined') {
+        searchParams = new URLSearchParams(window.location.search)
+        if (!hostname) {
           hostname = (window.location.hostname || '').toLowerCase().trim()
         }
       }
 
-      // En desarrollo local o dominios genéricos principales
-      if (['localhost', '127.0.0.1', 'tallertrack.com', 'www.tallertrack.com', 'app.tallertrack.com', 'autolisto.mx', 'www.autolisto.mx', 'app.autolisto.mx'].includes(hostname)) {
+      const hostInfo = parseTenantFromHost(hostname, searchParams)
+      if (!hostInfo.isTenantHost) {
         return null
       }
 
       // Check cache en sessionStorage para evitar roundtrips innecesarios
-      const cacheKey = `tallertrack_domain_${hostname}`
+      const cacheKey = `tallertrack_domain_${hostInfo.fullDomain}`
       if (typeof sessionStorage !== 'undefined') {
         const cached = sessionStorage.getItem(cacheKey)
         if (cached) {
@@ -76,9 +79,9 @@ export const tenantDomainService = {
         .from('tenant_domains')
         .select(`
           *,
-          empresa:empresas(id, nombre_comercial, rfc, logo_url, color_primario, color_sidebar)
+          empresa:empresas(id, nombre_comercial, subdominio, rfc, logo_url, logo_url_dark, isotipo_url, color_primario, color_sidebar, eslogan)
         `)
-        .eq('domain', hostname)
+        .eq('domain', hostInfo.fullDomain)
         .eq('verified', true)
         .maybeSingle()
 
@@ -101,6 +104,50 @@ export const tenantDomainService = {
         if (fav) this.aplicarFavicon(fav)
 
         return result
+      }
+
+      // 2. Fallback si el tenant tiene subdominio directo en empresas
+      if (hostInfo.subdomain) {
+        const { data: empData, error: empErr } = await supabase
+          .from('empresas')
+          .select('id, nombre_comercial, subdominio, rfc, logo_url, logo_url_dark, isotipo_url, color_primario, color_sidebar, eslogan')
+          .eq('subdominio', hostInfo.subdomain)
+          .maybeSingle()
+
+        if (!empErr && empData) {
+          const synthResult: TenantDomainInfo = {
+            id: empData.id,
+            empresa_id: empData.id,
+            domain: hostInfo.fullDomain,
+            is_primary: true,
+            verified: true,
+            custom_theme: {
+              app_title: empData.nombre_comercial,
+              primary_color: empData.color_primario,
+              sidebar_color: empData.color_sidebar,
+              logo_url: empData.logo_url,
+            },
+            empresa: empData as any,
+          }
+
+          if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.setItem(cacheKey, JSON.stringify(synthResult))
+          }
+
+          if (synthResult.custom_theme?.app_title && typeof document !== 'undefined') {
+            document.title = `${synthResult.custom_theme.app_title} | TallerTrack`
+          }
+          if (synthResult.custom_theme?.primary_color || synthResult.custom_theme?.sidebar_color) {
+            applyThemeCssVariables(
+              synthResult.custom_theme.primary_color || '#2563EB',
+              synthResult.custom_theme.sidebar_color || '#0F172A'
+            )
+          }
+          const fav = synthResult.custom_theme?.logo_url || synthResult.empresa?.logo_url
+          if (fav) this.aplicarFavicon(fav)
+
+          return synthResult
+        }
       }
 
       return null
