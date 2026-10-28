@@ -54,7 +54,7 @@ export const tenantDomainService = {
           try {
             const parsed = JSON.parse(cached) as TenantDomainInfo
             if (parsed.custom_theme?.app_title && typeof document !== 'undefined') {
-              document.title = `${parsed.custom_theme.app_title} | TallerTrack Shop OS`
+              document.title = `${parsed.custom_theme.app_title} | TallerTrack`
             }
             if (parsed.custom_theme?.primary_color || parsed.custom_theme?.sidebar_color) {
               applyThemeCssVariables(
@@ -89,7 +89,7 @@ export const tenantDomainService = {
         }
 
         if (result.custom_theme?.app_title && typeof document !== 'undefined') {
-          document.title = `${result.custom_theme.app_title} | TallerTrack Shop OS`
+          document.title = `${result.custom_theme.app_title} | TallerTrack`
         }
         if (result.custom_theme?.primary_color || result.custom_theme?.sidebar_color) {
           applyThemeCssVariables(

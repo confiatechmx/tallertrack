@@ -27,7 +27,7 @@ export default async function LoginPage({
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b15_1px,transparent_1px),linear-gradient(to_bottom,#1e293b15_1px,transparent_1px)] bg-[size:4rem_4rem] pointer-events-none" />
 
         <div className="relative z-10 flex items-center justify-between">
-          <TallerTrackLogo variant="dark" size="lg" subtitle="Shop OS" />
+          <TallerTrackLogo variant="dark" size="lg" />
           <Link
             href="/"
             className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-white transition-colors bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 px-3 py-1.5 rounded-lg"
@@ -94,7 +94,7 @@ export default async function LoginPage({
       <div className="flex-1 flex flex-col justify-center items-center p-6 sm:p-12 bg-[#F8FAFC]">
         {/* Mobile Header */}
         <div className="w-full max-w-md lg:hidden flex items-center justify-between mb-8">
-          <TallerTrackLogo variant="light" size="md" subtitle="Shop OS" />
+          <TallerTrackLogo variant="light" size="md" />
           <Link
             href="/"
             className="text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1"

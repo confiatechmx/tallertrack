@@ -17,7 +17,7 @@ export default function TallerTrackLogo({
   variant = "light",
   size = "md",
   showText = true,
-  subtitle = "Shop OS",
+  subtitle,
   showTagline = false,
   layout = "horizontal",
   href,
