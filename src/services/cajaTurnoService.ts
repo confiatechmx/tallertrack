@@ -297,7 +297,7 @@ export const CajaTurnoService = {
       .from("pagos_orden")
       .select("*")
       .eq("sucursal_id", turno.sucursal_id)
-      .eq("estatus", "COMPLETADO")
+      .in("estatus", ["Aprobado", "COMPLETADO"])
       .is("deleted_at", null)
       .gte("fecha_pago", turno.fecha_apertura);
 

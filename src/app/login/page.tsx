@@ -160,8 +160,8 @@ export default async function LoginPage({
                 id="email"
                 name="email"
                 type="email"
-                defaultValue="demo@tallertrack.com"
-                placeholder="servicio@tallertrack.com"
+                placeholder="tu-correo@taller.com"
+                autoComplete="email"
                 required
                 className="border border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 rounded-xl bg-white text-xs p-3 w-full transition-all text-slate-900 outline-none"
               />
@@ -180,8 +180,8 @@ export default async function LoginPage({
                 id="password"
                 name="password"
                 type="password"
-                defaultValue="TallerTrack2026!"
                 placeholder="••••••••"
+                autoComplete="current-password"
                 required
                 className="border border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 rounded-xl bg-white text-xs p-3 w-full transition-all text-slate-900 outline-none"
               />

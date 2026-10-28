@@ -351,6 +351,58 @@ export default function CajaPage() {
     loadData();
   }, [loadData]);
 
+  // Sincronización en tiempo real multi-computadora para la misma sucursal (ej. COVA Mostrador 1 y 2)
+  useEffect(() => {
+    const targetSucId =
+      sucursalActiva?.id ||
+      sucursales[0]?.id ||
+      "b0000000-0000-0000-0000-000000000001";
+
+    const channel = supabase
+      .channel(`caja-sync-${targetSucId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "caja_turnos",
+          filter: `sucursal_id=eq.${targetSucId}`,
+        },
+        () => {
+          loadData();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "caja_fondos",
+          filter: `sucursal_id=eq.${targetSucId}`,
+        },
+        () => {
+          loadData();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "pagos_orden",
+          filter: `sucursal_id=eq.${targetSucId}`,
+        },
+        () => {
+          loadData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [sucursalActiva?.id, sucursales, loadData, supabase]);
+
   // Active Selected Order in POS
   const activeOrder = useMemo(() => {
     return ordenes.find((o) => o.id === posSelectedOrderId) || null;
