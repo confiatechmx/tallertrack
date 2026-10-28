@@ -18,9 +18,9 @@ export default function TallerTrackLogo({
   // Dimensions map
   const iconSizes = {
     sm: "w-7 h-7",
-    md: "w-9 h-9",
-    lg: "w-11 h-11",
-    xl: "w-14 h-14",
+    md: "w-8 h-8",
+    lg: "w-10 h-10",
+    xl: "w-12 h-12",
   };
 
   const textSizes = {
@@ -34,29 +34,23 @@ export default function TallerTrackLogo({
 
   return (
     <div className={`inline-flex items-center gap-2.5 select-none ${className}`}>
-      {/* Icon Mark: Geometric "T" + Velocity Track */}
+      {/* Precision Icon Mark: Industrial Cobalt T + Velocity Notch */}
       <div
-        className={`${iconSizes[size]} relative flex items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 shadow-sm border border-blue-500/30 text-white shrink-0`}
+        className={`${iconSizes[size]} relative flex items-center justify-center rounded-lg bg-[#1C3EFF] shadow-xs text-white shrink-0`}
       >
         <svg
           viewBox="0 0 32 32"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-          className="w-[60%] h-[60%] drop-shadow"
+          className="w-[58%] h-[58%]"
         >
-          {/* Top Horizontal Bar of the T with speed notches */}
-          <path
-            d="M5 8.5C5 7.67157 5.67157 7 6.5 7H25.5C26.3284 7 27 7.67157 27 8.5C27 9.32843 26.3284 10 25.5 10H6.5C5.67157 10 5 9.32843 5 8.5Z"
-            fill="currentColor"
-          />
+          {/* Top Horizontal Bar with precision bevel */}
+          <rect x="4" y="6" width="24" height="4.5" rx="1.5" fill="currentColor" />
           {/* Vertical stem: precision track pillar */}
+          <rect x="13.5" y="10.5" width="5" height="15.5" rx="1.5" fill="currentColor" />
+          {/* Dynamic forward velocity arrow / notch */}
           <path
-            d="M13.5 11.5H18.5V23C18.5 24.1046 17.6046 25 16.5 25H15.5C14.3954 25 13.5 24.1046 13.5 23V11.5Z"
-            fill="currentColor"
-          />
-          {/* Dynamic forward arrow/track runner mark */}
-          <path
-            d="M21 16.5L25.5 20.5L21 24.5"
+            d="M21 16L25 20L21 24"
             stroke="#93C5FD"
             strokeWidth="2.5"
             strokeLinecap="round"
@@ -65,19 +59,25 @@ export default function TallerTrackLogo({
         </svg>
       </div>
 
-      {/* Brand Text */}
+      {/* Brand Typography */}
       {showText && (
         <div className="flex flex-col leading-none">
           <div className="flex items-center gap-1.5">
             <span
               className={`font-heading font-extrabold tracking-tight ${textSizes[size]} ${
-                isDark ? "text-white" : "text-slate-900"
+                isDark ? "text-white" : "text-[#1D2030]"
               }`}
             >
-              Taller<span className="text-blue-600">Track</span>
+              Taller<span className="text-[#1C3EFF]">Track</span>
             </span>
             {subtitle && (
-              <span className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded font-semibold bg-blue-500/10 text-blue-600 border border-blue-500/20">
+              <span
+                className={`text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded font-semibold ${
+                  isDark
+                    ? "bg-white/10 text-slate-300 border border-white/15"
+                    : "bg-slate-100 text-slate-700 border border-slate-200"
+                }`}
+              >
                 {subtitle}
               </span>
             )}
