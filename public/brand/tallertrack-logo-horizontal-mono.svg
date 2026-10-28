@@ -1,0 +1,51 @@
+<svg viewBox="0 0 440 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g transform="translate(16, 16) scale(1.0625)">
+    
+    <defs>
+      <linearGradient id="ttBadgeBg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stop-color="#1C3EFF"/>
+        <stop offset="100%" stop-color="#0722C7"/>
+      </linearGradient>
+      <linearGradient id="monoBg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stop-color="#0F172A"/>
+        <stop offset="100%" stop-color="#020617"/>
+      </linearGradient>
+      <linearGradient id="ttTrackWhite" x1="12" y1="12" x2="52" y2="52" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stop-color="#FFFFFF"/>
+        <stop offset="100%" stop-color="#F1F5F9"/>
+      </linearGradient>
+      <linearGradient id="ttCyanTrack" x1="32" y1="20" x2="44" y2="52" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stop-color="#38BDF8"/>
+        <stop offset="100%" stop-color="#0EA5E9"/>
+      </linearGradient>
+      <filter id="subtleShadow" x="0" y="0" width="64" height="64" filterUnits="userSpaceOnUse">
+        <feDropShadow dx="0" dy="1.5" stdDeviation="1" flood-color="#00127A" flood-opacity="0.35"/>
+      </filter>
+    </defs>
+    <rect x="2" y="2" width="60" height="60" rx="14" fill="url(#monoBg)"/>
+    <rect x="2" y="2" width="60" height="60" rx="14" stroke="rgba(255,255,255,0.22)" stroke-width="1.2"/>
+    <g filter="url(#subtleShadow)">
+      <!-- Aerodynamic Precision Crossbar with 45deg Speed Chamfer -->
+      <path d="M12 15C12 13.3431 13.3431 12 15 12H46.5L52 18V21C52 22.6569 50.6569 24 49 24H15C13.3431 24 12 22.6569 12 21V15Z" fill="url(#ttTrackWhite)"/>
+      <!-- Tire Tread Sipes on Crossbar Wings -->
+      <line x1="17" y1="14.5" x2="19.5" y2="21.5" stroke="#0F172A" stroke-width="2.2" stroke-linecap="round"/>
+      <line x1="22" y1="14.5" x2="24.5" y2="21.5" stroke="#0F172A" stroke-width="2.2" stroke-linecap="round"/>
+      <line x1="42" y1="14.5" x2="39.5" y2="21.5" stroke="#0F172A" stroke-width="2.2" stroke-linecap="round"/>
+      <line x1="47" y1="14.5" x2="44.5" y2="21.5" stroke="#0F172A" stroke-width="2.2" stroke-linecap="round"/>
+      <!-- Dual Telemetry & Chassis Rails -->
+      <path d="M22.5 24H29V48C29 49.6569 27.6569 51 26 51H25.5C23.8431 51 22.5 49.6569 22.5 48V24Z" fill="url(#ttTrackWhite)"/>
+      <path d="M33.5 24H40V44.5C40 46.1569 38.6569 47.5 37 47.5H36.5C34.8431 47.5 33.5 46.1569 33.5 44.5V24Z" fill="#94A3B8"/>
+      <!-- Forward Velocity Chevron Notch -->
+      <path d="M26.5 32L31.5 37L26.5 42" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  
+  </g>
+  <!-- Wordmark -->
+  <text x="102" y="55" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, sans-serif" font-size="38" font-weight="800" letter-spacing="-1.2">
+    <tspan fill="#0F172A">TallerTrack</tspan>
+  </text>
+  <!-- Category Tagline -->
+  <text x="103" y="75" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif" font-size="10" font-weight="700" fill="#475569" letter-spacing="2.2">
+    SISTEMA OPERATIVO PARA TALLERES
+  </text>
+</svg>

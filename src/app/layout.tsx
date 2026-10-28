@@ -19,6 +19,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.tallertrack.com"),
   title: "TallerTrack • Sistema Operativo para Talleres y Llanteras",
   description: "Sistema integral de gestión de órdenes de trabajo, inspección digital DVI y control para talleres y llanteras",
   manifest: "/manifest.json",
@@ -31,6 +32,28 @@ export const metadata: Metadata = {
     apple: [
       { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
     ],
+  },
+  openGraph: {
+    title: "TallerTrack • Sistema Operativo para Talleres y Llanteras",
+    description: "Sistema integral de gestión de órdenes de trabajo, inspección digital DVI y control para talleres y llanteras.",
+    url: "https://www.tallertrack.com",
+    siteName: "TallerTrack",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "TallerTrack - Sistema Operativo para Talleres y Llanteras",
+      },
+    ],
+    locale: "es_MX",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "TallerTrack • Sistema Operativo para Talleres y Llanteras",
+    description: "Sistema integral de gestión de órdenes de trabajo, inspección digital DVI y control para talleres y llanteras.",
+    images: ["/og-image.png"],
   },
   appleWebApp: {
     capable: true,
