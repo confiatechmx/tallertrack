@@ -14,352 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      compras_proveedores: {
-        Row: {
-          caja_fondo_id: string | null
-          caja_movimiento_id: string | null
-          caja_turno_id: string | null
-          cotizacion_id: string | null
-          created_at: string
-          cuenta_bancaria_id: string | null
-          descripcion: string
-          empresa_id: string
-          estatus_garantia: "VIGENTE" | "EXPIRADA" | "EN_RECLAMACION" | "APLICADA" | "RECHAZADA"
-          estatus_pago: "PAGADO" | "PENDIENTE" | "PARCIAL" | "VENCIDO" | "CANCELADO"
-          evidencia_storage_path: string | null
-          evidencia_tipo: "IMAGE" | "PDF" | "OTHER" | null
-          evidencia_url: string | null
-          fecha_compra: string
-          fecha_limite_pago: string | null
-          fecha_vencimiento_garantia: string | null
-          folio_ticket_nota: string
-          fuente_pago: "CAJA_CHICA" | "FONDO_RESERVA" | "TRANSFERENCIA" | "CREDITO_PENDIENTE"
-          id: string
-          meses_garantia: number
-          monto_costo: number
-          monto_pagado: number
-          monto_saldo_pendiente: number
-          notas_garantia: string | null
-          orden_servicio_id: string | null
-          proveedor_id: string
-          sucursal_id: string | null
-          updated_at: string
-          usuario_id: string | null
-        }
-        Insert: {
-          caja_fondo_id?: string | null
-          caja_movimiento_id?: string | null
-          caja_turno_id?: string | null
-          cotizacion_id?: string | null
-          created_at?: string
-          cuenta_bancaria_id?: string | null
-          descripcion: string
-          empresa_id: string
-          estatus_garantia?: "VIGENTE" | "EXPIRADA" | "EN_RECLAMACION" | "APLICADA" | "RECHAZADA"
-          estatus_pago?: "PAGADO" | "PENDIENTE" | "PARCIAL" | "VENCIDO" | "CANCELADO"
-          evidencia_storage_path?: string | null
-          evidencia_tipo?: "IMAGE" | "PDF" | "OTHER" | null
-          evidencia_url?: string | null
-          fecha_compra?: string
-          fecha_limite_pago?: string | null
-          fecha_vencimiento_garantia?: string | null
-          folio_ticket_nota: string
-          fuente_pago: "CAJA_CHICA" | "FONDO_RESERVA" | "TRANSFERENCIA" | "CREDITO_PENDIENTE"
-          id?: string
-          meses_garantia?: number
-          monto_costo: number
-          monto_pagado?: number
-          monto_saldo_pendiente?: number
-          notas_garantia?: string | null
-          orden_servicio_id?: string | null
-          proveedor_id: string
-          sucursal_id?: string | null
-          updated_at?: string
-          usuario_id?: string | null
-        }
-        Update: {
-          caja_fondo_id?: string | null
-          caja_movimiento_id?: string | null
-          caja_turno_id?: string | null
-          cotizacion_id?: string | null
-          created_at?: string
-          cuenta_bancaria_id?: string | null
-          descripcion?: string
-          empresa_id?: string
-          estatus_garantia?: "VIGENTE" | "EXPIRADA" | "EN_RECLAMACION" | "APLICADA" | "RECHAZADA"
-          estatus_pago?: "PAGADO" | "PENDIENTE" | "PARCIAL" | "VENCIDO" | "CANCELADO"
-          evidencia_storage_path?: string | null
-          evidencia_tipo?: "IMAGE" | "PDF" | "OTHER" | null
-          evidencia_url?: string | null
-          fecha_compra?: string
-          fecha_limite_pago?: string | null
-          fecha_vencimiento_garantia?: string | null
-          folio_ticket_nota?: string
-          fuente_pago?: "CAJA_CHICA" | "FONDO_RESERVA" | "TRANSFERENCIA" | "CREDITO_PENDIENTE"
-          id?: string
-          meses_garantia?: number
-          monto_costo?: number
-          monto_pagado?: number
-          monto_saldo_pendiente?: number
-          notas_garantia?: string | null
-          orden_servicio_id?: string | null
-          proveedor_id?: string
-          sucursal_id?: string | null
-          updated_at?: string
-          usuario_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "compras_proveedores_proveedor_id_fkey"
-            columns: ["proveedor_id"]
-            isOneToOne: false
-            referencedRelation: "proveedores"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      proveedores: {
-        Row: {
-          activo: boolean
-          condiciones_garantia: string | null
-          contacto_nombre: string | null
-          created_at: string
-          dias_credito: number
-          email: string | null
-          empresa_id: string
-          id: string
-          limite_credito: number
-          meses_garantia_default: number
-          nombre_comercial: string
-          razon_social: string | null
-          rfc: string | null
-          saldo_deudor_actual: number
-          sucursal_id: string | null
-          telefono: string | null
-          updated_at: string
-          whatsapp: string | null
-        }
-        Insert: {
-          activo?: boolean
-          condiciones_garantia?: string | null
-          contacto_nombre?: string | null
-          created_at?: string
-          dias_credito?: number
-          email?: string | null
-          empresa_id: string
-          id?: string
-          limite_credito?: number
-          meses_garantia_default?: number
-          nombre_comercial: string
-          razon_social?: string | null
-          rfc?: string | null
-          saldo_deudor_actual?: number
-          sucursal_id?: string | null
-          telefono?: string | null
-          updated_at?: string
-          whatsapp?: string | null
-        }
-        Update: {
-          activo?: boolean
-          condiciones_garantia?: string | null
-          contacto_nombre?: string | null
-          created_at?: string
-          dias_credito?: number
-          email?: string | null
-          empresa_id?: string
-          id?: string
-          limite_credito?: number
-          meses_garantia_default?: number
-          nombre_comercial?: string
-          razon_social?: string | null
-          rfc?: string | null
-          saldo_deudor_actual?: number
-          sucursal_id?: string | null
-          telefono?: string | null
-          updated_at?: string
-          whatsapp?: string | null
-        }
-        Relationships: []
-      }
-      proveedores_abonos: {
-        Row: {
-          caja_fondo_id: string | null
-          caja_movimiento_id: string | null
-          caja_turno_id: string | null
-          compra_id: string | null
-          comprobante_url: string | null
-          created_at: string
-          cuenta_bancaria_id: string | null
-          empresa_id: string
-          fecha_abono: string
-          id: string
-          metodo_pago: "EFECTIVO_CAJA" | "FONDO_RESERVA" | "TRANSFERENCIA" | "OTRO"
-          monto: number
-          proveedor_id: string
-          referencia: string | null
-          sucursal_id: string | null
-          usuario_id: string | null
-        }
-        Insert: {
-          caja_fondo_id?: string | null
-          caja_movimiento_id?: string | null
-          caja_turno_id?: string | null
-          compra_id?: string | null
-          comprobante_url?: string | null
-          created_at?: string
-          cuenta_bancaria_id?: string | null
-          empresa_id: string
-          fecha_abono?: string
-          id?: string
-          metodo_pago: "EFECTIVO_CAJA" | "FONDO_RESERVA" | "TRANSFERENCIA" | "OTRO"
-          monto: number
-          proveedor_id: string
-          referencia?: string | null
-          sucursal_id?: string | null
-          usuario_id?: string | null
-        }
-        Update: {
-          caja_fondo_id?: string | null
-          caja_movimiento_id?: string | null
-          caja_turno_id?: string | null
-          compra_id?: string | null
-          comprobante_url?: string | null
-          created_at?: string
-          cuenta_bancaria_id?: string | null
-          empresa_id?: string
-          fecha_abono?: string
-          id?: string
-          metodo_pago?: "EFECTIVO_CAJA" | "FONDO_RESERVA" | "TRANSFERENCIA" | "OTRO"
-          monto?: number
-          proveedor_id?: string
-          referencia?: string | null
-          sucursal_id?: string | null
-          usuario_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "proveedores_abonos_proveedor_id_fkey"
-            columns: ["proveedor_id"]
-            isOneToOne: false
-            referencedRelation: "proveedores"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      tenant_kpi_categorias: {
-        Row: {
-          activo: boolean
-          created_at: string
-          empresa_id: string
-          id: string
-          keywords: string[]
-          nombre: string
-          orden: number
-          unidad: string
-        }
-        Insert: {
-          activo?: boolean
-          created_at?: string
-          empresa_id: string
-          id?: string
-          keywords?: string[]
-          nombre: string
-          orden?: number
-          unidad?: string
-        }
-        Update: {
-          activo?: boolean
-          created_at?: string
-          empresa_id?: string
-          id?: string
-          keywords?: string[]
-          nombre?: string
-          orden?: number
-          unidad?: string
-        }
-        Relationships: []
-      }
-      tenant_metodos_pago: {
-        Row: {
-          activo: boolean
-          caja_fondo_id: string | null
-          color: string | null
-          comision_fija: number
-          comision_iva_incluido: boolean
-          comision_porcentaje: number
-          created_at: string
-          cuenta_bancaria_id: string | null
-          empresa_id: string
-          es_fiscal: boolean
-          icono: string | null
-          id: string
-          nombre: string
-          orden: number
-          plazo_msi: number | null
-          proveedor: string
-          sucursal_id: string | null
-          tipo: "EFECTIVO" | "TRANSFERENCIA" | "TARJETA_DEBITO" | "TARJETA_CREDITO" | "MSI" | "BNPL" | "OTRO"
-          updated_at: string
-        }
-        Insert: {
-          activo?: boolean
-          caja_fondo_id?: string | null
-          color?: string | null
-          comision_fija?: number
-          comision_iva_incluido?: boolean
-          comision_porcentaje?: number
-          created_at?: string
-          cuenta_bancaria_id?: string | null
-          empresa_id: string
-          es_fiscal?: boolean
-          icono?: string | null
-          id?: string
-          nombre: string
-          orden?: number
-          plazo_msi?: number | null
-          proveedor: string
-          sucursal_id?: string | null
-          tipo: "EFECTIVO" | "TRANSFERENCIA" | "TARJETA_DEBITO" | "TARJETA_CREDITO" | "MSI" | "BNPL" | "OTRO"
-          updated_at?: string
-        }
-        Update: {
-          activo?: boolean
-          caja_fondo_id?: string | null
-          color?: string | null
-          comision_fija?: number
-          comision_iva_incluido?: boolean
-          comision_porcentaje?: number
-          created_at?: string
-          cuenta_bancaria_id?: string | null
-          empresa_id?: string
-          es_fiscal?: boolean
-          icono?: string | null
-          id?: string
-          nombre?: string
-          orden?: number
-          plazo_msi?: number | null
-          proveedor?: string
-          sucursal_id?: string | null
-          tipo?: "EFECTIVO" | "TRANSFERENCIA" | "TARJETA_DEBITO" | "TARJETA_CREDITO" | "MSI" | "BNPL" | "OTRO"
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "tenant_metodos_pago_cuenta_bancaria_id_fkey"
-            columns: ["cuenta_bancaria_id"]
-            isOneToOne: false
-            referencedRelation: "cuentas_bancarias"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tenant_metodos_pago_caja_fondo_id_fkey"
-            columns: ["caja_fondo_id"]
-            isOneToOne: false
-            referencedRelation: "caja_fondos"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
       audit_logs: {
         Row: {
           action: string
@@ -967,6 +621,173 @@ export type Database = {
           telefono?: string
         }
         Relationships: []
+      }
+      compras_proveedores: {
+        Row: {
+          caja_fondo_id: string | null
+          caja_movimiento_id: string | null
+          caja_turno_id: string | null
+          cotizacion_id: string | null
+          created_at: string
+          cuenta_bancaria_id: string | null
+          descripcion: string
+          empresa_id: string
+          estatus_garantia: string
+          estatus_pago: string
+          evidencia_storage_path: string | null
+          evidencia_tipo: string | null
+          evidencia_url: string | null
+          fecha_compra: string
+          fecha_limite_pago: string | null
+          fecha_vencimiento_garantia: string | null
+          folio_ticket_nota: string
+          fuente_pago: string
+          id: string
+          meses_garantia: number
+          monto_costo: number
+          monto_pagado: number
+          monto_saldo_pendiente: number
+          notas_garantia: string | null
+          orden_servicio_id: string | null
+          proveedor_id: string
+          sucursal_id: string | null
+          updated_at: string
+          usuario_id: string | null
+        }
+        Insert: {
+          caja_fondo_id?: string | null
+          caja_movimiento_id?: string | null
+          caja_turno_id?: string | null
+          cotizacion_id?: string | null
+          created_at?: string
+          cuenta_bancaria_id?: string | null
+          descripcion: string
+          empresa_id: string
+          estatus_garantia?: string
+          estatus_pago?: string
+          evidencia_storage_path?: string | null
+          evidencia_tipo?: string | null
+          evidencia_url?: string | null
+          fecha_compra?: string
+          fecha_limite_pago?: string | null
+          fecha_vencimiento_garantia?: string | null
+          folio_ticket_nota: string
+          fuente_pago: string
+          id?: string
+          meses_garantia?: number
+          monto_costo: number
+          monto_pagado?: number
+          monto_saldo_pendiente?: number
+          notas_garantia?: string | null
+          orden_servicio_id?: string | null
+          proveedor_id: string
+          sucursal_id?: string | null
+          updated_at?: string
+          usuario_id?: string | null
+        }
+        Update: {
+          caja_fondo_id?: string | null
+          caja_movimiento_id?: string | null
+          caja_turno_id?: string | null
+          cotizacion_id?: string | null
+          created_at?: string
+          cuenta_bancaria_id?: string | null
+          descripcion?: string
+          empresa_id?: string
+          estatus_garantia?: string
+          estatus_pago?: string
+          evidencia_storage_path?: string | null
+          evidencia_tipo?: string | null
+          evidencia_url?: string | null
+          fecha_compra?: string
+          fecha_limite_pago?: string | null
+          fecha_vencimiento_garantia?: string | null
+          folio_ticket_nota?: string
+          fuente_pago?: string
+          id?: string
+          meses_garantia?: number
+          monto_costo?: number
+          monto_pagado?: number
+          monto_saldo_pendiente?: number
+          notas_garantia?: string | null
+          orden_servicio_id?: string | null
+          proveedor_id?: string
+          sucursal_id?: string | null
+          updated_at?: string
+          usuario_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compras_proveedores_caja_fondo_id_fkey"
+            columns: ["caja_fondo_id"]
+            isOneToOne: false
+            referencedRelation: "caja_fondos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compras_proveedores_caja_movimiento_id_fkey"
+            columns: ["caja_movimiento_id"]
+            isOneToOne: false
+            referencedRelation: "caja_movimientos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compras_proveedores_caja_turno_id_fkey"
+            columns: ["caja_turno_id"]
+            isOneToOne: false
+            referencedRelation: "caja_turnos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compras_proveedores_cotizacion_id_fkey"
+            columns: ["cotizacion_id"]
+            isOneToOne: false
+            referencedRelation: "cotizaciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compras_proveedores_cuenta_bancaria_id_fkey"
+            columns: ["cuenta_bancaria_id"]
+            isOneToOne: false
+            referencedRelation: "cuentas_bancarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compras_proveedores_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compras_proveedores_orden_servicio_id_fkey"
+            columns: ["orden_servicio_id"]
+            isOneToOne: false
+            referencedRelation: "ordenes_servicio"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compras_proveedores_proveedor_id_fkey"
+            columns: ["proveedor_id"]
+            isOneToOne: false
+            referencedRelation: "proveedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compras_proveedores_sucursal_id_fkey"
+            columns: ["sucursal_id"]
+            isOneToOne: false
+            referencedRelation: "sucursales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compras_proveedores_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       configuracion_pagos: {
         Row: {
@@ -1780,6 +1601,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "orden_servicio_refacciones_compra_proveedor_id_fkey"
+            columns: ["compra_proveedor_id"]
+            isOneToOne: false
+            referencedRelation: "compras_proveedores"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "orden_servicio_refacciones_empresa_id_fkey"
             columns: ["empresa_id"]
             isOneToOne: false
@@ -1791,6 +1619,13 @@ export type Database = {
             columns: ["orden_servicio_id"]
             isOneToOne: false
             referencedRelation: "ordenes_servicio"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orden_servicio_refacciones_proveedor_id_fkey"
+            columns: ["proveedor_id"]
+            isOneToOne: false
+            referencedRelation: "proveedores"
             referencedColumns: ["id"]
           },
         ]
@@ -2122,6 +1957,13 @@ export type Database = {
             referencedRelation: "sucursales"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "pagos_orden_tenant_metodo_pago_id_fkey"
+            columns: ["tenant_metodo_pago_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_metodos_pago"
+            referencedColumns: ["id"]
+          },
         ]
       }
       perfiles: {
@@ -2197,6 +2039,205 @@ export type Database = {
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proveedores: {
+        Row: {
+          activo: boolean
+          condiciones_garantia: string | null
+          contacto_nombre: string | null
+          created_at: string
+          dias_credito: number
+          email: string | null
+          empresa_id: string
+          id: string
+          limite_credito: number
+          meses_garantia_default: number
+          nombre_comercial: string
+          razon_social: string | null
+          rfc: string | null
+          saldo_deudor_actual: number
+          sucursal_id: string | null
+          telefono: string | null
+          updated_at: string
+          whatsapp: string | null
+        }
+        Insert: {
+          activo?: boolean
+          condiciones_garantia?: string | null
+          contacto_nombre?: string | null
+          created_at?: string
+          dias_credito?: number
+          email?: string | null
+          empresa_id: string
+          id?: string
+          limite_credito?: number
+          meses_garantia_default?: number
+          nombre_comercial: string
+          razon_social?: string | null
+          rfc?: string | null
+          saldo_deudor_actual?: number
+          sucursal_id?: string | null
+          telefono?: string | null
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          activo?: boolean
+          condiciones_garantia?: string | null
+          contacto_nombre?: string | null
+          created_at?: string
+          dias_credito?: number
+          email?: string | null
+          empresa_id?: string
+          id?: string
+          limite_credito?: number
+          meses_garantia_default?: number
+          nombre_comercial?: string
+          razon_social?: string | null
+          rfc?: string | null
+          saldo_deudor_actual?: number
+          sucursal_id?: string | null
+          telefono?: string | null
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proveedores_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proveedores_sucursal_id_fkey"
+            columns: ["sucursal_id"]
+            isOneToOne: false
+            referencedRelation: "sucursales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proveedores_abonos: {
+        Row: {
+          caja_fondo_id: string | null
+          caja_movimiento_id: string | null
+          caja_turno_id: string | null
+          compra_id: string | null
+          comprobante_url: string | null
+          created_at: string
+          cuenta_bancaria_id: string | null
+          empresa_id: string
+          fecha_abono: string
+          id: string
+          metodo_pago: string
+          monto: number
+          proveedor_id: string
+          referencia: string | null
+          sucursal_id: string | null
+          usuario_id: string | null
+        }
+        Insert: {
+          caja_fondo_id?: string | null
+          caja_movimiento_id?: string | null
+          caja_turno_id?: string | null
+          compra_id?: string | null
+          comprobante_url?: string | null
+          created_at?: string
+          cuenta_bancaria_id?: string | null
+          empresa_id: string
+          fecha_abono?: string
+          id?: string
+          metodo_pago: string
+          monto: number
+          proveedor_id: string
+          referencia?: string | null
+          sucursal_id?: string | null
+          usuario_id?: string | null
+        }
+        Update: {
+          caja_fondo_id?: string | null
+          caja_movimiento_id?: string | null
+          caja_turno_id?: string | null
+          compra_id?: string | null
+          comprobante_url?: string | null
+          created_at?: string
+          cuenta_bancaria_id?: string | null
+          empresa_id?: string
+          fecha_abono?: string
+          id?: string
+          metodo_pago?: string
+          monto?: number
+          proveedor_id?: string
+          referencia?: string | null
+          sucursal_id?: string | null
+          usuario_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proveedores_abonos_caja_fondo_id_fkey"
+            columns: ["caja_fondo_id"]
+            isOneToOne: false
+            referencedRelation: "caja_fondos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proveedores_abonos_caja_movimiento_id_fkey"
+            columns: ["caja_movimiento_id"]
+            isOneToOne: false
+            referencedRelation: "caja_movimientos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proveedores_abonos_caja_turno_id_fkey"
+            columns: ["caja_turno_id"]
+            isOneToOne: false
+            referencedRelation: "caja_turnos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proveedores_abonos_compra_id_fkey"
+            columns: ["compra_id"]
+            isOneToOne: false
+            referencedRelation: "compras_proveedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proveedores_abonos_cuenta_bancaria_id_fkey"
+            columns: ["cuenta_bancaria_id"]
+            isOneToOne: false
+            referencedRelation: "cuentas_bancarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proveedores_abonos_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proveedores_abonos_proveedor_id_fkey"
+            columns: ["proveedor_id"]
+            isOneToOne: false
+            referencedRelation: "proveedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proveedores_abonos_sucursal_id_fkey"
+            columns: ["sucursal_id"]
+            isOneToOne: false
+            referencedRelation: "sucursales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proveedores_abonos_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2406,6 +2447,142 @@ export type Database = {
           },
         ]
       }
+      tenant_kpi_categorias: {
+        Row: {
+          activo: boolean
+          created_at: string
+          empresa_id: string
+          id: string
+          keywords: string[]
+          nombre: string
+          orden: number
+          unidad: string
+        }
+        Insert: {
+          activo?: boolean
+          created_at?: string
+          empresa_id: string
+          id?: string
+          keywords?: string[]
+          nombre: string
+          orden?: number
+          unidad?: string
+        }
+        Update: {
+          activo?: boolean
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          keywords?: string[]
+          nombre?: string
+          orden?: number
+          unidad?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_kpi_categorias_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_metodos_pago: {
+        Row: {
+          activo: boolean
+          caja_fondo_id: string | null
+          color: string | null
+          comision_fija: number
+          comision_iva_incluido: boolean
+          comision_porcentaje: number
+          created_at: string
+          cuenta_bancaria_id: string | null
+          empresa_id: string
+          es_fiscal: boolean
+          icono: string | null
+          id: string
+          nombre: string
+          orden: number
+          plazo_msi: number | null
+          proveedor: string
+          sucursal_id: string | null
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          caja_fondo_id?: string | null
+          color?: string | null
+          comision_fija?: number
+          comision_iva_incluido?: boolean
+          comision_porcentaje?: number
+          created_at?: string
+          cuenta_bancaria_id?: string | null
+          empresa_id: string
+          es_fiscal?: boolean
+          icono?: string | null
+          id?: string
+          nombre: string
+          orden?: number
+          plazo_msi?: number | null
+          proveedor: string
+          sucursal_id?: string | null
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          caja_fondo_id?: string | null
+          color?: string | null
+          comision_fija?: number
+          comision_iva_incluido?: boolean
+          comision_porcentaje?: number
+          created_at?: string
+          cuenta_bancaria_id?: string | null
+          empresa_id?: string
+          es_fiscal?: boolean
+          icono?: string | null
+          id?: string
+          nombre?: string
+          orden?: number
+          plazo_msi?: number | null
+          proveedor?: string
+          sucursal_id?: string | null
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_metodos_pago_caja_fondo_id_fkey"
+            columns: ["caja_fondo_id"]
+            isOneToOne: false
+            referencedRelation: "caja_fondos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_metodos_pago_cuenta_bancaria_id_fkey"
+            columns: ["cuenta_bancaria_id"]
+            isOneToOne: false
+            referencedRelation: "cuentas_bancarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_metodos_pago_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_metodos_pago_sucursal_id_fkey"
+            columns: ["sucursal_id"]
+            isOneToOne: false
+            referencedRelation: "sucursales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trabajos_diferidos: {
         Row: {
           categoria: string | null
@@ -2609,12 +2786,6 @@ export type Database = {
       }
     }
     Functions: {
-      fn_resumen_corte_diario_auditoria: {
-        Args: {
-          p_turno_id: string
-        }
-        Returns: Json
-      }
       crear_empresa_y_perfil: {
         Args: { p_nombre_empresa: string; p_nombre_usuario: string }
         Returns: undefined
@@ -2716,6 +2887,10 @@ export type Database = {
             }
             Returns: Json
           }
+      fn_resumen_corte_diario_auditoria: {
+        Args: { p_turno_id: string }
+        Returns: Json
+      }
       fn_traspaso_entre_fondos: {
         Args: {
           p_concepto: string

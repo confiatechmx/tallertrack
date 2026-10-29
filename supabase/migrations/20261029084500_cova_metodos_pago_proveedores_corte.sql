@@ -612,6 +612,33 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('proveedores-evidencias', 'proveedores-evidencias', true) 
 ON CONFLICT (id) DO NOTHING;
 
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE tablename = 'objects' 
+          AND schemaname = 'storage' 
+          AND policyname = 'Authenticated users can upload evidencias'
+    ) THEN
+        CREATE POLICY "Authenticated users can upload evidencias"
+        ON storage.objects FOR INSERT
+        TO authenticated
+        WITH CHECK (bucket_id = 'proveedores-evidencias');
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE tablename = 'objects' 
+          AND schemaname = 'storage' 
+          AND policyname = 'Public read for evidencias'
+    ) THEN
+        CREATE POLICY "Public read for evidencias"
+        ON storage.objects FOR SELECT
+        TO public
+        USING (bucket_id = 'proveedores-evidencias');
+    END IF;
+END $$;
+
 -- 13. SEED DATA OFICIAL PARA COVA TIRES
 DO $$
 DECLARE
