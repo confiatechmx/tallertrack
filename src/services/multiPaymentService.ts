@@ -7,7 +7,8 @@ export type MetodoPagoTipo =
   | "KueskiPay"
   | "Atrato"
   | "Mercado Pago"
-  | "Stripe";
+  | "Stripe"
+  | "MSI";
 
 export interface PaymentSplitItem {
   id: string;
@@ -19,6 +20,11 @@ export interface PaymentSplitItem {
   detalle?: string;
   cuentaBancariaId?: string;
   cajaFondoId?: string;
+  tenantMetodoPagoId?: string;
+  comisionMonto?: number;
+  montoNeto?: number;
+  plazoMsi?: number | null;
+  esFiscal?: boolean;
 }
 
 export interface RegistrarVentaMultiParams {
@@ -73,6 +79,10 @@ export const MultiPaymentService = {
         detalle: p.detalle?.trim() || null,
         cuenta_bancaria_id: p.cuentaBancariaId || null,
         caja_fondo_id: p.cajaFondoId || null,
+        tenant_metodo_pago_id: p.tenantMetodoPagoId || null,
+        comision_monto: Number(p.comisionMonto || 0),
+        monto_neto: Number((p.montoNeto ?? p.monto).toFixed(2)),
+        plazo_msi: p.plazoMsi || null,
       }));
 
       const { data, error } = await supabase.rpc("fn_registrar_venta_multi_pago", {
@@ -126,6 +136,10 @@ export const MultiPaymentService = {
         detalle: p.detalle?.trim() || null,
         cuenta_bancaria_id: p.cuentaBancariaId || null,
         caja_fondo_id: p.cajaFondoId || null,
+        tenant_metodo_pago_id: p.tenantMetodoPagoId || null,
+        comision_monto: Number(p.comisionMonto || 0),
+        monto_neto: Number((p.montoNeto ?? p.monto).toFixed(2)),
+        plazo_msi: p.plazoMsi || null,
       }));
 
       const { data, error } = await supabase.rpc("fn_registrar_pagos_orden_multi", {

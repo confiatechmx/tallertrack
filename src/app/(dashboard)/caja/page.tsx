@@ -14,6 +14,8 @@ import { AbrirTurnoModal } from "@/components/caja/AbrirTurnoModal";
 import { TraspasoFondosModal } from "@/components/caja/TraspasoFondosModal";
 import { CorteCiegoModal } from "@/components/caja/CorteCiegoModal";
 import { TicketCierreModal } from "@/components/caja/TicketCierreModal";
+import { CorteDiarioAuditoriaModal } from "@/components/caja/CorteDiarioAuditoriaModal";
+import { ProveedorEvidenceModal } from "@/components/proveedores/ProveedorEvidenceModal";
 import {
   CajaTurnoService,
   CajaTurno,
@@ -88,6 +90,9 @@ export default function CajaPage() {
   const [isCorteOpen, setIsCorteOpen] = useState(false);
   const [ticketCierreOpen, setTicketCierreOpen] = useState(false);
   const [cierreTicketData, setCierreTicketData] = useState<any | null>(null);
+  const [auditoriaModalOpen, setAuditoriaModalOpen] = useState(false);
+  const [auditoriaTurnoId, setAuditoriaTurnoId] = useState<string | null>(null);
+  const [proveedorEvidenceOpen, setProveedorEvidenceOpen] = useState(false);
 
   const [posSelectedOrderId, setPosSelectedOrderId] = useState<string | null>(null);
   const [posSearchQuery, setPosSearchQuery] = useState("");
@@ -1987,15 +1992,36 @@ export default function CajaPage() {
                     Auditoría inmutable de cierres, arqueos de gaveta, remesas y desviaciones
                   </p>
                 </div>
-                {historialTurnos.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {turnoActivo && (
+                    <button
+                      onClick={() => {
+                        setAuditoriaTurnoId(turnoActivo.id);
+                        setAuditoriaModalOpen(true);
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
+                    >
+                      <FileSpreadsheet size={14} />
+                      <span>Auditoría Turno Activo (Excel / PDF)</span>
+                    </button>
+                  )}
                   <button
-                    onClick={handleExportHistorialCSV}
-                    className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors shrink-0 shadow-xs"
+                    onClick={() => setProveedorEvidenceOpen(true)}
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
                   >
-                    <FileSpreadsheet size={14} className="text-emerald-600" />
-                    <span>Exportar a Excel (CSV)</span>
+                    <Plus size={14} className="text-primary" />
+                    <span>Evidencia Proveedor</span>
                   </button>
-                )}
+                  {historialTurnos.length > 0 && (
+                    <button
+                      onClick={handleExportHistorialCSV}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors shrink-0 shadow-xs cursor-pointer"
+                    >
+                      <FileSpreadsheet size={14} className="text-emerald-600" />
+                      <span>Exportar CSV</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="overflow-x-auto">
@@ -2086,29 +2112,42 @@ export default function CajaPage() {
                               </span>
                             </td>
                             <td className="py-3 px-4 text-right">
-                              {t.estado === "CERRADO" && (
+                              <div className="flex items-center justify-end gap-2">
+                                {t.estado === "CERRADO" && (
+                                  <button
+                                    onClick={() => {
+                                      setCierreTicketData({
+                                        turno_id: t.id,
+                                        declaradoF1: t.monto_cierre_declarado_f1,
+                                        declaradoF2: t.monto_cierre_declarado_f2,
+                                        teoricoF1: t.monto_cierre_teorico_f1,
+                                        teoricoF2: t.monto_cierre_teorico_f2,
+                                        diferenciaF1: t.diferencia_f1,
+                                        diferenciaF2: t.diferencia_f2,
+                                        remesa: t.monto_remesa_retirada,
+                                        fondoSiguiente: t.monto_fondo_siguiente_f1,
+                                        resumenTeorico: t.snapshot_resumen,
+                                      });
+                                      setTicketCierreOpen(true);
+                                    }}
+                                    className="text-[11px] font-bold text-primary hover:underline inline-flex items-center gap-1"
+                                  >
+                                    <Printer size={12} />
+                                    <span>Ticket Z</span>
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => {
-                                    setCierreTicketData({
-                                      turno_id: t.id,
-                                      declaradoF1: t.monto_cierre_declarado_f1,
-                                      declaradoF2: t.monto_cierre_declarado_f2,
-                                      teoricoF1: t.monto_cierre_teorico_f1,
-                                      teoricoF2: t.monto_cierre_teorico_f2,
-                                      diferenciaF1: t.diferencia_f1,
-                                      diferenciaF2: t.diferencia_f2,
-                                      remesa: t.monto_remesa_retirada,
-                                      fondoSiguiente: t.monto_fondo_siguiente_f1,
-                                      resumenTeorico: t.snapshot_resumen,
-                                    });
-                                    setTicketCierreOpen(true);
+                                    setAuditoriaTurnoId(t.id);
+                                    setAuditoriaModalOpen(true);
                                   }}
-                                  className="text-[11px] font-bold text-primary hover:underline inline-flex items-center gap-1"
+                                  className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                                  title="Auditoría y Reporte Excel"
                                 >
-                                  <Printer size={12} />
-                                  <span>Ticket Z</span>
+                                  <FileSpreadsheet size={12} />
+                                  <span>Auditar / Excel</span>
                                 </button>
-                              )}
+                              </div>
                             </td>
                           </tr>
                         );
@@ -2414,6 +2453,29 @@ export default function CajaPage() {
         empresaNombre={empresa?.nombre_comercial || "Cova Tires"}
         sucursalNombre={sucursalActiva?.nombre || "Matriz San Pedro"}
         cajeroNombre="Alejandro Villarreal"
+      />
+
+      {/* Modal: Auditoría y Corte Diario (Excel 3 Hojas, PDF, Comisiones y Bancos) */}
+      <CorteDiarioAuditoriaModal
+        isOpen={auditoriaModalOpen}
+        onClose={() => setAuditoriaModalOpen(false)}
+        turnoId={auditoriaTurnoId || turnoActivo?.id || ""}
+        nombreTaller={empresa?.nombre_comercial || "Cova Tires"}
+        onTurnoAuditado={() => {
+          loadData();
+        }}
+      />
+
+      {/* Modal: Registro de Refacción / Compra y Evidencia de Proveedor */}
+      <ProveedorEvidenceModal
+        isOpen={proveedorEvidenceOpen}
+        onClose={() => setProveedorEvidenceOpen(false)}
+        empresaId={empresa?.id || "b2ad09db-0a34-4876-9ca3-d584c40bd294"}
+        sucursalId={sucursalActiva?.id || "b2ad09db-0a34-4876-9ca3-d584c40bd295"}
+        cajaTurnoId={turnoActivo?.id}
+        onCompraRegistrada={() => {
+          loadData();
+        }}
       />
     </div>
   );

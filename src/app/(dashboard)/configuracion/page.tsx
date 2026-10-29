@@ -32,8 +32,10 @@ import {
 import { toast } from "sonner";
 import TenantBrandLogo from "@/components/brand/TenantBrandLogo";
 import CustomDomainModal from "@/components/hq/CustomDomainModal";
+import { TenantMetodosPagoConfig } from "@/components/configuracion/TenantMetodosPagoConfig";
+import { ProveedoresConfigSection } from "@/components/proveedores/ProveedoresConfigSection";
 
-type ConfigTab = "WhiteLabel" | "Sucursales" | "Personal" | "Pagos";
+type ConfigTab = "WhiteLabel" | "Sucursales" | "Personal" | "Pagos" | "Proveedores";
 
 const AVATAR_COLORS = [
   "#2563EB",
@@ -537,7 +539,18 @@ export default function ConfiguracionPage() {
             }`}
           >
             <Landmark size={16} />
-            4. Métodos de Pago y Comisiones
+            4. Métodos de Pago y Bancos
+          </button>
+          <button
+            onClick={() => setActiveTab("Proveedores")}
+            className={`pb-3.5 text-xs md:text-sm font-bold border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${
+              activeTab === "Proveedores"
+                ? "border-primary text-primary"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <Building2 size={16} />
+            5. Proveedores y Crédito
           </button>
         </nav>
       </div>
@@ -1181,6 +1194,27 @@ export default function ConfiguracionPage() {
         {/* TAB 4: MÉTODOS DE PAGO Y COMISIONES BANCARIAS             */}
         {/* ========================================================= */}
         {activeTab === "Pagos" && (
+          <div className="max-w-4xl mx-auto space-y-6">
+            <TenantMetodosPagoConfig
+              empresaId={tenantEmpresa?.id || "b2ad09db-0a34-4876-9ca3-d584c40bd294"}
+              sucursalId={sucursalActiva?.id}
+            />
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* TAB 5: CATÁLOGO DE PROVEEDORES, CRÉDITO Y GARANTÍAS       */}
+        {/* ========================================================= */}
+        {activeTab === "Proveedores" && (
+          <div className="max-w-4xl mx-auto space-y-6">
+            <ProveedoresConfigSection
+              empresaId={tenantEmpresa?.id || "b2ad09db-0a34-4876-9ca3-d584c40bd294"}
+              sucursalId={sucursalActiva?.id}
+            />
+          </div>
+        )}
+
+        {false && activeTab === "Pagos" && (
           <div className="max-w-3xl mx-auto bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
             <div className="p-5 bg-slate-50 border-b border-slate-200">
               <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
