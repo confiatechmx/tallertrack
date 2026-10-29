@@ -14,6 +14,352 @@ export type Database = {
   }
   public: {
     Tables: {
+      compras_proveedores: {
+        Row: {
+          caja_fondo_id: string | null
+          caja_movimiento_id: string | null
+          caja_turno_id: string | null
+          cotizacion_id: string | null
+          created_at: string
+          cuenta_bancaria_id: string | null
+          descripcion: string
+          empresa_id: string
+          estatus_garantia: "VIGENTE" | "EXPIRADA" | "EN_RECLAMACION" | "APLICADA" | "RECHAZADA"
+          estatus_pago: "PAGADO" | "PENDIENTE" | "PARCIAL" | "VENCIDO" | "CANCELADO"
+          evidencia_storage_path: string | null
+          evidencia_tipo: "IMAGE" | "PDF" | "OTHER" | null
+          evidencia_url: string | null
+          fecha_compra: string
+          fecha_limite_pago: string | null
+          fecha_vencimiento_garantia: string | null
+          folio_ticket_nota: string
+          fuente_pago: "CAJA_CHICA" | "FONDO_RESERVA" | "TRANSFERENCIA" | "CREDITO_PENDIENTE"
+          id: string
+          meses_garantia: number
+          monto_costo: number
+          monto_pagado: number
+          monto_saldo_pendiente: number
+          notas_garantia: string | null
+          orden_servicio_id: string | null
+          proveedor_id: string
+          sucursal_id: string | null
+          updated_at: string
+          usuario_id: string | null
+        }
+        Insert: {
+          caja_fondo_id?: string | null
+          caja_movimiento_id?: string | null
+          caja_turno_id?: string | null
+          cotizacion_id?: string | null
+          created_at?: string
+          cuenta_bancaria_id?: string | null
+          descripcion: string
+          empresa_id: string
+          estatus_garantia?: "VIGENTE" | "EXPIRADA" | "EN_RECLAMACION" | "APLICADA" | "RECHAZADA"
+          estatus_pago?: "PAGADO" | "PENDIENTE" | "PARCIAL" | "VENCIDO" | "CANCELADO"
+          evidencia_storage_path?: string | null
+          evidencia_tipo?: "IMAGE" | "PDF" | "OTHER" | null
+          evidencia_url?: string | null
+          fecha_compra?: string
+          fecha_limite_pago?: string | null
+          fecha_vencimiento_garantia?: string | null
+          folio_ticket_nota: string
+          fuente_pago: "CAJA_CHICA" | "FONDO_RESERVA" | "TRANSFERENCIA" | "CREDITO_PENDIENTE"
+          id?: string
+          meses_garantia?: number
+          monto_costo: number
+          monto_pagado?: number
+          monto_saldo_pendiente?: number
+          notas_garantia?: string | null
+          orden_servicio_id?: string | null
+          proveedor_id: string
+          sucursal_id?: string | null
+          updated_at?: string
+          usuario_id?: string | null
+        }
+        Update: {
+          caja_fondo_id?: string | null
+          caja_movimiento_id?: string | null
+          caja_turno_id?: string | null
+          cotizacion_id?: string | null
+          created_at?: string
+          cuenta_bancaria_id?: string | null
+          descripcion?: string
+          empresa_id?: string
+          estatus_garantia?: "VIGENTE" | "EXPIRADA" | "EN_RECLAMACION" | "APLICADA" | "RECHAZADA"
+          estatus_pago?: "PAGADO" | "PENDIENTE" | "PARCIAL" | "VENCIDO" | "CANCELADO"
+          evidencia_storage_path?: string | null
+          evidencia_tipo?: "IMAGE" | "PDF" | "OTHER" | null
+          evidencia_url?: string | null
+          fecha_compra?: string
+          fecha_limite_pago?: string | null
+          fecha_vencimiento_garantia?: string | null
+          folio_ticket_nota?: string
+          fuente_pago?: "CAJA_CHICA" | "FONDO_RESERVA" | "TRANSFERENCIA" | "CREDITO_PENDIENTE"
+          id?: string
+          meses_garantia?: number
+          monto_costo?: number
+          monto_pagado?: number
+          monto_saldo_pendiente?: number
+          notas_garantia?: string | null
+          orden_servicio_id?: string | null
+          proveedor_id?: string
+          sucursal_id?: string | null
+          updated_at?: string
+          usuario_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compras_proveedores_proveedor_id_fkey"
+            columns: ["proveedor_id"]
+            isOneToOne: false
+            referencedRelation: "proveedores"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      proveedores: {
+        Row: {
+          activo: boolean
+          condiciones_garantia: string | null
+          contacto_nombre: string | null
+          created_at: string
+          dias_credito: number
+          email: string | null
+          empresa_id: string
+          id: string
+          limite_credito: number
+          meses_garantia_default: number
+          nombre_comercial: string
+          razon_social: string | null
+          rfc: string | null
+          saldo_deudor_actual: number
+          sucursal_id: string | null
+          telefono: string | null
+          updated_at: string
+          whatsapp: string | null
+        }
+        Insert: {
+          activo?: boolean
+          condiciones_garantia?: string | null
+          contacto_nombre?: string | null
+          created_at?: string
+          dias_credito?: number
+          email?: string | null
+          empresa_id: string
+          id?: string
+          limite_credito?: number
+          meses_garantia_default?: number
+          nombre_comercial: string
+          razon_social?: string | null
+          rfc?: string | null
+          saldo_deudor_actual?: number
+          sucursal_id?: string | null
+          telefono?: string | null
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          activo?: boolean
+          condiciones_garantia?: string | null
+          contacto_nombre?: string | null
+          created_at?: string
+          dias_credito?: number
+          email?: string | null
+          empresa_id?: string
+          id?: string
+          limite_credito?: number
+          meses_garantia_default?: number
+          nombre_comercial?: string
+          razon_social?: string | null
+          rfc?: string | null
+          saldo_deudor_actual?: number
+          sucursal_id?: string | null
+          telefono?: string | null
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
+      proveedores_abonos: {
+        Row: {
+          caja_fondo_id: string | null
+          caja_movimiento_id: string | null
+          caja_turno_id: string | null
+          compra_id: string | null
+          comprobante_url: string | null
+          created_at: string
+          cuenta_bancaria_id: string | null
+          empresa_id: string
+          fecha_abono: string
+          id: string
+          metodo_pago: "EFECTIVO_CAJA" | "FONDO_RESERVA" | "TRANSFERENCIA" | "OTRO"
+          monto: number
+          proveedor_id: string
+          referencia: string | null
+          sucursal_id: string | null
+          usuario_id: string | null
+        }
+        Insert: {
+          caja_fondo_id?: string | null
+          caja_movimiento_id?: string | null
+          caja_turno_id?: string | null
+          compra_id?: string | null
+          comprobante_url?: string | null
+          created_at?: string
+          cuenta_bancaria_id?: string | null
+          empresa_id: string
+          fecha_abono?: string
+          id?: string
+          metodo_pago: "EFECTIVO_CAJA" | "FONDO_RESERVA" | "TRANSFERENCIA" | "OTRO"
+          monto: number
+          proveedor_id: string
+          referencia?: string | null
+          sucursal_id?: string | null
+          usuario_id?: string | null
+        }
+        Update: {
+          caja_fondo_id?: string | null
+          caja_movimiento_id?: string | null
+          caja_turno_id?: string | null
+          compra_id?: string | null
+          comprobante_url?: string | null
+          created_at?: string
+          cuenta_bancaria_id?: string | null
+          empresa_id?: string
+          fecha_abono?: string
+          id?: string
+          metodo_pago?: "EFECTIVO_CAJA" | "FONDO_RESERVA" | "TRANSFERENCIA" | "OTRO"
+          monto?: number
+          proveedor_id?: string
+          referencia?: string | null
+          sucursal_id?: string | null
+          usuario_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proveedores_abonos_proveedor_id_fkey"
+            columns: ["proveedor_id"]
+            isOneToOne: false
+            referencedRelation: "proveedores"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      tenant_kpi_categorias: {
+        Row: {
+          activo: boolean
+          created_at: string
+          empresa_id: string
+          id: string
+          keywords: string[]
+          nombre: string
+          orden: number
+          unidad: string
+        }
+        Insert: {
+          activo?: boolean
+          created_at?: string
+          empresa_id: string
+          id?: string
+          keywords?: string[]
+          nombre: string
+          orden?: number
+          unidad?: string
+        }
+        Update: {
+          activo?: boolean
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          keywords?: string[]
+          nombre?: string
+          orden?: number
+          unidad?: string
+        }
+        Relationships: []
+      }
+      tenant_metodos_pago: {
+        Row: {
+          activo: boolean
+          caja_fondo_id: string | null
+          color: string | null
+          comision_fija: number
+          comision_iva_incluido: boolean
+          comision_porcentaje: number
+          created_at: string
+          cuenta_bancaria_id: string | null
+          empresa_id: string
+          es_fiscal: boolean
+          icono: string | null
+          id: string
+          nombre: string
+          orden: number
+          plazo_msi: number | null
+          proveedor: string
+          sucursal_id: string | null
+          tipo: "EFECTIVO" | "TRANSFERENCIA" | "TARJETA_DEBITO" | "TARJETA_CREDITO" | "MSI" | "BNPL" | "OTRO"
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          caja_fondo_id?: string | null
+          color?: string | null
+          comision_fija?: number
+          comision_iva_incluido?: boolean
+          comision_porcentaje?: number
+          created_at?: string
+          cuenta_bancaria_id?: string | null
+          empresa_id: string
+          es_fiscal?: boolean
+          icono?: string | null
+          id?: string
+          nombre: string
+          orden?: number
+          plazo_msi?: number | null
+          proveedor: string
+          sucursal_id?: string | null
+          tipo: "EFECTIVO" | "TRANSFERENCIA" | "TARJETA_DEBITO" | "TARJETA_CREDITO" | "MSI" | "BNPL" | "OTRO"
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          caja_fondo_id?: string | null
+          color?: string | null
+          comision_fija?: number
+          comision_iva_incluido?: boolean
+          comision_porcentaje?: number
+          created_at?: string
+          cuenta_bancaria_id?: string | null
+          empresa_id?: string
+          es_fiscal?: boolean
+          icono?: string | null
+          id?: string
+          nombre?: string
+          orden?: number
+          plazo_msi?: number | null
+          proveedor?: string
+          sucursal_id?: string | null
+          tipo?: "EFECTIVO" | "TRANSFERENCIA" | "TARJETA_DEBITO" | "TARJETA_CREDITO" | "MSI" | "BNPL" | "OTRO"
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_metodos_pago_cuenta_bancaria_id_fkey"
+            columns: ["cuenta_bancaria_id"]
+            isOneToOne: false
+            referencedRelation: "cuentas_bancarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_metodos_pago_caja_fondo_id_fkey"
+            columns: ["caja_fondo_id"]
+            isOneToOne: false
+            referencedRelation: "caja_fondos"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
@@ -843,9 +1189,11 @@ export type Database = {
           clabe: string | null
           created_at: string
           empresa_id: string
+          es_fiscal: boolean
           id: string
           numero_cuenta: string | null
           sucursal_id: string | null
+          tipo_cuenta: string | null
           titular: string | null
         }
         Insert: {
@@ -855,9 +1203,11 @@ export type Database = {
           clabe?: string | null
           created_at?: string
           empresa_id: string
+          es_fiscal?: boolean
           id?: string
           numero_cuenta?: string | null
           sucursal_id?: string | null
+          tipo_cuenta?: string | null
           titular?: string | null
         }
         Update: {
@@ -867,9 +1217,11 @@ export type Database = {
           clabe?: string | null
           created_at?: string
           empresa_id?: string
+          es_fiscal?: boolean
           id?: string
           numero_cuenta?: string | null
           sucursal_id?: string | null
+          tipo_cuenta?: string | null
           titular?: string | null
         }
         Relationships: [
@@ -1368,10 +1720,14 @@ export type Database = {
       orden_servicio_refacciones: {
         Row: {
           cantidad: number
+          compra_proveedor_id: string | null
           costo_unitario: number
           created_at: string
           empresa_id: string
           estatus_aprobacion: string | null
+          evidencia_url: string | null
+          folio_ticket_nota: string | null
+          fuente_pago: string | null
           id: string
           margen_porcentaje: number
           nombre: string
@@ -1379,14 +1735,19 @@ export type Database = {
           orden_servicio_id: string
           precio_unitario: number
           proveedor: string | null
+          proveedor_id: string | null
           subtotal: number
         }
         Insert: {
           cantidad?: number
+          compra_proveedor_id?: string | null
           costo_unitario?: number
           created_at?: string
           empresa_id?: string
           estatus_aprobacion?: string | null
+          evidencia_url?: string | null
+          folio_ticket_nota?: string | null
+          fuente_pago?: string | null
           id?: string
           margen_porcentaje?: number
           nombre: string
@@ -1394,14 +1755,19 @@ export type Database = {
           orden_servicio_id: string
           precio_unitario?: number
           proveedor?: string | null
+          proveedor_id?: string | null
           subtotal?: number
         }
         Update: {
           cantidad?: number
+          compra_proveedor_id?: string | null
           costo_unitario?: number
           created_at?: string
           empresa_id?: string
           estatus_aprobacion?: string | null
+          evidencia_url?: string | null
+          folio_ticket_nota?: string | null
+          fuente_pago?: string | null
           id?: string
           margen_porcentaje?: number
           nombre?: string
@@ -1409,6 +1775,7 @@ export type Database = {
           orden_servicio_id?: string
           precio_unitario?: number
           proveedor?: string | null
+          proveedor_id?: string | null
           subtotal?: number
         }
         Relationships: [
@@ -1636,6 +2003,7 @@ export type Database = {
         Row: {
           caja_fondo_id: string | null
           caja_turno_id: string | null
+          comision_monto: number
           comision_pasarela: number | null
           cotizacion_id: string | null
           cuenta_bancaria_id: string | null
@@ -1646,16 +2014,20 @@ export type Database = {
           fecha_pago: string
           id: string
           metodo_detalle: string | null
+          monto_neto: number | null
           monto_total: number
           motivo_cancelacion: string | null
           orden_servicio_id: string | null
+          plazo_msi: number | null
           proveedor_pago: string
           referencia: string | null
           sucursal_id: string | null
+          tenant_metodo_pago_id: string | null
         }
         Insert: {
           caja_fondo_id?: string | null
           caja_turno_id?: string | null
+          comision_monto?: number
           comision_pasarela?: number | null
           cotizacion_id?: string | null
           cuenta_bancaria_id?: string | null
@@ -1666,16 +2038,20 @@ export type Database = {
           fecha_pago?: string
           id?: string
           metodo_detalle?: string | null
+          monto_neto?: number | null
           monto_total: number
           motivo_cancelacion?: string | null
           orden_servicio_id?: string | null
+          plazo_msi?: number | null
           proveedor_pago: string
           referencia?: string | null
           sucursal_id?: string | null
+          tenant_metodo_pago_id?: string | null
         }
         Update: {
           caja_fondo_id?: string | null
           caja_turno_id?: string | null
+          comision_monto?: number
           comision_pasarela?: number | null
           cotizacion_id?: string | null
           cuenta_bancaria_id?: string | null
@@ -1686,12 +2062,15 @@ export type Database = {
           fecha_pago?: string
           id?: string
           metodo_detalle?: string | null
+          monto_neto?: number | null
           monto_total?: number
           motivo_cancelacion?: string | null
           orden_servicio_id?: string | null
+          plazo_msi?: number | null
           proveedor_pago?: string
           referencia?: string | null
           sucursal_id?: string | null
+          tenant_metodo_pago_id?: string | null
         }
         Relationships: [
           {
@@ -2230,6 +2609,12 @@ export type Database = {
       }
     }
     Functions: {
+      fn_resumen_corte_diario_auditoria: {
+        Args: {
+          p_turno_id: string
+        }
+        Returns: Json
+      }
       crear_empresa_y_perfil: {
         Args: { p_nombre_empresa: string; p_nombre_usuario: string }
         Returns: undefined

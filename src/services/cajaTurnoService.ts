@@ -21,6 +21,8 @@ export interface CuentaBancaria {
   clabe: string | null;
   numero_cuenta: string | null;
   activo: boolean;
+  es_fiscal?: boolean;
+  tipo_cuenta?: string | null;
 }
 
 export interface DenominacionesConteo {
@@ -96,6 +98,77 @@ export interface ResumenTurnoTeorico {
   };
   totalVentasTurno: number;
   cantidadTransacciones: number;
+}
+
+export interface ResumenCorteDiarioAuditoria {
+  success: boolean;
+  turno_id: string;
+  estado: "ABIERTO" | "CERRADO" | "AUDITADO";
+  fecha_apertura: string;
+  fecha_cierre: string | null;
+  efectivo: {
+    apertura_declarada: number;
+    entradas_ventas: number;
+    salidas_gastos: number;
+    saldo_teorico: number;
+    cierre_declarado: number | null;
+    diferencia: number | null;
+    remesa_retirada: number;
+    fondo_siguiente: number;
+    justificacion_descuadre: string | null;
+  };
+  bancos: Array<{
+    cuenta_id: string;
+    banco: string;
+    alias: string;
+    es_fiscal: boolean;
+    total: number;
+    conteo: number;
+  }>;
+  tarjetas: {
+    total_bruto: number;
+    total_comisiones: number;
+    total_neto: number;
+    conteo: number;
+    desglose: Array<{
+      metodo: string;
+      plazo_msi: number | null;
+      bruto: number;
+      comision: number;
+      neto: number;
+      conteo: number;
+    }>;
+  };
+  proveedores: {
+    total_pagado_caja_chica: number;
+    total_credito_nuevo: number;
+    total_abonos_credito: number;
+    compras: Array<{
+      id: string;
+      proveedor: string;
+      folio: string;
+      descripcion: string;
+      costo: number;
+      fuente_pago: string;
+      estatus_pago: string;
+      evidencia_url: string | null;
+      estatus_garantia: string;
+    }>;
+  };
+  fiscal: {
+    ventas_brutas: number;
+    comisiones_retenidas: number;
+    ventas_netas: number;
+    costos_refacciones: number;
+    ganancia_neta_total: number;
+    ganancia_fiscal: number;
+    ganancia_despues_de_fiscal: number;
+  };
+  registro_del_dia: Array<{
+    categoria: string;
+    unidad: string;
+    cantidad: number;
+  }>;
 }
 
 export const DENOMINACIONES_BASE: DenominacionesConteo = {
@@ -486,6 +559,49 @@ export const CajaTurnoService = {
     } catch (err) {
       console.error("Excepción al consultar historial:", err);
       return [];
+    }
+  },
+
+  /**
+   * Obtiene el snapshot consolidado para el corte diario y auditoría de la administradora
+   */
+  async obtenerResumenCorteDiarioAuditoria(turnoId: string): Promise<ResumenCorteDiarioAuditoria | null> {
+    try {
+      const { data, error } = await (supabase.rpc as any)("fn_resumen_corte_diario_auditoria", {
+        p_turno_id: turnoId,
+      });
+
+      if (error) {
+        console.error("Error al obtener resumen de auditoría:", error);
+        return null;
+      }
+
+      return data as ResumenCorteDiarioAuditoria;
+    } catch (err) {
+      console.error("Excepción al llamar fn_resumen_corte_diario_auditoria:", err);
+      return null;
+    }
+  },
+
+  /**
+   * Promueve un turno a estado AUDITADO por parte de la administradora/supervisor
+   */
+  async auditarTurnoCaja(turnoId: string, auditorId?: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const cleanAuditorId = auditorId || (await supabase.auth.getUser()).data.user?.id || null;
+      const { error } = await supabase
+        .from("caja_turnos")
+        .update({
+          estado: "AUDITADO",
+          usuario_cierre_id: cleanAuditorId,
+        })
+        .eq("id", turnoId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (err: any) {
+      console.error("Error al auditar turno:", err);
+      return { success: false, error: err.message || "Error al auditar turno" };
     }
   },
 };
