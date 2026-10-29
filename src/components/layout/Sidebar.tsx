@@ -23,6 +23,7 @@ import {
   Receipt,
   ShieldCheck,
   ShieldAlert,
+  Building2,
 } from "lucide-react";
 import { useTenant } from "@/context/TenantContext";
 import TenantSwitcher from "@/components/auth/TenantSwitcher";
@@ -47,6 +48,7 @@ export function Sidebar() {
   ];
 
   const catalogAndFinanceItems = [
+    { href: "/proveedores", label: "Proveedores & Garantías", icon: Building2 },
     { href: "/reportes", label: "Reportes y Analítica (BI)", icon: TrendingUp },
     { href: "/inventario", label: "Inventario y Llantas", icon: Package2 },
     { href: "/servicios", label: "Catálogo Mano de Obra", icon: Wrench },

@@ -234,6 +234,72 @@ export const ProveedorService = {
   },
 
   /**
+   * Obtiene la lista de abonos realizados a proveedores
+   */
+  async obtenerAbonos(params?: {
+    empresaId?: string;
+    proveedorId?: string;
+  }): Promise<{ data: any[]; error: string | null }> {
+    try {
+      let query = supabase
+        .from("proveedores_abonos")
+        .select(`
+          *,
+          proveedor:proveedores (
+            id,
+            nombre_comercial
+          ),
+          compra:compras_proveedores (
+            id,
+            folio_ticket_nota,
+            descripcion
+          )
+        `)
+        .order("fecha_abono", { ascending: false });
+
+      if (params?.empresaId) query = query.eq("empresa_id", params.empresaId);
+      if (params?.proveedorId) query = query.eq("proveedor_id", params.proveedorId);
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return { data: data || [], error: null };
+    } catch (err: any) {
+      console.error("Error al obtener abonos de proveedores:", err);
+      return { data: [], error: err.message || "Error al consultar abonos" };
+    }
+  },
+
+  /**
+   * Actualiza el estatus de garantía de una compra
+   */
+  async actualizarEstatusGarantia(
+    compraId: string,
+    estatusGarantia: "VIGENTE" | "EXPIRADA" | "EN_RECLAMACION" | "APLICADA" | "RECHAZADA",
+    notasGarantia?: string
+  ): Promise<{ success: boolean; error: string | null }> {
+    try {
+      const updates: any = {
+        estatus_garantia: estatusGarantia,
+        updated_at: new Date().toISOString(),
+      };
+      if (notasGarantia !== undefined) {
+        updates.notas_garantia = notasGarantia;
+      }
+
+      const { error } = await supabase
+        .from("compras_proveedores")
+        .update(updates)
+        .eq("id", compraId);
+
+      if (error) throw error;
+      return { success: true, error: null };
+    } catch (err: any) {
+      console.error("Error al actualizar garantía:", err);
+      return { success: false, error: err.message || "Error al actualizar estatus de garantía" };
+    }
+  },
+
+  /**
    * Obtiene el resumen de cuentas por pagar (CxP)
    */
   async obtenerResumenCxP(empresaId: string): Promise<ResumenCxP> {
