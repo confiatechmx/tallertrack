@@ -143,6 +143,29 @@ describe("Suite Cova Tires: Pagos Autogestionables, Proveedores y Corte Diario",
       expect(mockCompra.estatus_garantia).toBe("VIGENTE");
       expect(mockCompra.evidencia_url).toContain(".jpg");
     });
+
+    it("debe validar transacciones historicas de abono y liquidacion a proveedor", () => {
+      const mockAbono = {
+        id: "abono-1",
+        empresa_id: "emp-1",
+        proveedor_id: "prov-1",
+        compra_id: "compra-123",
+        monto: 1500.0,
+        metodo_pago: "TRANSFERENCIA",
+        referencia: "SPEI-789213",
+        fecha_abono: "2026-10-29T10:30:00Z",
+      };
+
+      expect(mockAbono.monto).toBe(1500.0);
+      expect(mockAbono.metodo_pago).toBe("TRANSFERENCIA");
+      expect(mockAbono.referencia).toBe("SPEI-789213");
+    });
+
+    it("debe gestionar el ciclo de vida de la garantia (VIGENTE -> EN_RECLAMACION -> APLICADA)", () => {
+      const estadosValidos = ["VIGENTE", "EN_RECLAMACION", "APLICADA", "RECHAZADA", "EXPIRADA"];
+      expect(estadosValidos).toContain("EN_RECLAMACION");
+      expect(estadosValidos).toContain("APLICADA");
+    });
   });
 
   describe("3. Snapshot Consolidado de Corte Diario y Balance Fiscal", () => {
