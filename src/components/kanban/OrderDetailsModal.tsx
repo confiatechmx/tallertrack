@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useTenant } from "@/context/TenantContext";
@@ -41,7 +41,20 @@ import {
   Camera,
   ShieldCheck,
   CircleDot,
+  Zap,
+  Copy,
+  CheckCheck,
+  Layers,
 } from "lucide-react";
+
+import {
+  TOP_TIRE_BRANDS,
+  PROVEEDORES_LLANTAS,
+  POPULAR_RIMS,
+  POPULAR_TIRE_SIZES,
+  parseMedidaExpress,
+  inferOemTireSize,
+} from "@/lib/tires/tireSpeedHelpers";
 
 interface OrderDetailsModalProps {
   orderId: string;
@@ -59,32 +72,6 @@ const PROVEEDORES_REFACCIONES = [
   "Agencia OEM",
   "Brembo México",
 ];
-
-const TOP_TIRE_BRANDS = [
-  "Michelin",
-  "Bridgestone",
-  "Continental",
-  "Goodyear",
-  "Pirelli",
-  "Hankook",
-  "Tornel",
-  "Firestone",
-  "Yokohama",
-  "Kumho",
-  "Nexen",
-  "Goodride",
-];
-
-const PROVEEDORES_LLANTAS = [
-  "Mayoreo de Llantas MTY",
-  "Distribuidora Gonzalitos",
-  "Radial Llantas",
-  "TireDirect México",
-  "Interpuerto Llantas",
-  "Distribuidor Local Express",
-];
-
-const POPULAR_RIMS = [14, 15, 16, 17, 18, 19, 20];
 
 const BAHIAS_TALLER = [
   "Rampa 1 (Alineación)",
@@ -208,6 +195,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   const [jitPrecioVentaUnitario, setJitPrecioVentaUnitario] = useState<string>("");
   const [jitIndiceCarga, setJitIndiceCarga] = useState("91V");
   const [jitTipoTerreno, setJitTipoTerreno] = useState("HT");
+  const [copiedWhatsAppTireQuote, setCopiedWhatsAppTireQuote] = useState(false);
 
   // DVI & Reception state
   const [dviItems, setDviItems] = useState<any[]>([]);
@@ -446,7 +434,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
     }
 
     // 3. Medidas de flotación en pulgadas (ej. 33x12.50R15, 35x12.50R17, 31x10.50R15)
-    const matchFlot = cleaned.match(/(\d{2})x(\d{2}(?:\.\d{1,2})?)[rR](d{2})/i);
+    const matchFlot = cleaned.match(/(\d{2})x(\d{2}(?:\.\d{1,2})?)[rR](\d{2})/i);
     if (matchFlot) {
       const diam = parseInt(matchFlot[1]);
       const anchoFlot = Math.round(parseFloat(matchFlot[2]));
@@ -495,6 +483,228 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   const calcJitPrecioUnitario = parseFloat(jitPrecioVentaUnitario) || Math.round(numericJitCosto * (1 + numericJitMargen / 100) * 100) / 100;
   const calcJitSubtotal = Math.round(calcJitPrecioUnitario * numericJitCant * 100) / 100;
   const calcJitUtilidad = Math.round((calcJitSubtotal - numericJitCosto * numericJitCant) * 100) / 100;
+
+  // Accelerator 1: Vehicle OEM Tire Size Inference
+  const veh = order?.vehiculos;
+  const suggestedOemSize = veh?.medida_oem || inferOemTireSize(veh?.marca, veh?.modelo);
+
+  // Accelerator 2: Live Typeahead Size Suggestions
+  const allDistinctSizes = useMemo(() => {
+    const sizes = new Set<string>();
+    POPULAR_TIRE_SIZES.forEach((s) => sizes.add(s));
+    availableTires.forEach((t) => {
+      if (t.ancho && t.perfil && t.rin) {
+        sizes.add(`${t.ancho}/${t.perfil}R${t.rin}`);
+      }
+    });
+    return Array.from(sizes);
+  }, [availableTires]);
+
+  const matchingSizes = useMemo(() => {
+    const q = jitMedidaExpress.trim().replace(/[\s\/\-R]/gi, "").toLowerCase();
+    if (!q || q.length < 2) return [];
+    return allDistinctSizes
+      .filter((s) => {
+        const cleanS = s.replace(/[\s\/\-R]/gi, "").toLowerCase();
+        return cleanS.includes(q) && cleanS !== q;
+      })
+      .slice(0, 5);
+  }, [jitMedidaExpress, allDistinctSizes]);
+
+  // Accelerator 3: 3-Tier Presets (Económica / Calidad / Premium)
+  const tierPresets = useMemo(() => {
+    const exactTires = availableTires.filter(
+      (t) =>
+        Number(t.ancho) === Number(jitAncho) &&
+        Number(t.perfil) === Number(jitPerfil) &&
+        Number(t.rin) === Number(jitRin)
+    );
+
+    const ecoBrands = ["tornel", "goodride", "linglong", "westlake", "haida", "waterfall", "royal black", "blackhawk", "triangle", "sunfull"];
+    const midBrands = ["continental", "firestone", "hankook", "kumho", "nexen", "yokohama", "toyo", "dunlop", "general"];
+    const premBrands = ["michelin", "bridgestone", "pirelli", "goodyear", "bfgoodrich"];
+
+    const foundEco = exactTires.find((t) =>
+      ecoBrands.some((b) => (t.marca || "").toLowerCase().includes(b))
+    );
+    const foundMid = exactTires.find((t) =>
+      midBrands.some((b) => (t.marca || "").toLowerCase().includes(b))
+    );
+    const foundPrem = exactTires.find((t) =>
+      premBrands.some((b) => (t.marca || "").toLowerCase().includes(b))
+    );
+
+    const baseCost = Math.round(900 + Math.max(0, jitRin - 13) * 320);
+
+    const ecoPreset = foundEco
+      ? {
+          marca: foundEco.marca,
+          modelo: foundEco.modelo_llanta,
+          costo: Number(foundEco.costo_adquisicion || 0),
+          precio: Number(foundEco.precio_venta || 0),
+          margen:
+            Number(foundEco.costo_adquisicion) > 0
+              ? Math.round(
+                  ((Number(foundEco.precio_venta) - Number(foundEco.costo_adquisicion)) /
+                    Number(foundEco.costo_adquisicion)) *
+                    100
+                )
+              : 25,
+          tipo_terreno: foundEco.tipo_terreno || "HT",
+          badge: "Económica",
+          source: "Catálogo",
+        }
+      : {
+          marca: "Tornel",
+          modelo: "Turbo / Real",
+          costo: Math.round(baseCost * 0.85),
+          precio: Math.round(baseCost * 0.85 * 1.25),
+          margen: 25,
+          tipo_terreno: "HT",
+          badge: "Económica",
+          source: "Estimado JIT",
+        };
+
+    const midPreset = foundMid
+      ? {
+          marca: foundMid.marca,
+          modelo: foundMid.modelo_llanta,
+          costo: Number(foundMid.costo_adquisicion || 0),
+          precio: Number(foundMid.precio_venta || 0),
+          margen:
+            Number(foundMid.costo_adquisicion) > 0
+              ? Math.round(
+                  ((Number(foundMid.precio_venta) - Number(foundMid.costo_adquisicion)) /
+                    Number(foundMid.costo_adquisicion)) *
+                    100
+                )
+              : 25,
+          tipo_terreno: foundMid.tipo_terreno || "HT",
+          badge: "Calidad",
+          source: "Catálogo",
+        }
+      : {
+          marca: "Continental",
+          modelo: "ProContact TX",
+          costo: Math.round(baseCost * 1.25),
+          precio: Math.round(baseCost * 1.25 * 1.25),
+          margen: 25,
+          tipo_terreno: "HT",
+          badge: "Calidad",
+          source: "Estimado JIT",
+        };
+
+    const premPreset = foundPrem
+      ? {
+          marca: foundPrem.marca,
+          modelo: foundPrem.modelo_llanta,
+          costo: Number(foundPrem.costo_adquisicion || 0),
+          precio: Number(foundPrem.precio_venta || 0),
+          margen:
+            Number(foundPrem.costo_adquisicion) > 0
+              ? Math.round(
+                  ((Number(foundPrem.precio_venta) - Number(foundPrem.costo_adquisicion)) /
+                    Number(foundPrem.costo_adquisicion)) *
+                    100
+                )
+              : 25,
+          tipo_terreno: foundPrem.tipo_terreno || "HT",
+          badge: "Premium",
+          source: "Catálogo",
+        }
+      : {
+          marca: "Michelin",
+          modelo: "Primacy 4",
+          costo: Math.round(baseCost * 1.7),
+          precio: Math.round(baseCost * 1.7 * 1.25),
+          margen: 25,
+          tipo_terreno: "HT",
+          badge: "Premium",
+          source: "Estimado JIT",
+        };
+
+    return { eco: ecoPreset, mid: midPreset, prem: premPreset };
+  }, [availableTires, jitAncho, jitPerfil, jitRin]);
+
+  const handleApplyTierPreset = (preset: any) => {
+    setJitMarca(preset.marca);
+    setJitModelo(preset.modelo);
+    setJitCostoUnitario(String(preset.costo));
+    setJitMargen(String(preset.margen));
+    setJitPrecioVentaUnitario(String(preset.precio));
+    if (preset.tipo_terreno) setJitTipoTerreno(preset.tipo_terreno);
+  };
+
+  // Accelerator 4: WhatsApp Tire Quote Generator
+  const buildWhatsAppTireQuoteText = () => {
+    const clienteNombre = order?.vehiculos?.clientes?.nombre || "Cliente";
+    const vehiculoDesc = `${order?.vehiculos?.marca || "Vehículo"} ${order?.vehiculos?.modelo || ""}`.trim();
+    const placas = order?.vehiculos?.placas ? ` (${order?.vehiculos?.placas})` : "";
+    const tallerNombre = empresa?.nombre_comercial || "Cova Tires - Taller y Llantas";
+    const folioDisplay = `#${1000 + Number(order?.folio || 1)}`;
+
+    let lines: string[] = [];
+    lines.push(`🛞 *Cotización de Neumáticos | ${tallerNombre}*`);
+    lines.push(`¡Hola *${clienteNombre}*! Te compartimos la cotización preparada para tu *${vehiculoDesc}${placas}*:\n`);
+
+    if (activeTires.length > 0) {
+      activeTires.forEach((item: any, idx: number) => {
+        const llanta = item.inventario_llantas;
+        const cant = Number(item.cantidad || 1);
+        const pUnit = Number(item.precio_unitario || 0);
+        const sub = Number(item.subtotal || pUnit * cant);
+        const medida = llanta ? `${llanta.ancho}/${llanta.perfil} R${llanta.rin}` : `${jitAncho}/${jitPerfil} R${jitRin}`;
+        const marcaMod = llanta ? `${llanta.marca} ${llanta.modelo_llanta}` : "Neumático";
+
+        lines.push(`*Opción ${idx + 1}:* ${marcaMod}`);
+        lines.push(`• Medida: *${medida}*`);
+        lines.push(`• Cantidad: ${cant} neumático(s)`);
+        lines.push(`• Precio unitario: $${pUnit.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN`);
+        lines.push(`• Subtotal: *$${sub.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN*\n`);
+      });
+    } else {
+      lines.push(`*Opción Cotizada:* ${jitMarca} ${jitModelo}`);
+      lines.push(`• Medida: *${jitAncho}/${jitPerfil} R${jitRin}*`);
+      lines.push(`• Cantidad: ${numericJitCant} neumático(s)`);
+      lines.push(`• Precio unitario: $${calcJitPrecioUnitario.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN`);
+      lines.push(`• Total estimado: *$${calcJitSubtotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN*\n`);
+    }
+
+    lines.push(`✅ *Servicio incluye:*`);
+    lines.push(`• Montaje profesional y válvulas nuevas`);
+    lines.push(`• Balanceo computarizado de alta precisión`);
+    lines.push(`• Garantía por escrito contra defecto de fábrica`);
+    lines.push(`\n📍 *Cova Tires* | Folio de Orden: *${folioDisplay}*`);
+    lines.push(`¿Deseas que te las reservemos de inmediato? Quedamos a tus órdenes.`);
+
+    return lines.join("\n");
+  };
+
+  const handleCopyWhatsAppTireQuote = async () => {
+    const text = buildWhatsAppTireQuoteText();
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(text);
+        setCopiedWhatsAppTireQuote(true);
+        setTimeout(() => setCopiedWhatsAppTireQuote(false), 2500);
+      } else {
+        alert("Cotización:\n\n" + text);
+      }
+    } catch (err) {
+      console.error("Clipboard copy failed:", err);
+    }
+  };
+
+  const handleSendWhatsAppTireQuoteDirect = () => {
+    const rawPhone = order?.vehiculos?.clientes?.telefono || "";
+    const cleanPhone = rawPhone.replace(/\D/g, "");
+    if (!cleanPhone || cleanPhone.length < 10) {
+      alert("El cliente no tiene un teléfono celular válido registrado para WhatsApp.");
+      return;
+    }
+    const text = buildWhatsAppTireQuoteText();
+    window.open(`https://wa.me/52${cleanPhone.slice(-10)}?text=${encodeURIComponent(text)}`, "_blank");
+  };
 
   // Handlers for Order Header
   const handleUpdateStatus = async (newStatus: string) => {
@@ -2097,13 +2307,45 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                       </span>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsAddingTire(!isAddingTire)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-2xs"
-                  >
-                    <Plus size={13} strokeWidth={2.5} /> Cotizar Neumáticos
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCopyWhatsAppTireQuote}
+                      title="Copiar cotización de neumáticos con formato para WhatsApp"
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-colors cursor-pointer border ${
+                        copiedWhatsAppTireQuote
+                          ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
+                          : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border-emerald-300"
+                      }`}
+                    >
+                      {copiedWhatsAppTireQuote ? (
+                        <>
+                          <CheckCheck size={14} className="text-white" /> ¡Copiado WhatsApp!
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={13} /> Cotización WhatsApp
+                        </>
+                      )}
+                    </button>
+                    {order?.vehiculos?.clientes?.telefono && (
+                      <button
+                        type="button"
+                        onClick={handleSendWhatsAppTireQuoteDirect}
+                        title="Enviar cotización directo al WhatsApp del cliente"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+                      >
+                        <MessageCircle size={13} /> Enviar WA
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingTire(!isAddingTire)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+                    >
+                      <Plus size={13} strokeWidth={2.5} /> Cotizar Neumáticos
+                    </button>
+                  </div>
                 </div>
 
                 {isAddingTire && (
@@ -2146,6 +2388,28 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                     {/* TAB A: Just-in-Time Express Quoter */}
                     {tireTab === "jit" ? (
                       <div className="space-y-3">
+                        {/* Accelerator 1: Vehicle OEM Suggested Size */}
+                        {suggestedOemSize && (
+                          <div className="flex flex-wrap items-center justify-between gap-2 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300/80 rounded-lg px-3 py-2 text-xs shadow-2xs">
+                            <div className="flex items-center gap-2 text-amber-950 font-medium">
+                              <Car size={15} className="text-amber-600 shrink-0" />
+                              <span>
+                                Medida OEM sugerida para <strong className="font-bold text-slate-900">{order?.vehiculos?.marca} {order?.vehiculos?.modelo} {order?.vehiculos?.anio ? `'${String(order?.vehiculos?.anio).slice(-2)}` : ""}</strong>:
+                                <span className="ml-1.5 px-2 py-0.5 rounded font-mono font-black text-amber-900 bg-amber-200/80 border border-amber-300">
+                                  {suggestedOemSize}
+                                </span>
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => parseMedidaExpress(suggestedOemSize)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold rounded-md transition-colors cursor-pointer shadow-2xs shrink-0"
+                            >
+                              <Zap size={12} className="fill-current" /> 1-Clic: Aplicar {suggestedOemSize}
+                            </button>
+                          </div>
+                        )}
+
                         {/* Row 1: Medida Express Parser & Fine Tuning */}
                         <div>
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1.5">
@@ -2167,6 +2431,25 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                 onChange={(e) => parseMedidaExpress(e.target.value)}
                                 className="w-full h-8 px-2.5 text-xs bg-white border border-blue-400 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md font-semibold text-slate-900 shadow-2xs"
                               />
+
+                              {/* Accelerator 2: Live Typeahead Size Suggestions */}
+                              {matchingSizes.length > 0 && (
+                                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                  <span className="text-[10px] text-blue-700 font-bold flex items-center gap-0.5">
+                                    <Sparkles size={10} /> Sugerencias:
+                                  </span>
+                                  {matchingSizes.map((sz) => (
+                                    <button
+                                      key={sz}
+                                      type="button"
+                                      onClick={() => parseMedidaExpress(sz)}
+                                      className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-900 hover:bg-blue-200 border border-blue-300 transition-colors cursor-pointer"
+                                    >
+                                      ⚡ {sz}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                             <div className="sm:col-span-7 flex items-center gap-1.5">
                               <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-md px-2 h-8 text-xs">
@@ -2225,6 +2508,90 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                 R{r}
                               </button>
                             ))}
+                          </div>
+                        </div>
+
+                        {/* Accelerator 3: 3-Tier 1-Click Quick Presets (Económica / Calidad / Premium) */}
+                        <div className="bg-slate-100/90 border border-slate-200 rounded-lg p-2.5 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                              <Layers size={13} className="text-blue-600" />
+                              Llenado Rápido por Gama para <strong className="font-mono text-blue-950 font-black">{jitAncho}/{jitPerfil} R{jitRin}</strong>:
+                            </span>
+                            <span className="text-[10px] text-slate-500 font-medium hidden sm:inline">
+                              1 clic para autorrellenar marca, modelo y precio
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            {/* Tier 1: Económica */}
+                            <button
+                              type="button"
+                              onClick={() => handleApplyTierPreset(tierPresets.eco)}
+                              className="flex flex-col text-left p-2 rounded-md bg-white hover:bg-emerald-50/60 border border-slate-200 hover:border-emerald-400 transition-all cursor-pointer group shadow-2xs"
+                            >
+                              <div className="flex items-center justify-between w-full mb-1">
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800">
+                                  🟢 Económica
+                                </span>
+                                <span className="text-[9px] text-slate-400 font-mono">
+                                  {tierPresets.eco.source}
+                                </span>
+                              </div>
+                              <div className="text-xs font-bold text-slate-900 group-hover:text-emerald-800 truncate">
+                                {tierPresets.eco.marca} <span className="font-normal text-slate-600">{tierPresets.eco.modelo}</span>
+                              </div>
+                              <div className="flex items-center justify-between text-[11px] mt-1 pt-1 border-t border-slate-100 font-mono">
+                                <span className="text-slate-500 text-[10px]">Costo: ${tierPresets.eco.costo.toLocaleString("es-MX")}</span>
+                                <span className="font-black text-emerald-700 font-bold">${tierPresets.eco.precio.toLocaleString("es-MX")}</span>
+                              </div>
+                            </button>
+
+                            {/* Tier 2: Calidad / Intermedia */}
+                            <button
+                              type="button"
+                              onClick={() => handleApplyTierPreset(tierPresets.mid)}
+                              className="flex flex-col text-left p-2 rounded-md bg-white hover:bg-blue-50/60 border border-slate-200 hover:border-blue-400 transition-all cursor-pointer group shadow-2xs"
+                            >
+                              <div className="flex items-center justify-between w-full mb-1">
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-100 text-blue-800">
+                                  🔵 Calidad / Valor
+                                </span>
+                                <span className="text-[9px] text-slate-400 font-mono">
+                                  {tierPresets.mid.source}
+                                </span>
+                              </div>
+                              <div className="text-xs font-bold text-slate-900 group-hover:text-blue-800 truncate">
+                                {tierPresets.mid.marca} <span className="font-normal text-slate-600">{tierPresets.mid.modelo}</span>
+                              </div>
+                              <div className="flex items-center justify-between text-[11px] mt-1 pt-1 border-t border-slate-100 font-mono">
+                                <span className="text-slate-500 text-[10px]">Costo: ${tierPresets.mid.costo.toLocaleString("es-MX")}</span>
+                                <span className="font-black text-blue-800 font-bold">${tierPresets.mid.precio.toLocaleString("es-MX")}</span>
+                              </div>
+                            </button>
+
+                            {/* Tier 3: Premium */}
+                            <button
+                              type="button"
+                              onClick={() => handleApplyTierPreset(tierPresets.prem)}
+                              className="flex flex-col text-left p-2 rounded-md bg-white hover:bg-amber-50/60 border border-slate-200 hover:border-amber-400 transition-all cursor-pointer group shadow-2xs"
+                            >
+                              <div className="flex items-center justify-between w-full mb-1">
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-900">
+                                  ⭐ Premium
+                                </span>
+                                <span className="text-[9px] text-slate-400 font-mono">
+                                  {tierPresets.prem.source}
+                                </span>
+                              </div>
+                              <div className="text-xs font-bold text-slate-900 group-hover:text-amber-900 truncate">
+                                {tierPresets.prem.marca} <span className="font-normal text-slate-600">{tierPresets.prem.modelo}</span>
+                              </div>
+                              <div className="flex items-center justify-between text-[11px] mt-1 pt-1 border-t border-slate-100 font-mono">
+                                <span className="text-slate-500 text-[10px]">Costo: ${tierPresets.prem.costo.toLocaleString("es-MX")}</span>
+                                <span className="font-black text-amber-900 font-bold">${tierPresets.prem.precio.toLocaleString("es-MX")}</span>
+                              </div>
+                            </button>
                           </div>
                         </div>
 
