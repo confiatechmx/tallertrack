@@ -413,9 +413,24 @@ export function OrderForm({
       {/* SECTION 1: Client & Vehicle Identification */}
       {isExpressMode ? (
         <div className="bg-amber-50/60 border border-amber-200 rounded-lg p-3.5 space-y-3">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-amber-950 flex items-center gap-1.5">
-            <Zap size={14} className="text-amber-600" /> Datos del Nuevo Cliente y Unidad en Patio
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-amber-950 flex items-center gap-1.5">
+              <Zap size={14} className="text-amber-600" /> Datos del Nuevo Cliente y Unidad en Patio
+            </h3>
+            <button
+              type="button"
+              onClick={() => {
+                setExpressClientName("Público General");
+                setExpressClientPhone("0000000000");
+                setExpressVehicleMarca("Mostrador");
+                setExpressVehicleModelo("Venta Rápida");
+                setExpressVehiclePlacas("MOSTRADOR");
+              }}
+              className="text-[10px] text-slate-400 hover:text-slate-600 underline font-normal transition-colors cursor-pointer"
+            >
+              Llenar como Público General (Venta Mostrador)
+            </button>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -562,6 +577,23 @@ export function OrderForm({
                 ))}
               </select>
             </div>
+          </div>
+
+          <div className="flex justify-end pt-0.5">
+            <button
+              type="button"
+              onClick={() => {
+                setIsExpressMode(true);
+                setExpressClientName("Público General");
+                setExpressClientPhone("0000000000");
+                setExpressVehicleMarca("Mostrador");
+                setExpressVehicleModelo("Venta Rápida");
+                setExpressVehiclePlacas("MOSTRADOR");
+              }}
+              className="text-[11px] text-slate-400 hover:text-slate-600 underline cursor-pointer"
+            >
+              Venta mostrador a público general
+            </button>
           </div>
 
           {/* Active Deferred Works Alert inside New Order Form */}

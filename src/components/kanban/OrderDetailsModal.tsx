@@ -60,6 +60,32 @@ const PROVEEDORES_REFACCIONES = [
   "Brembo México",
 ];
 
+const TOP_TIRE_BRANDS = [
+  "Michelin",
+  "Bridgestone",
+  "Continental",
+  "Goodyear",
+  "Pirelli",
+  "Hankook",
+  "Tornel",
+  "Firestone",
+  "Yokohama",
+  "Kumho",
+  "Nexen",
+  "Goodride",
+];
+
+const PROVEEDORES_LLANTAS = [
+  "Mayoreo de Llantas MTY",
+  "Distribuidora Gonzalitos",
+  "Radial Llantas",
+  "TireDirect México",
+  "Interpuerto Llantas",
+  "Distribuidor Local Express",
+];
+
+const POPULAR_RIMS = [14, 15, 16, 17, 18, 19, 20];
+
 const BAHIAS_TALLER = [
   "Rampa 1 (Alineación)",
   "Rampa 2 (Frenos / Susp.)",
@@ -163,9 +189,25 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
 
   // Tires state
   const [isAddingTire, setIsAddingTire] = useState(false);
+  const [tireTab, setTireTab] = useState<"jit" | "catalogo">("jit");
   const [selectedTireId, setSelectedTireId] = useState("");
-  const [selectedTireQty, setSelectedTireQty] = useState(1);
+  const [selectedTireQty, setSelectedTireQty] = useState(4);
   const [addingTireLoading, setAddingTireLoading] = useState(false);
+
+  // Just-In-Time Tire Quoter fields
+  const [jitMedidaExpress, setJitMedidaExpress] = useState("");
+  const [jitAncho, setJitAncho] = useState<number>(205);
+  const [jitPerfil, setJitPerfil] = useState<number>(55);
+  const [jitRin, setJitRin] = useState<number>(16);
+  const [jitMarca, setJitMarca] = useState("Michelin");
+  const [jitModelo, setJitModelo] = useState("Primacy 4");
+  const [jitProveedor, setJitProveedor] = useState(PROVEEDORES_LLANTAS[0]);
+  const [jitCantidad, setJitCantidad] = useState<number>(4);
+  const [jitCostoUnitario, setJitCostoUnitario] = useState<string>("");
+  const [jitMargen, setJitMargen] = useState<string>("25");
+  const [jitPrecioVentaUnitario, setJitPrecioVentaUnitario] = useState<string>("");
+  const [jitIndiceCarga, setJitIndiceCarga] = useState("91V");
+  const [jitTipoTerreno, setJitTipoTerreno] = useState("H/T");
 
   // DVI & Reception state
   const [dviItems, setDviItems] = useState<any[]>([]);
@@ -257,7 +299,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
         .single(),
       supabase.from("empleados").select("*").eq("activo", true).order("nombre"),
       supabase.from("servicios_taller").select("*").eq("activo", true).order("nombre"),
-      supabase.from("inventario_llantas").select("*").gt("stock_actual", 0).order("marca"),
+      supabase.from("inventario_llantas").select("*").order("marca"),
       supabase.from("configuracion_pagos").select("*").eq("activo", true),
       supabase
         .from("inspecciones_dvi")
@@ -371,6 +413,59 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   const calcPrecioUnitario = Math.round(numericCosto * (1 + numericMargen / 100) * 100) / 100;
   const calcSubtotal = Math.round(calcPrecioUnitario * numericCant * 100) / 100;
   const calcUtilidad = Math.round((calcSubtotal - numericCosto * numericCant) * 100) / 100;
+
+  // Live Just-in-Time Tire Calculator & Express Parser
+  const parseMedidaExpress = (input: string) => {
+    setJitMedidaExpress(input);
+    const cleaned = input.trim().replace(/\s+/g, "");
+    const match = cleaned.match(/^(\d{3})[\/\-]??(\d{2})[rR\/\-]??(\d{2})$/i);
+    if (match) {
+      const a = parseInt(match[1]);
+      const p = parseInt(match[2]);
+      const r = parseInt(match[3]);
+      if (a >= 135 && a <= 335) setJitAncho(a);
+      if (p >= 25 && p <= 85) setJitPerfil(p);
+      if (r >= 12 && r <= 24) setJitRin(r);
+    }
+  };
+
+  const numericJitCosto = parseFloat(jitCostoUnitario) || 0;
+  const numericJitMargen = parseFloat(jitMargen) || 0;
+  const numericJitCant = Math.max(1, Number(jitCantidad) || 1);
+
+  const handleJitCostoChange = (val: string) => {
+    setJitCostoUnitario(val);
+    const c = parseFloat(val) || 0;
+    const m = parseFloat(jitMargen) || 0;
+    if (c > 0) {
+      const p = Math.round(c * (1 + m / 100) * 100) / 100;
+      setJitPrecioVentaUnitario(String(p));
+    }
+  };
+
+  const handleJitMargenChange = (val: string) => {
+    setJitMargen(val);
+    const m = parseFloat(val) || 0;
+    const c = parseFloat(jitCostoUnitario) || 0;
+    if (c > 0) {
+      const p = Math.round(c * (1 + m / 100) * 100) / 100;
+      setJitPrecioVentaUnitario(String(p));
+    }
+  };
+
+  const handleJitPrecioVentaChange = (val: string) => {
+    setJitPrecioVentaUnitario(val);
+    const p = parseFloat(val) || 0;
+    const c = parseFloat(jitCostoUnitario) || 0;
+    if (c > 0 && p > 0) {
+      const m = Math.round(((p - c) / c) * 1000) / 10;
+      setJitMargen(String(m));
+    }
+  };
+
+  const calcJitPrecioUnitario = parseFloat(jitPrecioVentaUnitario) || Math.round(numericJitCosto * (1 + numericJitMargen / 100) * 100) / 100;
+  const calcJitSubtotal = Math.round(calcJitPrecioUnitario * numericJitCant * 100) / 100;
+  const calcJitUtilidad = Math.round((calcJitSubtotal - numericJitCosto * numericJitCant) * 100) / 100;
 
   // Handlers for Order Header
   const handleUpdateStatus = async (newStatus: string) => {
@@ -705,78 +800,244 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
     }
   };
 
-  // Handlers for Stock Tires
+  // Handlers for Stock & Just-in-Time Tires
   const handleAddTire = async () => {
     if (!selectedTireId || selectedTireQty < 1) return;
     const tire = availableTires.find((t) => t.id === selectedTireId);
     if (!tire) return;
     setAddingTireLoading(true);
 
-    let currentCotizacionId = order.cotizacion_id;
-    if (!currentCotizacionId) {
-      const { data: newCotizacion, error: cotError } = await supabase
-        .from("cotizaciones")
-        .insert({
-          cliente_id: order.vehiculos.clientes.id,
-          vehiculo_id: order.vehiculos.id,
-          estatus: "Aprobada",
-          total: tire.precio_venta * selectedTireQty,
-        })
-        .select("id")
-        .single();
-      if (!cotError && newCotizacion) {
+    try {
+      const targetEmpresaId = order.empresa_id || empresa?.id;
+      const targetSucursalId = order.sucursal_id || sucursalActiva?.id;
+
+      let currentCotizacionId = order.cotizacion_id;
+      if (!currentCotizacionId) {
+        const { data: newCotizacion, error: cotError } = await supabase
+          .from("cotizaciones")
+          .insert({
+            cliente_id: order.vehiculos?.clientes?.id || order.cliente_id,
+            vehiculo_id: order.vehiculos?.id || order.vehiculo_id,
+            estatus: "Aprobada",
+            total: Number(tire.precio_venta || 0) * selectedTireQty,
+            empresa_id: targetEmpresaId,
+            sucursal_id: targetSucursalId || null,
+          })
+          .select("id")
+          .single();
+        if (!cotError && newCotizacion) {
+          currentCotizacionId = newCotizacion.id;
+          await supabase
+            .from("ordenes_servicio")
+            .update({ cotizacion_id: currentCotizacionId })
+            .eq("id", orderId);
+        }
+      }
+
+      if (currentCotizacionId) {
+        const subtotalItem = Number(tire.precio_venta || 0) * selectedTireQty;
+        const { data: newDetail, error: detailError } = await supabase
+          .from("detalles_cotizacion")
+          .insert({
+            cotizacion_id: currentCotizacionId,
+            llanta_id: tire.id,
+            cantidad: selectedTireQty,
+            precio_unitario: Number(tire.precio_venta || 0),
+            subtotal: subtotalItem,
+            estatus_aprobacion: "Aprobado",
+            empresa_id: targetEmpresaId,
+          })
+          .select(
+            "id, cantidad, precio_unitario, subtotal, estatus_aprobacion, inventario_llantas(id, marca, modelo_llanta, rin, ancho, perfil, stock_actual, costo_adquisicion)"
+          )
+          .single();
+
+        if (!detailError && newDetail) {
+          if (Number(tire.stock_actual) > 0) {
+            await supabase
+              .from("inventario_llantas_base")
+              .update({ stock_actual: Math.max(0, Number(tire.stock_actual) - selectedTireQty) })
+              .eq("id", tire.id);
+          }
+
+          const updatedCotizaciones = order.cotizaciones || { detalles_cotizacion: [] };
+          setOrder((prev: any) => ({
+            ...prev,
+            cotizacion_id: currentCotizacionId,
+            cotizaciones: {
+              ...updatedCotizaciones,
+              detalles_cotizacion: [...(updatedCotizaciones.detalles_cotizacion || []), newDetail],
+            },
+          }));
+          setAvailableTires((prev) =>
+            prev.map((t) =>
+              t.id === tire.id ? { ...t, stock_actual: Math.max(0, Number(t.stock_actual) - selectedTireQty) } : t
+            )
+          );
+          setIsAddingTire(false);
+          setSelectedTireId("");
+          setSelectedTireQty(4);
+          onUpdate();
+        }
+      }
+    } catch (err: any) {
+      alert(err?.message || "Error al agregar neumático");
+    } finally {
+      setAddingTireLoading(false);
+    }
+  };
+
+  const handleAddJustInTimeTire = async () => {
+    const finalPrice = parseFloat(jitPrecioVentaUnitario) || Math.round(numericJitCosto * (1 + numericJitMargen / 100) * 100) / 100;
+    if (finalPrice <= 0 || jitCantidad < 1) {
+      alert("Por favor captura un costo o precio de venta válido y cantidad.");
+      return;
+    }
+    setAddingTireLoading(true);
+
+    try {
+      const targetEmpresaId = order.empresa_id || empresa?.id;
+      const targetSucursalId = order.sucursal_id || sucursalActiva?.id;
+
+      // 1. Buscar si ya existe la medida y marca en catálogo base
+      let targetTireId: string | null = null;
+      let targetTireData: any = null;
+
+      const { data: existingTires } = await supabase
+        .from("inventario_llantas_base")
+        .select("id, marca, modelo_llanta, rin, ancho, perfil, stock_actual, costo_adquisicion, precio_venta")
+        .eq("empresa_id", targetEmpresaId)
+        .eq("ancho", jitAncho)
+        .eq("perfil", jitPerfil)
+        .eq("rin", jitRin)
+        .ilike("marca", jitMarca.trim())
+        .limit(1);
+
+      if (existingTires && existingTires.length > 0) {
+        targetTireId = existingTires[0].id;
+        targetTireData = existingTires[0];
+        // Actualizar costo y precio pactado al vuelo
+        await supabase
+          .from("inventario_llantas_base")
+          .update({
+            costo_adquisicion: numericJitCosto || existingTires[0].costo_adquisicion,
+            precio_venta: finalPrice,
+          })
+          .eq("id", targetTireId);
+      } else {
+        const { data: createdTire, error: createErr } = await supabase
+          .from("inventario_llantas_base")
+          .insert({
+            empresa_id: targetEmpresaId,
+            sucursal_id: targetSucursalId || null,
+            marca: jitMarca.trim().toUpperCase(),
+            modelo_llanta: jitModelo.trim() || "Sobre Pedido",
+            ancho: jitAncho,
+            perfil: jitPerfil,
+            rin: jitRin,
+            indice_carga_velocidad: jitIndiceCarga.trim() || "N/A",
+            tipo_terreno: jitTipoTerreno || "H/T",
+            costo_adquisicion: numericJitCosto,
+            precio_venta: finalPrice,
+            stock_actual: 0,
+            stock_minimo: 0,
+          })
+          .select("id, marca, modelo_llanta, rin, ancho, perfil, stock_actual, costo_adquisicion")
+          .single();
+
+        if (createErr || !createdTire) {
+          throw new Error(createErr?.message || "No se pudo registrar el neumático en catálogo.");
+        }
+        targetTireId = createdTire.id;
+        targetTireData = createdTire;
+      }
+
+      // 2. Garantizar cotización
+      let currentCotizacionId = order.cotizacion_id;
+      if (!currentCotizacionId) {
+        const { data: newCotizacion, error: cotError } = await supabase
+          .from("cotizaciones")
+          .insert({
+            cliente_id: order.vehiculos?.clientes?.id || order.cliente_id,
+            vehiculo_id: order.vehiculos?.id || order.vehiculo_id,
+            estatus: "Aprobada",
+            total: finalPrice * jitCantidad,
+            empresa_id: targetEmpresaId,
+            sucursal_id: targetSucursalId || null,
+          })
+          .select("id")
+          .single();
+
+        if (cotError || !newCotizacion) {
+          throw new Error(cotError?.message || "Error al crear la cotización.");
+        }
         currentCotizacionId = newCotizacion.id;
         await supabase
           .from("ordenes_servicio")
           .update({ cotizacion_id: currentCotizacionId })
           .eq("id", orderId);
       }
-    }
 
-    if (currentCotizacionId) {
-      const subtotalItem = Number(tire.precio_venta) * selectedTireQty;
+      // 3. Insertar detalle
+      const subtotalItem = Math.round(finalPrice * jitCantidad * 100) / 100;
       const { data: newDetail, error: detailError } = await supabase
         .from("detalles_cotizacion")
         .insert({
           cotizacion_id: currentCotizacionId,
-          llanta_id: tire.id,
-          cantidad: selectedTireQty,
-          precio_unitario: tire.precio_venta,
+          llanta_id: targetTireId,
+          cantidad: jitCantidad,
+          precio_unitario: finalPrice,
           subtotal: subtotalItem,
           estatus_aprobacion: "Aprobado",
+          empresa_id: targetEmpresaId,
         })
         .select(
           "id, cantidad, precio_unitario, subtotal, estatus_aprobacion, inventario_llantas(id, marca, modelo_llanta, rin, ancho, perfil, stock_actual, costo_adquisicion)"
         )
         .single();
 
-      if (!detailError && newDetail) {
-        await supabase
-          .from("inventario_llantas_base")
-          .update({ stock_actual: Math.max(0, Number(tire.stock_actual) - selectedTireQty) })
-          .eq("id", tire.id);
-
-        const updatedCotizaciones = order.cotizaciones || { detalles_cotizacion: [] };
-        setOrder((prev: any) => ({
-          ...prev,
-          cotizacion_id: currentCotizacionId,
-          cotizaciones: {
-            ...updatedCotizaciones,
-            detalles_cotizacion: [...(updatedCotizaciones.detalles_cotizacion || []), newDetail],
-          },
-        }));
-        setAvailableTires((prev) =>
-          prev.map((t) =>
-            t.id === tire.id ? { ...t, stock_actual: Number(t.stock_actual) - selectedTireQty } : t
-          )
-        );
-        setIsAddingTire(false);
-        setSelectedTireId("");
-        setSelectedTireQty(1);
-        onUpdate();
+      if (detailError || !newDetail) {
+        throw new Error(detailError?.message || "Error al asociar neumático a la cotización.");
       }
+
+      // 4. Actualizar estado reactivo
+      const updatedCotizaciones = order.cotizaciones || { detalles_cotizacion: [] };
+      setOrder((prev: any) => ({
+        ...prev,
+        cotizacion_id: currentCotizacionId,
+        cotizaciones: {
+          ...updatedCotizaciones,
+          detalles_cotizacion: [...(updatedCotizaciones.detalles_cotizacion || []), newDetail],
+        },
+      }));
+
+      setAvailableTires((prev) => {
+        if (prev.some((t) => t.id === targetTireId)) {
+          return prev.map((t) =>
+            t.id === targetTireId ? { ...t, precio_venta: finalPrice, costo_adquisicion: numericJitCosto } : t
+          );
+        }
+        return [
+          {
+            ...targetTireData,
+            precio_venta: finalPrice,
+            costo_adquisicion: numericJitCosto,
+            stock_actual: 0,
+          },
+          ...prev,
+        ];
+      });
+
+      setIsAddingTire(false);
+      setJitCostoUnitario("");
+      setJitPrecioVentaUnitario("");
+      setJitMedidaExpress("");
+      onUpdate();
+    } catch (err: any) {
+      alert(err?.message || "Error al cotizar neumático sobre pedido");
+    } finally {
+      setAddingTireLoading(false);
     }
-    setAddingTireLoading(false);
   };
 
   const handleRemoveTire = async (detail: any) => {
@@ -1793,114 +2054,496 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                 )}
               </div>
 
-              {/* 3. NEUMÁTICOS DE STOCK */}
+              {/* 3. NEUMÁTICOS: JUST-IN-TIME (SOBRE PEDIDO) & CATÁLOGO */}
               <div className="bg-white border border-slate-200 rounded-lg shadow-2xs overflow-hidden">
                 <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <CircleDot size={15} className="text-slate-700" />
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                      Neumáticos de Inventario ({tiresList.length})
-                    </h3>
+                    <CircleDot size={15} className="text-blue-600" />
+                    <div>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                        Neumáticos ({tiresList.length})
+                      </h3>
+                      <span className="text-[10px] text-slate-500 font-medium">
+                        Cotización al Vuelo (Sobre Pedido / JIT) & Inventario
+                      </span>
+                    </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => setIsAddingTire(!isAddingTire)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-2xs"
                   >
-                    <Plus size={13} /> Agregar Neumáticos
+                    <Plus size={13} strokeWidth={2.5} /> Cotizar Neumáticos
                   </button>
                 </div>
 
                 {isAddingTire && (
-                  <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap sm:flex-nowrap items-center gap-2">
-                    <select
-                      value={selectedTireId}
-                      onChange={(e) => setSelectedTireId(e.target.value)}
-                      className="flex-1 h-8 text-xs bg-white border border-slate-300 rounded-md px-2 text-slate-900"
-                    >
-                      <option value="">Seleccionar medida y modelo en stock...</option>
-                      {availableTires.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.marca} {t.modelo_llanta} ({t.ancho}/{t.perfil} R{t.rin}) • Stock:{" "}
-                          {t.stock_actual} • ${Number(t.precio_venta).toLocaleString("es-MX")}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      type="number"
-                      min="1"
-                      max="10"
-                      value={selectedTireQty}
-                      onChange={(e) => setSelectedTireQty(parseInt(e.target.value) || 1)}
-                      className="w-16 h-8 text-xs bg-white border border-slate-300 rounded-md px-2 text-center font-bold tabular-nums"
-                    />
-                    <button
-                      type="button"
-                      disabled={!selectedTireId || addingTireLoading}
-                      onClick={handleAddTire}
-                      className="px-4 h-8 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold disabled:opacity-50 cursor-pointer"
-                    >
-                      {addingTireLoading ? "..." : "Agregar"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsAddingTire(false)}
-                      className="px-2 h-8 text-xs text-slate-500"
-                    >
-                      Cancelar
-                    </button>
+                  <div className="p-4 bg-slate-50/80 border-b border-slate-200 space-y-3.5">
+                    {/* Quoter Subtabs */}
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setTireTab("jit")}
+                          className={`px-3 py-1 text-xs font-bold rounded-md transition-colors cursor-pointer ${
+                            tireTab === "jit"
+                              ? "bg-blue-600 text-white shadow-2xs"
+                              : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+                          }`}
+                        >
+                          ⚡ Sobre Pedido / JIT al Vuelo (Cova Express)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTireTab("catalogo")}
+                          className={`px-3 py-1 text-xs font-bold rounded-md transition-colors cursor-pointer ${
+                            tireTab === "catalogo"
+                              ? "bg-blue-600 text-white shadow-2xs"
+                              : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+                          }`}
+                        >
+                          📦 Catálogo Base ({availableTires.length})
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingTire(false)}
+                        className="text-xs text-slate-400 hover:text-slate-600"
+                      >
+                        Cerrar
+                      </button>
+                    </div>
+
+                    {/* TAB A: Just-in-Time Express Quoter */}
+                    {tireTab === "jit" ? (
+                      <div className="space-y-3">
+                        {/* Row 1: Medida Express Parser & Fine Tuning */}
+                        <div>
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1.5">
+                            <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1">
+                              <Sparkles size={12} className="text-amber-500" />
+                              Medida de Llanta (Escribe o Selecciona)
+                            </label>
+                            <span className="text-[10px] text-slate-500">
+                              Detecta automáticamente: ej. <code className="bg-slate-200 px-1 py-0.5 rounded font-mono text-slate-800">205/55R16</code> o <code className="bg-slate-200 px-1 py-0.5 rounded font-mono text-slate-800">225 65 17</code>
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                            <div className="sm:col-span-5">
+                              <input
+                                type="text"
+                                placeholder="Escribe medida express (ej. 205/55R16)..."
+                                value={jitMedidaExpress}
+                                onChange={(e) => parseMedidaExpress(e.target.value)}
+                                className="w-full h-8 px-2.5 text-xs bg-white border border-blue-400 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md font-semibold text-slate-900 shadow-2xs"
+                              />
+                            </div>
+                            <div className="sm:col-span-7 flex items-center gap-1.5">
+                              <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-md px-2 h-8 text-xs">
+                                <span className="text-slate-400 text-[10px] uppercase font-bold">Ancho:</span>
+                                <input
+                                  type="number"
+                                  min="135"
+                                  max="335"
+                                  step="5"
+                                  value={jitAncho}
+                                  onChange={(e) => setJitAncho(parseInt(e.target.value) || 205)}
+                                  className="w-12 text-center font-bold text-slate-900 border-none outline-none p-0 text-xs"
+                                />
+                              </div>
+                              <span className="text-slate-400 font-bold">/</span>
+                              <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-md px-2 h-8 text-xs">
+                                <span className="text-slate-400 text-[10px] uppercase font-bold">Perfil:</span>
+                                <input
+                                  type="number"
+                                  min="25"
+                                  max="85"
+                                  step="5"
+                                  value={jitPerfil}
+                                  onChange={(e) => setJitPerfil(parseInt(e.target.value) || 55)}
+                                  className="w-10 text-center font-bold text-slate-900 border-none outline-none p-0 text-xs"
+                                />
+                              </div>
+                              <div className="flex items-center gap-1 bg-blue-50 border border-blue-300 rounded-md px-2 h-8 text-xs">
+                                <span className="text-blue-700 text-[10px] uppercase font-bold">Rin: R</span>
+                                <input
+                                  type="number"
+                                  min="12"
+                                  max="24"
+                                  value={jitRin}
+                                  onChange={(e) => setJitRin(parseInt(e.target.value) || 16)}
+                                  className="w-8 text-center font-bold text-blue-900 bg-transparent border-none outline-none p-0 text-xs"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Quick Rim Chips */}
+                          <div className="flex items-center gap-1.5 mt-2 overflow-x-auto">
+                            <span className="text-[10px] text-slate-400 font-medium">Rines Rápidos:</span>
+                            {POPULAR_RIMS.map((r) => (
+                              <button
+                                key={r}
+                                type="button"
+                                onClick={() => setJitRin(r)}
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors cursor-pointer ${
+                                  jitRin === r
+                                    ? "bg-blue-600 text-white"
+                                    : "bg-white text-slate-600 hover:bg-slate-200 border border-slate-200"
+                                }`}
+                              >
+                                R{r}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Row 2: Brand, Model, Supplier */}
+                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 pt-1 border-t border-slate-200">
+                          <div className="sm:col-span-5 space-y-1.5">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                              Marca del Neumático
+                            </label>
+                            <input
+                              type="text"
+                              value={jitMarca}
+                              onChange={(e) => setJitMarca(e.target.value)}
+                              placeholder="Ej. Michelin, Bridgestone, Tornel..."
+                              className="w-full h-8 px-2 text-xs bg-white border border-slate-300 rounded-md font-semibold text-slate-900"
+                            />
+                            {/* Brand Chips */}
+                            <div className="flex flex-wrap gap-1">
+                              {TOP_TIRE_BRANDS.slice(0, 8).map((b) => (
+                                <button
+                                  key={b}
+                                  type="button"
+                                  onClick={() => setJitMarca(b)}
+                                  className={`px-1.5 py-0.5 rounded text-[9px] font-bold transition-colors cursor-pointer ${
+                                    jitMarca.toLowerCase() === b.toLowerCase()
+                                      ? "bg-slate-900 text-white"
+                                      : "bg-white text-slate-600 hover:bg-slate-200 border border-slate-200"
+                                  }`}
+                                >
+                                  {b}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="sm:col-span-4 space-y-1.5">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                              Modelo / Diseño de Piso
+                            </label>
+                            <input
+                              type="text"
+                              value={jitModelo}
+                              onChange={(e) => setJitModelo(e.target.value)}
+                              placeholder="Ej. Primacy 4, Turanza, Sobre Pedido..."
+                              className="w-full h-8 px-2 text-xs bg-white border border-slate-300 rounded-md font-semibold text-slate-900"
+                            />
+                            <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                              <span>Terreno:</span>
+                              <select
+                                value={jitTipoTerreno}
+                                onChange={(e) => setJitTipoTerreno(e.target.value)}
+                                className="h-6 text-[10px] bg-white border border-slate-300 rounded px-1"
+                              >
+                                <option value="H/T">H/T (Carretera/Urbano)</option>
+                                <option value="A/T">A/T (Todo Terreno)</option>
+                                <option value="M/T">M/T (Fango/Off-Road)</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <div className="sm:col-span-3 space-y-1.5">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                              Distribuidor / Mayorista
+                            </label>
+                            <select
+                              value={jitProveedor}
+                              onChange={(e) => setJitProveedor(e.target.value)}
+                              className="w-full h-8 px-2 text-xs bg-white border border-slate-300 rounded-md font-semibold text-slate-900"
+                            >
+                              {PROVEEDORES_LLANTAS.map((prov) => (
+                                <option key={prov} value={prov}>
+                                  {prov}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Row 3: Live Margin & Price Calculator */}
+                        <div className="bg-blue-50/70 border border-blue-200 rounded-lg p-3 space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-blue-900 flex items-center gap-1.5">
+                              <Calculator size={13} className="text-blue-700" />
+                              Calculadora de Margen & Costo Distribuidor
+                            </span>
+                            <span className="text-[10px] font-mono font-bold text-blue-800 bg-blue-100 px-2 py-0.5 rounded">
+                              Utilidad Unitaria: ${(calcJitPrecioUnitario - numericJitCosto).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                                Costo Distribuidor U. ($)
+                              </label>
+                              <div className="relative">
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">$</span>
+                                <input
+                                  type="number"
+                                  step="any"
+                                  placeholder="0.00"
+                                  value={jitCostoUnitario}
+                                  onChange={(e) => handleJitCostoChange(e.target.value)}
+                                  className="w-full h-8 pl-6 pr-2 text-xs bg-white border border-slate-300 rounded-md font-bold text-slate-900 tabular-nums focus:border-blue-600 focus:outline-none"
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                                Margen Deseado (%)
+                              </label>
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  step="1"
+                                  value={jitMargen}
+                                  onChange={(e) => handleJitMargenChange(e.target.value)}
+                                  className="w-16 h-8 text-center text-xs bg-white border border-slate-300 rounded-md font-bold text-slate-900 tabular-nums focus:border-blue-600 focus:outline-none"
+                                />
+                                <div className="flex gap-1 overflow-x-auto">
+                                  {["20", "25", "30", "35"].map((pct) => (
+                                    <button
+                                      key={pct}
+                                      type="button"
+                                      onClick={() => handleJitMargenChange(pct)}
+                                      className={`px-1.5 h-8 text-[10px] font-bold rounded cursor-pointer ${
+                                        jitMargen === pct
+                                          ? "bg-blue-600 text-white"
+                                          : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+                                      }`}
+                                    >
+                                      +{pct}%
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                                Precio Venta U. ($)
+                              </label>
+                              <div className="relative">
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">$</span>
+                                <input
+                                  type="number"
+                                  step="any"
+                                  placeholder="0.00"
+                                  value={jitPrecioVentaUnitario}
+                                  onChange={(e) => handleJitPrecioVentaChange(e.target.value)}
+                                  className="w-full h-8 pl-6 pr-2 text-xs bg-white border border-emerald-400 rounded-md font-black text-slate-900 tabular-nums focus:border-emerald-600 focus:outline-none"
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                                Cantidad
+                              </label>
+                              <div className="flex items-center gap-1">
+                                {[1, 2, 4].map((q) => (
+                                  <button
+                                    key={q}
+                                    type="button"
+                                    onClick={() => setJitCantidad(q)}
+                                    className={`flex-1 h-8 text-xs font-bold rounded cursor-pointer transition-colors ${
+                                      jitCantidad === q
+                                        ? "bg-slate-900 text-white"
+                                        : "bg-white text-slate-700 border border-slate-300 hover:bg-slate-100"
+                                    }`}
+                                  >
+                                    x{q}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Live Profitability Summary Bar */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-blue-200 text-xs">
+                            <div className="flex items-center gap-3">
+                              <span className="text-slate-600">
+                                Total Venta: <strong className="font-mono text-slate-900 font-bold">${calcJitSubtotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</strong>
+                              </span>
+                              <span className="text-slate-400">|</span>
+                              <span className="text-slate-600">
+                                Costo: <strong className="font-mono text-slate-700">${(numericJitCosto * numericJitCant).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</strong>
+                              </span>
+                              <span className="text-slate-400">|</span>
+                              <span className="text-emerald-700 font-bold">
+                                Ganancia: <strong className="font-mono font-black">+${calcJitUtilidad.toLocaleString("es-MX", { minimumFractionDigits: 2 })} ({numericJitMargen.toFixed(0)}%)</strong>
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                disabled={addingTireLoading || calcJitPrecioUnitario <= 0}
+                                onClick={handleAddJustInTimeTire}
+                                className="px-4 h-8 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-md disabled:opacity-50 cursor-pointer transition-colors shadow-2xs"
+                              >
+                                {addingTireLoading ? "Guardando..." : `+ Agregar ${jitCantidad} Neumáticos a Cotización`}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setIsAddingTire(false)}
+                                className="px-3 h-8 text-xs text-slate-500 hover:text-slate-700"
+                              >
+                                Cancelar
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      /* TAB B: Catalog Selection */
+                      <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+                        <select
+                          value={selectedTireId}
+                          onChange={(e) => setSelectedTireId(e.target.value)}
+                          className="flex-1 h-8 text-xs bg-white border border-slate-300 rounded-md px-2 text-slate-900"
+                        >
+                          <option value="">Seleccionar medida y modelo del catálogo...</option>
+                          {availableTires.map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.marca} {t.modelo_llanta} ({t.ancho}/{t.perfil} R{t.rin}) • {Number(t.stock_actual) > 0 ? `Stock: ${t.stock_actual}` : "Sobre Pedido / JIT"} • ${Number(t.precio_venta).toLocaleString("es-MX")}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="flex items-center gap-1">
+                          {[1, 2, 4].map((q) => (
+                            <button
+                              key={q}
+                              type="button"
+                              onClick={() => setSelectedTireQty(q)}
+                              className={`w-9 h-8 text-xs font-bold rounded cursor-pointer ${
+                                selectedTireQty === q
+                                  ? "bg-slate-900 text-white"
+                                  : "bg-white text-slate-700 border border-slate-300 hover:bg-slate-100"
+                              }`}
+                            >
+                              x{q}
+                            </button>
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          disabled={!selectedTireId || addingTireLoading}
+                          onClick={handleAddTire}
+                          className="px-4 h-8 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold disabled:opacity-50 cursor-pointer"
+                        >
+                          {addingTireLoading ? "..." : "Agregar del Catálogo"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsAddingTire(false)}
+                          className="px-2 h-8 text-xs text-slate-500"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {tiresList.length === 0 ? (
                   <div className="p-6 text-center text-xs text-slate-400">
-                    No se han incluido neumáticos del inventario en esta orden.
+                    No se han cotizado neumáticos en esta orden de servicio.
                   </div>
                 ) : (
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-200 bg-slate-50/60 text-[10px] uppercase font-bold text-slate-500">
-                        <th className="py-2 px-3">Marca / Modelo / Medida</th>
-                        <th className="py-2 px-3 text-center">Cant</th>
-                        <th className="py-2 px-3 text-right">P. Unitario</th>
-                        <th className="py-2 px-3 text-right">Subtotal</th>
-                        <th className="py-2 px-3 text-right"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-xs">
-                      {tiresList.map((row: any) => {
-                        const t = row.inventario_llantas;
-                        return (
-                          <tr key={row.id} className="hover:bg-slate-50/80">
-                            <td className="py-2.5 px-3 font-semibold text-slate-900">
-                              {t?.marca} {t?.modelo_llanta}{" "}
-                              <span className="font-mono text-xs text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded ml-1">
-                                {t?.ancho}/{t?.perfil} R{t?.rin}
-                              </span>
-                            </td>
-                            <td className="py-2.5 px-3 text-center tabular-nums font-bold">
-                              {row.cantidad}
-                            </td>
-                            <td className="py-2.5 px-3 text-right tabular-nums">
-                              ${Number(row.precio_unitario).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                            </td>
-                            <td className="py-2.5 px-3 text-right font-bold text-slate-900 tabular-nums">
-                              ${Number(row.subtotal).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                            </td>
-                            <td className="py-2.5 px-3 text-right">
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveTire(row)}
-                                className="p-1 text-slate-400 hover:text-red-600 cursor-pointer"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-200 bg-slate-50/60 text-[10px] uppercase font-bold text-slate-500">
+                          <th className="py-2 px-3">Marca / Modelo / Medida</th>
+                          <th className="py-2 px-3">Modalidad</th>
+                          <th className="py-2 px-3 text-center">Cant</th>
+                          <th className="py-2 px-3 text-right">Costo U.</th>
+                          <th className="py-2 px-3 text-center">Margen</th>
+                          <th className="py-2 px-3 text-right">P. Unitario</th>
+                          <th className="py-2 px-3 text-right">Subtotal</th>
+                          <th className="py-2 px-3 text-right"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-xs">
+                        {tiresList.map((row: any) => {
+                          const t = row.inventario_llantas;
+                          const costoU = Number(t?.costo_adquisicion || Number(row.precio_unitario || 0) * 0.72);
+                          const pVenta = Number(row.precio_unitario || 0);
+                          const margenPct = costoU > 0 ? ((pVenta - costoU) / costoU) * 100 : 0;
+                          const utilRow = (pVenta - costoU) * Number(row.cantidad || 1);
+                          const isJit = Number(t?.stock_actual || 0) <= 0;
+
+                          return (
+                            <tr key={row.id} className="hover:bg-slate-50/80">
+                              <td className="py-2.5 px-3">
+                                <div className="font-semibold text-slate-900">
+                                  {t?.marca} {t?.modelo_llanta}
+                                </div>
+                                <span className="font-mono text-xs text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">
+                                  {t?.ancho}/{t?.perfil} R{t?.rin}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3">
+                                {isJit ? (
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                    Sobre Pedido (JIT)
+                                  </span>
+                                ) : (
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                    Stock Taller ({t?.stock_actual})
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-2.5 px-3 text-center tabular-nums font-bold">
+                                {row.cantidad}
+                              </td>
+                              <td className="py-2.5 px-3 text-right tabular-nums text-slate-500">
+                                ${costoU.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-mono text-[10px] font-bold tabular-nums">
+                                  +{margenPct.toFixed(0)}% (+${utilRow.toLocaleString("es-MX", { maximumFractionDigits: 0 })})
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-right tabular-nums">
+                                ${pVenta.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-bold text-slate-900 tabular-nums">
+                                ${Number(row.subtotal).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                              </td>
+                              <td className="py-2.5 px-3 text-right">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveTire(row)}
+                                  className="p-1 text-slate-400 hover:text-red-600 cursor-pointer"
+                                  title="Eliminar neumático"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </div>
             </div>
