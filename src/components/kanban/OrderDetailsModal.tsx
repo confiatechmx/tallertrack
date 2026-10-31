@@ -207,7 +207,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   const [jitMargen, setJitMargen] = useState<string>("25");
   const [jitPrecioVentaUnitario, setJitPrecioVentaUnitario] = useState<string>("");
   const [jitIndiceCarga, setJitIndiceCarga] = useState("91V");
-  const [jitTipoTerreno, setJitTipoTerreno] = useState("H/T");
+  const [jitTipoTerreno, setJitTipoTerreno] = useState("HT");
 
   // DVI & Reception state
   const [dviItems, setDviItems] = useState<any[]>([]);
@@ -936,7 +936,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
             perfil: jitPerfil,
             rin: jitRin,
             indice_carga_velocidad: jitIndiceCarga.trim() || "N/A",
-            tipo_terreno: jitTipoTerreno || "H/T",
+            tipo_terreno: jitTipoTerreno || "HT",
             costo_adquisicion: numericJitCosto,
             precio_venta: finalPrice,
             stock_actual: 0,
@@ -2249,9 +2249,10 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                 onChange={(e) => setJitTipoTerreno(e.target.value)}
                                 className="h-6 text-[10px] bg-white border border-slate-300 rounded px-1"
                               >
-                                <option value="H/T">H/T (Carretera/Urbano)</option>
-                                <option value="A/T">A/T (Todo Terreno)</option>
-                                <option value="M/T">M/T (Fango/Off-Road)</option>
+                                <option value="HT">HT (Carretera/Urbano)</option>
+                                <option value="AT">AT (Todo Terreno)</option>
+                                <option value="MT">MT (Fango/Off-Road)</option>
+                                <option value="All Season">All Season</option>
                               </select>
                             </div>
                           </div>
