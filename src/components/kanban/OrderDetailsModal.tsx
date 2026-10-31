@@ -418,7 +418,23 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   const parseMedidaExpress = (input: string) => {
     setJitMedidaExpress(input);
     const cleaned = input.trim().replace(/\s+/g, "");
-    const match = cleaned.match(/^(\d{3})[\/\-]??(\d{2})[rR\/\-]??(\d{2})$/i);
+
+    // 1. Detectar marcas en el texto copiado (ej. "205/55R16 Michelin" o "225 65 17 Linglong")
+    const brandCandidates = [
+      "Michelin", "Bridgestone", "Continental", "Goodyear", "Pirelli", "Hankook",
+      "Tornel", "Firestone", "Yokohama", "Kumho", "Nexen", "Goodride", "Linglong",
+      "BFGoodrich", "Toyo", "Cooper", "Falken", "General", "Dunlop", "Maxxis",
+      "Royal Black", "Haida", "Waterfall", "Westlake"
+    ];
+    for (const b of brandCandidates) {
+      if (new RegExp(`\\b${b}\\b`, "i").test(input)) {
+        setJitMarca(b);
+        break;
+      }
+    }
+
+    // 2. Medidas milimétricas estándar (ej. 205/55R16, 225-65-17, 265 70 17)
+    const match = cleaned.match(/(\d{3})[\/\-]??(\d{2})[rR\/\-]??(\d{2})/i);
     if (match) {
       const a = parseInt(match[1]);
       const p = parseInt(match[2]);
@@ -426,6 +442,19 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
       if (a >= 135 && a <= 335) setJitAncho(a);
       if (p >= 25 && p <= 85) setJitPerfil(p);
       if (r >= 12 && r <= 24) setJitRin(r);
+      return;
+    }
+
+    // 3. Medidas de flotación en pulgadas (ej. 33x12.50R15, 35x12.50R17, 31x10.50R15)
+    const matchFlot = cleaned.match(/(\d{2})x(\d{2}(?:\.\d{1,2})?)[rR](d{2})/i);
+    if (matchFlot) {
+      const diam = parseInt(matchFlot[1]);
+      const anchoFlot = Math.round(parseFloat(matchFlot[2]));
+      const r = parseInt(matchFlot[3]);
+      setJitAncho(diam);
+      setJitPerfil(anchoFlot);
+      setJitRin(r);
+      return;
     }
   };
 
