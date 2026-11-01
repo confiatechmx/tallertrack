@@ -16,13 +16,15 @@ import {
   X,
   Sparkles,
   ShieldCheck,
+  Banknote,
+  Coins,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   TenantMetodosPagoService,
   TenantMetodoPago,
 } from "@/services/tenantMetodosPagoService";
-import { CajaTurnoService, CuentaBancaria } from "@/services/cajaTurnoService";
+import { CajaTurnoService, CuentaBancaria, CajaFondo } from "@/services/cajaTurnoService";
 import { supabase } from "@/lib/supabase";
 
 interface TenantMetodosPagoConfigProps {
@@ -53,6 +55,14 @@ export function TenantMetodosPagoConfig({ empresaId, sucursalId }: TenantMetodos
   const [cuentas, setCuentas] = useState<CuentaBancaria[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [fondos, setFondos] = useState<CajaFondo[]>([]);
+  const [isFondoModalOpen, setIsFondoModalOpen] = useState(false);
+  const [editingFondo, setEditingFondo] = useState<CajaFondo | null>(null);
+  const [fondoNombre, setFondoNombre] = useState("");
+  const [fondoSaldoActual, setFondoSaldoActual] = useState("");
+  const [fondoMinimoAlerta, setFondoMinimoAlerta] = useState("");
+  const [savingFondo, setSavingFondo] = useState(false);
+
 
   // Modal State for Nueva / Editar Cuenta
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -86,6 +96,39 @@ export function TenantMetodosPagoConfig({ empresaId, sucursalId }: TenantMetodos
     setMetodos(metodosRes.data);
     setCuentas(cuentasData);
     setLoading(false);
+  };
+
+  
+  const handleOpenEditarFondo = (f: CajaFondo) => {
+    setEditingFondo(f);
+    setFondoNombre(f.nombre);
+    setFondoSaldoActual(String(f.saldo_actual));
+    setFondoMinimoAlerta(f.saldo_minimo_alerta !== null ? String(f.saldo_minimo_alerta) : "");
+    setIsFondoModalOpen(true);
+  };
+
+  const handleSaveFondo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingFondo) return;
+    setSavingFondo(true);
+    try {
+      const res = await CajaTurnoService.actualizarFondo(editingFondo.id, {
+        nombre: fondoNombre,
+        saldo_actual: parseFloat(fondoSaldoActual) || 0,
+        saldo_minimo_alerta: fondoMinimoAlerta ? parseFloat(fondoMinimoAlerta) : null,
+      });
+      if (!res.success) {
+        toast.error(res.error || "No se pudo actualizar el fondo");
+        return;
+      }
+      toast.success("Fondo de caja actualizado exitosamente");
+      setIsFondoModalOpen(false);
+      cargarConfiguracion();
+    } catch (err: any) {
+      toast.error(err.message || "Error al actualizar fondo");
+    } finally {
+      setSavingFondo(false);
+    }
   };
 
   const handleOpenCrearCuenta = () => {
@@ -609,6 +652,94 @@ export function TenantMetodosPagoConfig({ empresaId, sucursalId }: TenantMetodos
         </div>
       )}
 
+      
+      {/* ─── SECCIÓN: FONDOS DE CAJA CHICA (CONTROL DUAL) ─── */}
+      <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
+        <div className="p-5 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <Banknote className="w-4 h-4 text-emerald-600" />
+              Fondos de Caja Chica y Efectivo Físico ({fondos.length})
+            </h2>
+            <p className="text-xs text-slate-500 mt-1 max-w-xl">
+              Configura los saldos base para apertura de turno y los umbrales de alerta mínima para el mostrador (Fondo 1) y la reserva en caja fuerte (Fondo 2).
+            </p>
+          </div>
+        </div>
+
+        {fondos.length === 0 ? (
+          <div className="p-8 text-center text-slate-400 text-xs">
+            No hay fondos registrados para esta sucursal.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-100">
+            {fondos.map((f) => {
+              const isOperativo = f.tipo === "OPERATIVO";
+              return (
+                <div key={f.id} className="p-5 flex flex-col justify-between gap-4 hover:bg-slate-50/50 transition-colors">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {isOperativo ? (
+                          <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs shrink-0">
+                            <Banknote size={16} />
+                          </div>
+                        ) : (
+                          <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-xs shrink-0">
+                            <Coins size={16} />
+                          </div>
+                        )}
+                        <div>
+                          <h3 className="text-xs font-bold text-slate-900">{f.nombre}</h3>
+                          <span className={`text-[10px] font-semibold uppercase ${isOperativo ? "text-emerald-700" : "text-purple-700"}`}>
+                            {isOperativo ? "Mostrador Operativo • Caja Diaria" : "Reserva • Caja Fuerte / Resguardo"}
+                          </span>
+                        </div>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        isOperativo ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-purple-50 text-purple-800 border border-purple-200"
+                      }`}>
+                        {f.tipo}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 pt-2">
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                          Saldo Base Actual
+                        </span>
+                        <span className="text-base font-bold text-slate-900 tabular-nums">
+                          ${Number(f.saldo_actual).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
+                        </span>
+                      </div>
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                          Alerta Mínimo
+                        </span>
+                        <span className="text-base font-bold text-amber-700 tabular-nums">
+                          ${Number(f.saldo_minimo_alerta || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end pt-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEditarFondo(f)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      <Pencil size={13} />
+                      Editar Fondo
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {/* ─── SECCIÓN 2: TERMINALES Y COMISIONES MSI ─── */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
         <div className="p-5 bg-slate-50 border-b border-slate-200">
@@ -676,6 +807,103 @@ export function TenantMetodosPagoConfig({ empresaId, sucursalId }: TenantMetodos
           })}
         </div>
       </div>
+    
+      {/* ─── MODAL EDITAR FONDO DE CAJA ─── */}
+      {isFondoModalOpen && editingFondo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-emerald-400">
+                  <Banknote size={16} />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold">Editar Fondo de Caja</h3>
+                  <p className="text-[11px] text-slate-300">
+                    Configuración de saldo base y umbral de alerta
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsFondoModalOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveFondo} className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Nombre del Fondo
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={fondoNombre}
+                  onChange={(e) => setFondoNombre(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Saldo Base Recomendado / Inicial ($ MXN)
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  min="0"
+                  required
+                  value={fondoSaldoActual}
+                  onChange={(e) => setFondoSaldoActual(e.target.value)}
+                  className="w-full px-3 py-2 text-xs font-bold border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Monto predeterminado sugerido para la apertura de turno y remesa.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Saldo Mínimo para Alerta ($ MXN)
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  min="0"
+                  value={fondoMinimoAlerta}
+                  onChange={(e) => setFondoMinimoAlerta(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Si el saldo cae por debajo de este monto, el sistema avisará necesidad de traspaso.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsFondoModalOpen(false)}
+                  className="px-3.5 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-lg"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingFondo}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+                >
+                  {savingFondo && <Loader2 size={13} className="animate-spin" />}
+                  Guardar Cambios
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

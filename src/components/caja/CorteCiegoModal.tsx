@@ -69,14 +69,14 @@ export function CorteCiegoModal({
   const [denomF1, setDenomF1] = useState<DenominacionesConteo>({ ...DENOMINACIONES_BASE });
   // Total declared Fondo 2 (Reserva)
   const [montoF2Declarado, setMontoF2Declarado] = useState<string>(
-    String(fondoReserva?.saldo_actual || turnoActivo.monto_apertura_fondo2 || 8000)
+    String(fondoReserva?.saldo_actual || turnoActivo.monto_apertura_fondo2 || 8500)
   );
 
   // Step 3: Justification for discrepancy
   const [justificacion, setJustificacion] = useState("");
 
   // Step 4: Cash drop / Remesa & Float for next shift
-  const [fondoSiguiente, setFondoSiguiente] = useState<string>("1500");
+  const [fondoSiguiente, setFondoSiguiente] = useState<string>(String(fondoOperativo?.saldo_actual || turnoActivo.monto_apertura_fondo1 || 400));
   const [remesaRetirada, setRemesaRetirada] = useState<string>("0");
 
   // Load theoretical shift data on open
@@ -108,7 +108,8 @@ export function CorteCiegoModal({
 
   // Auto calculate remesa when entering Step 4
   const handleGoToRemesa = () => {
-    const fSiguienteNum = Number(fondoSiguiente || 1500);
+    const baseSiguiente = Number(fondoOperativo?.saldo_actual || turnoActivo.monto_apertura_fondo1 || 400);
+    const fSiguienteNum = Number(fondoSiguiente || baseSiguiente);
     const remesaSugerida = Math.max(0, totalF1Declarado - fSiguienteNum);
     setRemesaRetirada(String(remesaSugerida));
     setStep("REMESA");
@@ -395,7 +396,7 @@ export function CorteCiegoModal({
                     min="0"
                     value={montoF2Declarado}
                     onChange={(e) => setMontoF2Declarado(e.target.value)}
-                    placeholder="8000.00"
+                    placeholder="8500.00"
                     className="w-full pl-8 pr-4 py-2 bg-white border border-purple-200 rounded-xl text-slate-900 font-bold text-sm focus:outline-hidden focus:ring-2 focus:ring-purple-500/20"
                   />
                 </div>

@@ -724,4 +724,32 @@ export const CajaTurnoService = {
       return { success: false, error: err.message || "Error al auditar turno" };
     }
   },
+
+  /**
+   * Actualiza el saldo base o configuración de un fondo de caja
+   */
+  async actualizarFondo(
+    fondoId: string,
+    updates: Partial<Pick<CajaFondo, "saldo_actual" | "saldo_minimo_alerta" | "nombre">>
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { error } = await supabase
+        .from("caja_fondos")
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", fondoId);
+
+      if (error) {
+        console.error("Error al actualizar fondo:", error);
+        return { success: false, error: error.message };
+      }
+
+      return { success: true };
+    } catch (err: any) {
+      console.error("Excepción al actualizar fondo:", err);
+      return { success: false, error: err.message || "Error al actualizar fondo" };
+    }
+  },
 };

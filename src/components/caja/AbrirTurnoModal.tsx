@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   X,
   Unlock,
@@ -35,13 +35,24 @@ export function AbrirTurnoModal({
   const fondoReserva = fondos.find((f) => f.tipo === "RESERVA") || fondos[1];
 
   const [montoF1, setMontoF1] = useState<string>(
-    fondoOperativo?.saldo_actual ? String(fondoOperativo.saldo_actual) : "1500"
+    fondoOperativo?.saldo_actual !== undefined ? String(fondoOperativo.saldo_actual) : "400"
   );
   const [montoF2, setMontoF2] = useState<string>(
-    fondoReserva?.saldo_actual ? String(fondoReserva.saldo_actual) : "8000"
+    fondoReserva?.saldo_actual !== undefined ? String(fondoReserva.saldo_actual) : "8500"
   );
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  useEffect(() => {
+    if (isOpen) {
+      if (fondoOperativo?.saldo_actual !== undefined) {
+        setMontoF1(String(fondoOperativo.saldo_actual));
+      }
+      if (fondoReserva?.saldo_actual !== undefined) {
+        setMontoF2(String(fondoReserva.saldo_actual));
+      }
+    }
+  }, [isOpen, fondoOperativo?.saldo_actual, fondoReserva?.saldo_actual]);
+
 
   if (!isOpen) return null;
 
@@ -145,7 +156,7 @@ export function AbrirTurnoModal({
                 required
                 value={montoF1}
                 onChange={(e) => setMontoF1(e.target.value)}
-                placeholder="1500.00"
+                placeholder="400.00"
                 className="w-full pl-8 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-900 font-bold text-base focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary"
               />
             </div>
@@ -178,7 +189,7 @@ export function AbrirTurnoModal({
                 required
                 value={montoF2}
                 onChange={(e) => setMontoF2(e.target.value)}
-                placeholder="8000.00"
+                placeholder="8500.00"
                 className="w-full pl-8 pr-4 py-2.5 bg-white border border-purple-200 rounded-xl text-slate-900 font-bold text-base focus:outline-hidden focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600"
               />
             </div>
