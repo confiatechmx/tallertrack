@@ -259,19 +259,32 @@ export function TenantMetodosPagoConfig({ empresaId, sucursalId }: TenantMetodos
     setTimeout(() => setCopiedId(null), 2500);
   };
 
-  const handleUpdateMetodoComision = async (id: string, nuevaComision: number) => {
+  const handleUpdateMetodoComision = async (
+    id: string,
+    nuevaComisionPct: number,
+    nuevaComisionFija: number = 0
+  ) => {
     setSavingId(id);
     setMetodos((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, comision_porcentaje: nuevaComision } : m))
+      prev.map((m) =>
+        m.id === id
+          ? {
+              ...m,
+              comision_porcentaje: nuevaComisionPct,
+              comision_fija: nuevaComisionFija,
+            }
+          : m
+      )
     );
     try {
       await TenantMetodosPagoService.actualizarMetodo(id, {
-        comision_porcentaje: nuevaComision,
+        comision_porcentaje: nuevaComisionPct,
+        comision_fija: nuevaComisionFija,
       });
-      toast.success("Comisión actualizada.");
+      toast.success("Comisiones y cuotas fijas actualizadas.");
     } catch (err) {
-      console.error("Error al guardar comisión:", err);
-      toast.error("Error al guardar comisión.");
+      console.error("Error al guardar comisiones:", err);
+      toast.error("Error al guardar comisiones.");
     } finally {
       setSavingId(null);
     }
@@ -748,7 +761,7 @@ export function TenantMetodosPagoConfig({ empresaId, sucursalId }: TenantMetodos
             Terminales de Tarjeta y Meses Sin Intereses (MSI)
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            Configura el porcentaje de comisión que la pasarela retiene por cada plazo (absorbido por el taller para calcular la utilidad neta).
+            Configura la tasa porcentual (%) y la cuota fija por transacción ($ MXN) que la pasarela retiene (ej. 2.9% + $5.00 MXN). Este cálculo es 100% administrativo para la conciliación de remesas y depósito bancario real; no altera el total cobrado al cliente en mostrador.
           </p>
         </div>
 
@@ -783,22 +796,54 @@ export function TenantMetodosPagoConfig({ empresaId, sucursalId }: TenantMetodos
                 </div>
 
                 {isCardOrMSI && (
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-slate-500 font-medium">Comisión Deducida:</span>
-                    <div className="flex items-center w-28 relative">
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        max="100"
-                        disabled={!m.activo}
-                        value={m.comision_porcentaje}
-                        onChange={(e) =>
-                          handleUpdateMetodoComision(m.id, parseFloat(e.target.value) || 0)
-                        }
-                        className="w-full h-8 px-2 pr-7 text-xs font-bold text-slate-800 bg-slate-50 border border-slate-300 rounded text-right focus:ring-1 focus:ring-blue-500"
-                      />
-                      <span className="absolute right-2 text-xs font-bold text-slate-400">%</span>
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    {/* Tasa Porcentual */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-bold text-slate-500">Tasa:</span>
+                      <div className="flex items-center w-24 relative">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          disabled={!m.activo}
+                          value={m.comision_porcentaje}
+                          onChange={(e) =>
+                            handleUpdateMetodoComision(
+                              m.id,
+                              parseFloat(e.target.value) || 0,
+                              Number(m.comision_fija || 0)
+                            )
+                          }
+                          className="w-full h-8 px-2 pr-6 text-xs font-bold text-slate-800 bg-slate-50 border border-slate-300 rounded-lg text-right focus:ring-1 focus:ring-blue-500"
+                        />
+                        <span className="absolute right-2 text-xs font-bold text-slate-400">%</span>
+                      </div>
+                    </div>
+
+                    <span className="text-xs text-slate-400 font-bold">+</span>
+
+                    {/* Tarifa Fija por Transacción */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-bold text-slate-500">Cuota fija:</span>
+                      <div className="flex items-center w-24 relative">
+                        <span className="absolute left-2 text-xs font-bold text-slate-400">$</span>
+                        <input
+                          type="number"
+                          step="0.5"
+                          min="0"
+                          disabled={!m.activo}
+                          value={m.comision_fija}
+                          onChange={(e) =>
+                            handleUpdateMetodoComision(
+                              m.id,
+                              Number(m.comision_porcentaje || 0),
+                              parseFloat(e.target.value) || 0
+                            )
+                          }
+                          className="w-full h-8 pl-5 pr-2 text-xs font-bold text-slate-800 bg-slate-50 border border-slate-300 rounded-lg text-right focus:ring-1 focus:ring-blue-500"
+                        />
+                      </div>
                     </div>
                   </div>
                 )}

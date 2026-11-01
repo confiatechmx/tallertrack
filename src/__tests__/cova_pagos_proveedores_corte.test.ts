@@ -99,6 +99,28 @@ describe("Suite Cova Tires: Pagos Autogestionables, Proveedores y Corte Diario",
       expect(res.comisionMonto).toBe(0);
       expect(res.montoNeto).toBe(4500);
     });
+
+    it("debe calcular comisiones combinadas de Tasa Porcentual + Cuota Fija (ej. 2.9% + $5.00 MXN) de forma 100% administrativa", () => {
+      // Caso solicitado por el usuario: terminales que cobran porcentaje + cuota fija por transacción
+      const metodoCombinado: Partial<TenantMetodoPago> = {
+        nombre: "Terminal Smart TPV (Clip / Point)",
+        tipo: "TARJETA_CREDITO",
+        proveedor: "Clip",
+        comision_porcentaje: 2.9,
+        comision_fija: 5.0,
+        comision_iva_incluido: true,
+      };
+
+      const montoCobradoCliente = 4000.0; // El cliente en mostrador paga exactamente $4,000.00
+      const res = TenantMetodosPagoService.calcularComision(montoCobradoCliente, metodoCombinado);
+
+      // Comisión = (4000 * 2.9%) + $5.00 = $116.00 + $5.00 = $121.00
+      expect(res.montoBruto).toBe(4000.0);
+      expect(res.comisionPorcentaje).toBe(2.9);
+      expect(res.comisionFija).toBe(5.0);
+      expect(res.comisionMonto).toBe(121.0);
+      expect(res.montoNeto).toBe(3879.0); // Lo que el banco deposita neto al taller
+    });
   });
 
   describe("2. Trazabilidad de Proveedores, Evidencias y Garantías", () => {
