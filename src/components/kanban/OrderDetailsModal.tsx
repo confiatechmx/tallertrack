@@ -10,6 +10,7 @@ import { calcularCuotasBNPL } from "@/lib/bnpl";
 import { ReceiptModal } from "@/components/caja/ReceiptModal";
 import { OrderPrintSheet } from "./OrderPrintSheet";
 import { AuditTimeline } from "@/components/audit/AuditTimeline";
+import { toast } from "sonner";
 import {
   Loader2,
   User,
@@ -23,10 +24,12 @@ import {
   Banknote,
   CreditCard,
   Landmark,
+  Building2,
   Smartphone,
   ExternalLink,
   MessageCircle,
   AlertTriangle,
+  AlertCircle,
   FileText,
   ClipboardCheck,
   Printer,
@@ -255,6 +258,8 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   const [addingPaymentLoading, setAddingPaymentLoading] = useState(false);
   const [paymentStatusMessage, setPaymentStatusMessage] = useState("");
   const [applyCashDiscount, setApplyCashDiscount] = useState(true);
+  const [cuentasBancarias, setCuentasBancarias] = useState<any[]>([]);
+  const [selectedCuentaBancariaId, setSelectedCuentaBancariaId] = useState<string>("");
 
   useEffect(() => {
     if (empresa?.margen_refacciones_default) {
@@ -273,6 +278,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
       { data: tiresData },
       { data: providersData },
       { data: dviData },
+      { data: cuentasBancariasData },
     ] = await Promise.all([
       supabase
         .from("ordenes_servicio")
@@ -298,7 +304,8 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
             )
           ),
           pagos_orden (
-            id, monto_total, proveedor_pago, metodo_detalle, referencia, estatus, external_transaction_id, comision_pasarela, fecha_pago, deleted_at
+            id, monto_total, proveedor_pago, metodo_detalle, referencia, estatus, external_transaction_id, comision_pasarela, fecha_pago, deleted_at, descuento_aplicado, cuenta_bancaria_id,
+            cuenta_bancaria:cuentas_bancarias ( id, banco, alias, clabe, es_fiscal )
           )
         `
         )
@@ -313,6 +320,12 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
         .select("*")
         .eq("orden_servicio_id", orderId)
         .order("created_at", { ascending: true }),
+      supabase
+        .from("cuentas_bancarias")
+        .select("*")
+        .eq("activo", true)
+        .order("es_fiscal", { ascending: false })
+        .order("alias", { ascending: true }),
     ]);
 
     if (!orderError && orderData) {
@@ -324,6 +337,16 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
       };
       setOrder(enrichedOrder);
       setDviItems(dviData || []);
+
+      const validCuentas = (cuentasBancariasData as any[]) || [];
+      const targetEmpresaId = orderData.empresa_id || empresa?.id;
+      const filteredCuentas = validCuentas.filter(
+        (cb) => !cb.empresa_id || cb.empresa_id === targetEmpresaId
+      );
+      setCuentasBancarias(filteredCuentas);
+      if (filteredCuentas.length > 0) {
+        setSelectedCuentaBancariaId((prev) => prev || filteredCuentas[0].id);
+      }
 
       // Init reception fields
       setRecProblema(orderData.problema_reportado || orderData.notas_recepcion || "");
@@ -1583,22 +1606,29 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
       }
     }
 
+    const selectedCuenta = cuentasBancarias.find((c) => c.id === selectedCuentaBancariaId);
+    let finalMetodoDetalle = paymentMetodoDetalle || paymentProvider;
+    if (paymentProvider === "Transferencia" && selectedCuenta) {
+      finalMetodoDetalle = `Transferencia SPEI (${selectedCuenta.alias} - ${selectedCuenta.banco})`;
+    }
+
     const payload = {
       orden_servicio_id: orderId,
       sucursal_id: order.sucursal_id || sucursalActiva?.id || null,
       monto_total: monto,
       proveedor_pago: paymentProvider,
-      metodo_detalle: paymentMetodoDetalle || paymentProvider,
+      metodo_detalle: finalMetodoDetalle,
       referencia: paymentReferencia.trim() || `AUT-${Date.now().toString().slice(-6)}`,
       estatus: "Aprobado",
       comision_pasarela: Math.round(comision * 100) / 100,
       descuento_aplicado: descuentoAplicado,
+      cuenta_bancaria_id: paymentProvider === "Transferencia" ? (selectedCuentaBancariaId || null) : null,
     };
 
     const { data: intent, error } = await supabase
       .from("pagos_orden")
       .insert(payload)
-      .select("*")
+      .select("*, cuenta_bancaria:cuentas_bancarias(id, banco, alias, clabe, es_fiscal)")
       .single();
 
     if (!error && intent) {
@@ -4289,7 +4319,14 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                             })}
                           </td>
                           <td className="py-2.5 px-3">
-                            <div className="font-bold text-slate-900">{p.proveedor_pago}</div>
+                            <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                              {p.proveedor_pago}
+                              {p.cuenta_bancaria?.es_fiscal && (
+                                <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded font-bold border border-emerald-200">
+                                  SAT
+                                </span>
+                              )}
+                            </div>
                             {p.metodo_detalle && (
                               <div className="text-[10px] text-slate-500">{p.metodo_detalle}</div>
                             )}
@@ -4408,8 +4445,15 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                         const val = e.target.value;
                         setPaymentProvider(val);
                         if (val === "Efectivo") setPaymentMetodoDetalle("Efectivo en Caja");
-                        else if (val === "Transferencia")
-                          setPaymentMetodoDetalle("Transferencia SPEI");
+                        else if (val === "Transferencia") {
+                          const firstCuenta = cuentasBancarias[0];
+                          if (firstCuenta) {
+                            setSelectedCuentaBancariaId(firstCuenta.id);
+                            setPaymentMetodoDetalle(`SPEI (${firstCuenta.alias} - ${firstCuenta.banco})`);
+                          } else {
+                            setPaymentMetodoDetalle("Transferencia SPEI");
+                          }
+                        }
                         else if (val === "Mercado Pago")
                           setPaymentMetodoDetalle("Terminal Point Smart TPV");
                         else if (val === "Stripe")
@@ -4479,6 +4523,100 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                       <span className="text-[11px] font-black text-emerald-800 tabular-nums shrink-0">
                         Ahorro cliente: -${(Math.round(((parseFloat(paymentAmount) || saldoPendiente || 0) * (Number(empresa.descuento_efectivo_porcentaje) / 100)) * 100) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
                       </span>
+                    )}
+                  </div>
+                )}
+
+                {paymentProvider === "Transferencia" && (
+                  <div className="bg-blue-50/70 border border-blue-200 rounded-lg p-3 space-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-bold uppercase text-blue-900 flex items-center gap-1.5">
+                        <Building2 size={13} className="text-blue-600" />
+                        Cuenta Bancaria Receptora (Catálogo SPEI) *
+                      </label>
+                      <span className="text-[10px] text-blue-700 font-medium">
+                        {cuentasBancarias.length} cuentas configuradas
+                      </span>
+                    </div>
+
+                    {cuentasBancarias.length === 0 ? (
+                      <div className="p-2 bg-amber-50 border border-amber-200 rounded text-amber-800 text-[11px] flex items-center gap-2">
+                        <AlertCircle size={14} className="text-amber-600 shrink-0" />
+                        <span>No hay cuentas bancarias activas. Puedes agregarlas en <strong>Configuración &gt; Métodos de Pago</strong>.</span>
+                      </div>
+                    ) : (
+                      <>
+                        <select
+                          value={selectedCuentaBancariaId}
+                          onChange={(e) => {
+                            const cId = e.target.value;
+                            setSelectedCuentaBancariaId(cId);
+                            const found = cuentasBancarias.find((c) => c.id === cId);
+                            if (found) {
+                              setPaymentMetodoDetalle(`SPEI (${found.alias} - ${found.banco})`);
+                            }
+                          }}
+                          className="w-full h-9 bg-white border border-blue-300 rounded-md px-2.5 text-xs font-bold text-slate-900 focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                        >
+                          {cuentasBancarias.map((cb) => (
+                            <option key={cb.id} value={cb.id}>
+                              {cb.alias} ({cb.banco}) {cb.es_fiscal ? "• [Fiscal SAT]" : "• [Operativa]"}
+                            </option>
+                          ))}
+                        </select>
+
+                        {/* Selected account preview */}
+                        {(() => {
+                          const cb = cuentasBancarias.find((c) => c.id === selectedCuentaBancariaId) || cuentasBancarias[0];
+                          if (!cb) return null;
+                          return (
+                            <div className="bg-white p-2.5 rounded border border-blue-100 space-y-1 text-[11px] shadow-2xs">
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-slate-900 flex items-center gap-1.5">
+                                  <Landmark size={13} className="text-blue-600" />
+                                  {cb.alias} ({cb.banco})
+                                </span>
+                                {cb.es_fiscal ? (
+                                  <span className="text-[9.5px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded border border-emerald-200">
+                                    🏛️ Fiscal (SAT)
+                                  </span>
+                                ) : (
+                                  <span className="text-[9.5px] font-medium bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded">
+                                    💼 Operativa
+                                  </span>
+                                )}
+                              </div>
+                              {cb.titular && (
+                                <div className="text-slate-500 text-[10.5px]">
+                                  Titular: <strong className="text-slate-700">{cb.titular}</strong>
+                                </div>
+                              )}
+                              <div className="pt-1 border-t border-slate-100 flex items-center justify-between">
+                                {cb.clabe ? (
+                                  <span className="font-mono text-slate-800 font-bold flex items-center gap-1.5 text-[11px]">
+                                    CLABE: {cb.clabe}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(cb.clabe);
+                                        toast.success("CLABE copiada al portapapeles");
+                                      }}
+                                      title="Copiar CLABE"
+                                      className="text-blue-600 hover:underline cursor-pointer font-sans text-[10px] font-bold"
+                                    >
+                                      Copiar
+                                    </button>
+                                  </span>
+                                ) : (
+                                  <span className="text-amber-800 text-[10.5px] font-semibold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                                    ⚠️ Sin CLABE asignada (Falta ingresar en Configuración)
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </>
                     )}
                   </div>
                 )}

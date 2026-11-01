@@ -665,8 +665,11 @@ export function OrderPrintSheet({
                   <div className="pt-1 mt-1 border-t border-slate-200 text-[9px]">
                     <span className="font-bold text-slate-500 uppercase block mb-0.5">Pagos Aplicados:</span>
                     {pagosAprobados.map((p: any) => (
-                      <div key={p.id} className="flex justify-between text-slate-600">
-                        <span>{p.proveedor_pago} ({p.metodo_detalle || "Caja"})</span>
+                      <div key={p.id} className="flex justify-between items-baseline text-slate-600">
+                        <span>
+                          {p.proveedor_pago}: <strong className="text-slate-800">{p.metodo_detalle || "Caja"}</strong>
+                          {p.referencia && <span className="text-[8px] font-mono text-slate-400 ml-1">[{p.referencia}]</span>}
+                        </span>
                         <span className="tabular-nums font-semibold">${Number(p.monto_total).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
                       </div>
                     ))}

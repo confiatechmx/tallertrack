@@ -260,7 +260,7 @@ export const CajaTurnoService = {
   },
 
   /**
-   * Obtiene las cuentas bancarias para cobros SPEI
+   * Obtiene las cuentas bancarias para cobros SPEI (activas)
    */
   async obtenerCuentasBancarias(empresaId: string, sucursalId?: string): Promise<CuentaBancaria[]> {
     try {
@@ -276,7 +276,7 @@ export const CajaTurnoService = {
         query = query.or(`sucursal_id.eq.${sucursalId},sucursal_id.is.null`);
       }
 
-      const { data, error } = await query.order("alias", { ascending: true });
+      const { data, error } = await query.order("es_fiscal", { ascending: false }).order("alias", { ascending: true });
       if (error) {
         console.error("Error al obtener cuentas bancarias:", error);
         return [];
@@ -286,6 +286,126 @@ export const CajaTurnoService = {
     } catch (err) {
       console.error("Excepción al consultar cuentas bancarias:", err);
       return [];
+    }
+  },
+
+  /**
+   * Obtiene todas las cuentas bancarias (incluyendo inactivas para el catálogo de configuración)
+   */
+  async obtenerTodasLasCuentasBancarias(empresaId: string, sucursalId?: string): Promise<CuentaBancaria[]> {
+    try {
+      let query = supabase
+        .from("cuentas_bancarias")
+        .select("*");
+
+      if (empresaId) {
+        query = query.eq("empresa_id", empresaId);
+      }
+      if (sucursalId) {
+        query = query.or(`sucursal_id.eq.${sucursalId},sucursal_id.is.null`);
+      }
+
+      const { data, error } = await query.order("es_fiscal", { ascending: false }).order("alias", { ascending: true });
+      if (error) {
+        console.error("Error al obtener todas las cuentas bancarias:", error);
+        return [];
+      }
+
+      return (data as CuentaBancaria[]) || [];
+    } catch (err) {
+      console.error("Excepción al consultar todas las cuentas bancarias:", err);
+      return [];
+    }
+  },
+
+  /**
+   * Crea una nueva cuenta bancaria en el catálogo autogestionable
+   */
+  async crearCuentaBancaria(cuenta: Omit<CuentaBancaria, "id"> & { id?: string }): Promise<{ data: CuentaBancaria | null; error: any }> {
+    try {
+      const payload: any = {
+        empresa_id: cuenta.empresa_id,
+        sucursal_id: cuenta.sucursal_id || null,
+        banco: cuenta.banco.trim(),
+        alias: cuenta.alias.trim(),
+        titular: cuenta.titular ? cuenta.titular.trim() : null,
+        clabe: cuenta.clabe && cuenta.clabe.trim() ? cuenta.clabe.trim() : null,
+        numero_cuenta: cuenta.numero_cuenta && cuenta.numero_cuenta.trim() ? cuenta.numero_cuenta.trim() : null,
+        es_fiscal: Boolean(cuenta.es_fiscal),
+        tipo_cuenta: cuenta.es_fiscal ? "FISCAL" : (cuenta.tipo_cuenta || "OPERATIVA"),
+        activo: cuenta.activo !== false,
+      };
+
+      const { data, error } = await supabase
+        .from("cuentas_bancarias")
+        .insert(payload)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { data: data as CuentaBancaria, error: null };
+    } catch (err: any) {
+      console.error("Error al crear cuenta bancaria:", err);
+      return { data: null, error: err.message || "Error al registrar cuenta bancaria" };
+    }
+  },
+
+  /**
+   * Actualiza una cuenta bancaria existente (ej. agregar CLABE o cambiar estatus)
+   */
+  async actualizarCuentaBancaria(id: string, updates: Partial<CuentaBancaria>): Promise<{ data: CuentaBancaria | null; error: any }> {
+    try {
+      const payload: any = { ...updates };
+      if (payload.banco) payload.banco = payload.banco.trim();
+      if (payload.alias) payload.alias = payload.alias.trim();
+      if ("clabe" in payload) {
+        payload.clabe = payload.clabe && payload.clabe.trim() ? payload.clabe.trim() : null;
+      }
+      if ("numero_cuenta" in payload) {
+        payload.numero_cuenta = payload.numero_cuenta && payload.numero_cuenta.trim() ? payload.numero_cuenta.trim() : null;
+      }
+      if ("es_fiscal" in payload) {
+        payload.es_fiscal = Boolean(payload.es_fiscal);
+        payload.tipo_cuenta = payload.es_fiscal ? "FISCAL" : "OPERATIVA";
+      }
+
+      const { data, error } = await supabase
+        .from("cuentas_bancarias")
+        .update(payload)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { data: data as CuentaBancaria, error: null };
+    } catch (err: any) {
+      console.error("Error al actualizar cuenta bancaria:", err);
+      return { data: null, error: err.message || "Error al actualizar cuenta bancaria" };
+    }
+  },
+
+  /**
+   * Elimina una cuenta bancaria (con fallback a desactivación si tiene transacciones vinculadas)
+   */
+  async eliminarCuentaBancaria(id: string): Promise<{ success: boolean; error: any }> {
+    try {
+      const { error } = await supabase
+        .from("cuentas_bancarias")
+        .delete()
+        .eq("id", id);
+
+      if (error) {
+        // En caso de llave foránea referenciada en pagos_orden, desactivamos la cuenta de forma segura
+        const { error: softErr } = await supabase
+          .from("cuentas_bancarias")
+          .update({ activo: false })
+          .eq("id", id);
+        if (softErr) throw softErr;
+      }
+      return { success: true, error: null };
+    } catch (err: any) {
+      console.error("Error al eliminar cuenta bancaria:", err);
+      return { success: false, error: err.message || "Error al eliminar cuenta bancaria" };
     }
   },
 
