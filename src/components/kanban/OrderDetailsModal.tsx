@@ -45,6 +45,11 @@ import {
   Copy,
   CheckCheck,
   Layers,
+  Gift,
+  Pencil,
+  Tag,
+  FolderTree,
+  Percent,
 } from "lucide-react";
 
 import {
@@ -55,6 +60,13 @@ import {
   parseMedidaExpress,
   inferOemTireSize,
 } from "@/lib/tires/tireSpeedHelpers";
+
+import {
+  groupItemsByOperation,
+  buildFourTiresPromoBundle,
+  DEFAULT_OPERATION_PACKAGES,
+  OperationGroup,
+} from "@/lib/services/serviceOperationsEngine";
 
 interface OrderDetailsModalProps {
   orderId: string;
@@ -160,6 +172,11 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   const [serviceHours, setServiceHours] = useState<string>("1.0");
   const [serviceCommission, setServiceCommission] = useState<string>("15");
   const [serviceNotes, setServiceNotes] = useState<string>("");
+  const [servicePackage, setServicePackage] = useState<string>("Llantas y Ruedas");
+  const [serviceIsCortesia, setServiceIsCortesia] = useState(false);
+  const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
+  const [editingServicePrice, setEditingServicePrice] = useState<string>("");
+  const [quoteViewMode, setQuoteViewMode] = useState<"operaciones" | "clasico">("operaciones");
   const [addingServiceLoading, setAddingServiceLoading] = useState(false);
 
   // Buyout Refacciones state (Margin Calculator)
@@ -172,6 +189,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   const [partMargen, setPartMargen] = useState<string>(
     String(empresa?.margen_refacciones_default ?? 35)
   );
+  const [partPackage, setPartPackage] = useState<string>("Suspensión y Dirección");
   const [addingPartLoading, setAddingPartLoading] = useState(false);
 
   // Tires state
@@ -265,16 +283,16 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
             clientes ( id, nombre, telefono, correo, rfc, empresa )
           ),
           orden_servicio_servicios (
-            id, servicio_id, mecanico_id, cantidad, horas_labor, precio_cobrado, comision_porcentaje, estatus_aprobacion, notas,
-            servicios_taller ( id, nombre, codigo_sku, categoria, horas_estimadas, precio )
+            id, servicio_id, mecanico_id, cantidad, horas_labor, precio_cobrado, comision_porcentaje, estatus_aprobacion, notas, paquete_operacion, es_cortesia, garantia_especifica,
+            servicios_taller ( id, nombre, codigo_sku, categoria, horas_estimadas, precio, garantia_meses, condicion_promo )
           ),
           orden_servicio_refacciones (
-            id, nombre, numero_parte, proveedor, cantidad, costo_unitario, margen_porcentaje, precio_unitario, subtotal, estatus_aprobacion
+            id, nombre, numero_parte, proveedor, cantidad, costo_unitario, margen_porcentaje, precio_unitario, subtotal, estatus_aprobacion, paquete_operacion, es_cortesia, garantia_especifica
           ),
           cotizaciones (
             id, total,
             detalles_cotizacion (
-              id, cantidad, precio_unitario, subtotal, estatus_aprobacion,
+              id, cantidad, precio_unitario, subtotal, estatus_aprobacion, paquete_operacion, es_cortesia, garantia_especifica,
               inventario_llantas ( id, marca, modelo_llanta, rin, ancho, perfil, stock_actual, costo_adquisicion )
             )
           ),
@@ -353,6 +371,10 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   const activeServices = servicesList.filter((s: any) => s.estatus_aprobacion !== "Diferido");
   const activeParts = partsList.filter((r: any) => r.estatus_aprobacion !== "Diferido");
   const activeTires = tiresList.filter((t: any) => t.estatus_aprobacion !== "Diferido");
+
+  const operationGroups = useMemo(() => {
+    return groupItemsByOperation(activeTires, activeServices, activeParts);
+  }, [activeTires, activeServices, activeParts]);
 
   const subtotalServicios = activeServices.reduce(
     (acc: number, s: any) => acc + Number(s.precio_cobrado || 0) * Number(s.cantidad || 1),
@@ -839,23 +861,27 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
     if (!service) return;
     setAddingServiceLoading(true);
 
+    const finalPrice = serviceIsCortesia ? 0.0 : (parseFloat(servicePrice) || Number(service.precio || 0));
+
     const payload = {
       orden_servicio_id: orderId,
       servicio_id: service.id,
       mecanico_id: serviceMechanicId || order.mecanico_id || null,
       cantidad: 1,
       horas_labor: parseFloat(serviceHours) || Number(service.horas_estimadas || 1),
-      precio_cobrado: parseFloat(servicePrice) || Number(service.precio || 0),
+      precio_cobrado: finalPrice,
       comision_porcentaje: parseFloat(serviceCommission) || 15,
       estatus_aprobacion: "Aprobado",
       notas: serviceNotes.trim() || null,
+      paquete_operacion: servicePackage || (service.categoria?.includes("Llantas") ? "Llantas y Ruedas" : "Mantenimiento y Servicios Generales"),
+      es_cortesia: serviceIsCortesia,
     };
 
     const { data, error } = await supabase
       .from("orden_servicio_servicios")
       .insert(payload)
       .select(
-        "id, servicio_id, mecanico_id, cantidad, horas_labor, precio_cobrado, comision_porcentaje, estatus_aprobacion, notas, servicios_taller(id, nombre, codigo_sku, categoria, horas_estimadas, precio)"
+        "id, servicio_id, mecanico_id, cantidad, horas_labor, precio_cobrado, comision_porcentaje, estatus_aprobacion, notas, paquete_operacion, es_cortesia, garantia_especifica, servicios_taller(id, nombre, codigo_sku, categoria, horas_estimadas, precio, garantia_meses, condicion_promo)"
       )
       .single();
 
@@ -867,9 +893,91 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
       setIsAddingService(false);
       setSelectedServiceId("");
       setServiceNotes("");
+      setServiceIsCortesia(false);
       onUpdate();
     }
     setAddingServiceLoading(false);
+  };
+
+  const handleInlineUpdateServicePrice = async (serviceId: string, newPrice: number, isCortesia?: boolean) => {
+    const updates: any = { precio_cobrado: Math.max(0, newPrice) };
+    if (isCortesia !== undefined) updates.es_cortesia = isCortesia;
+    else if (newPrice === 0) updates.es_cortesia = true;
+
+    const { error } = await supabase
+      .from("orden_servicio_servicios")
+      .update(updates)
+      .eq("id", serviceId);
+
+    if (!error) {
+      setOrder((prev: any) => ({
+        ...prev,
+        orden_servicio_servicios: (prev.orden_servicio_servicios || []).map((s: any) =>
+          s.id === serviceId ? { ...s, ...updates } : s
+        ),
+      }));
+      setEditingServiceId(null);
+      onUpdate();
+    }
+  };
+
+  const handleToggleCortesia = async (row: any) => {
+    const isCurrentlyCortesia = row.es_cortesia || Number(row.precio_cobrado) === 0;
+    const targetPrice = isCurrentlyCortesia ? Number(row.servicios_taller?.precio || 150) : 0;
+    const targetCortesia = !isCurrentlyCortesia;
+    await handleInlineUpdateServicePrice(row.id, targetPrice, targetCortesia);
+  };
+
+  const handleApplyFourTiresPromo = async () => {
+    const firstTire = activeTires[0]?.inventario_llantas;
+    const rin = Number(firstTire?.rin) || jitRin || 16;
+    const bundle = buildFourTiresPromoBundle(rin, 4, availableServices);
+
+    setAddingServiceLoading(true);
+    try {
+      const addedServices: any[] = [];
+      for (const item of bundle) {
+        if (!item.servicio_id) continue;
+        const payload = {
+          orden_servicio_id: orderId,
+          servicio_id: item.servicio_id,
+          mecanico_id: order.mecanico_id || null,
+          cantidad: item.cantidad,
+          horas_labor: 0.25,
+          precio_cobrado: item.precio_cobrado,
+          comision_porcentaje: 15,
+          estatus_aprobacion: "Aprobado",
+          notas: item.notas,
+          paquete_operacion: item.paquete_operacion,
+          es_cortesia: item.es_cortesia,
+          garantia_especifica: "Garantía Cova Tires de Montaje y Balanceo (6 meses / 10,000 km)",
+        };
+
+        const { data, error } = await supabase
+          .from("orden_servicio_servicios")
+          .insert(payload)
+          .select(
+            "id, servicio_id, mecanico_id, cantidad, horas_labor, precio_cobrado, comision_porcentaje, estatus_aprobacion, notas, paquete_operacion, es_cortesia, garantia_especifica, servicios_taller(id, nombre, codigo_sku, categoria, horas_estimadas, precio, garantia_meses, condicion_promo)"
+          )
+          .single();
+
+        if (!error && data) {
+          addedServices.push(data);
+        }
+      }
+
+      if (addedServices.length > 0) {
+        setOrder((prev: any) => ({
+          ...prev,
+          orden_servicio_servicios: [...(prev.orden_servicio_servicios || []), ...addedServices],
+        }));
+        onUpdate();
+      }
+    } catch (err: any) {
+      console.error("Error applying 4-tire promo bundle:", err);
+    } finally {
+      setAddingServiceLoading(false);
+    }
   };
 
   const handleToggleServiceApproval = async (row: any) => {
@@ -962,6 +1070,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
       precio_unitario: calcPrecioUnitario,
       subtotal: calcSubtotal,
       estatus_aprobacion: "Aprobado",
+      paquete_operacion: partPackage || "Suspensión y Dirección",
     };
 
     const { data, error } = await supabase
@@ -1554,6 +1663,320 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   const dviYellowCount = dviItems.filter((i) => i.severidad === "amarillo").length;
   const dviGreenCount = dviItems.filter((i) => i.severidad === "verde").length;
 
+  const renderServiceForm = () => (
+    <div className="p-4 bg-blue-50/50 border-b border-slate-200 space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-bold text-blue-950 flex items-center gap-1.5">
+          <Wrench size={14} className="text-blue-600" />
+          Agregar Mano de Obra / Servicio de Taller
+        </span>
+        <span className="text-[10px] font-semibold text-blue-800 bg-blue-100 px-2 py-0.5 rounded">
+          Catálogo Cova Tires Monterrey
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+        <div className="sm:col-span-4">
+          <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+            Servicio del Catálogo
+          </label>
+          <select
+            value={selectedServiceId}
+            onChange={(e) => handleSelectCatalogService(e.target.value)}
+            className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 text-slate-900"
+          >
+            <option value="">Seleccionar servicio...</option>
+            {availableServices.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.codigo_sku ? `[${s.codigo_sku}] ` : ""}
+                {s.nombre} — ${Number(s.precio).toLocaleString("es-MX")}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="sm:col-span-3">
+          <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+            Paquete / Operación
+          </label>
+          <select
+            value={servicePackage}
+            onChange={(e) => setServicePackage(e.target.value)}
+            className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 text-slate-900 font-medium"
+          >
+            {DEFAULT_OPERATION_PACKAGES.map((pkg) => (
+              <option key={pkg} value={pkg}>
+                {pkg}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="sm:col-span-2">
+          <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+            Técnico
+          </label>
+          <select
+            value={serviceMechanicId}
+            onChange={(e) => setServiceMechanicId(e.target.value)}
+            className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 text-slate-900"
+          >
+            <option value="">Técnico de la orden</option>
+            {mechanics
+              .filter((m) => m.rol === "Mecánico")
+              .map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.nombre} ({m.comision_porcentaje || 15}%)
+                </option>
+              ))}
+          </select>
+        </div>
+
+        <div className="sm:col-span-1">
+          <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+            Horas
+          </label>
+          <input
+            type="number"
+            step="0.1"
+            value={serviceHours}
+            onChange={(e) => setServiceHours(e.target.value)}
+            className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 text-slate-900 tabular-nums"
+          />
+        </div>
+
+        <div className="sm:col-span-2">
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-[10px] font-bold uppercase text-slate-500">
+              Precio ($)
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                const next = !serviceIsCortesia;
+                setServiceIsCortesia(next);
+                if (next) setServicePrice("0");
+                else {
+                  const s = availableServices.find((x) => x.id === selectedServiceId);
+                  setServicePrice(String(s?.precio || 150));
+                }
+              }}
+              className={`text-[9px] font-bold px-1.5 py-0.2 rounded cursor-pointer ${
+                serviceIsCortesia
+                  ? "bg-emerald-600 text-white"
+                  : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-300"
+              }`}
+            >
+              🎁 Cortesía
+            </button>
+          </div>
+          <input
+            type="number"
+            step="10"
+            value={servicePrice}
+            onChange={(e) => {
+              setServicePrice(e.target.value);
+              if (parseFloat(e.target.value) === 0) setServiceIsCortesia(true);
+              else setServiceIsCortesia(false);
+            }}
+            className={`w-full h-8 text-xs bg-white border rounded-md px-2 font-bold tabular-nums ${
+              serviceIsCortesia
+                ? "border-emerald-400 text-emerald-700 bg-emerald-50/50"
+                : "border-slate-300 text-slate-900"
+            }`}
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+        <input
+          type="text"
+          placeholder="Notas técnicas de la partida (opcional)..."
+          value={serviceNotes}
+          onChange={(e) => setServiceNotes(e.target.value)}
+          className="w-full sm:flex-1 h-8 text-xs bg-white border border-slate-300 rounded-md px-2.5 text-slate-800"
+        />
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => setIsAddingService(false)}
+            className="px-3 h-8 text-xs font-medium text-slate-600 hover:text-slate-900 cursor-pointer"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            disabled={!selectedServiceId || addingServiceLoading}
+            onClick={handleAddService}
+            className="px-4 h-8 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold disabled:opacity-50 cursor-pointer"
+          >
+            {addingServiceLoading ? "Guardando..." : "Guardar Mano de Obra"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderPartForm = () => (
+    <div className="p-4 bg-indigo-50/40 border-b border-slate-200 space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-bold text-indigo-950 flex items-center gap-1.5">
+          <Calculator size={14} className="text-indigo-600" />
+          Calculadora de Margen de Refacciones en Vivo
+        </span>
+        <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded">
+          Margen Taller Default: {empresa?.margen_refacciones_default ?? 35}%
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+        <div className="sm:col-span-4">
+          <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+            Concepto / Refacción
+          </label>
+          <input
+            type="text"
+            placeholder="Ej. Juego Balatas Cerámicas Del."
+            value={partNombre}
+            onChange={(e) => setPartNombre(e.target.value)}
+            className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2.5 text-slate-900"
+          />
+        </div>
+
+        <div className="sm:col-span-2">
+          <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+            No. Parte (SKU)
+          </label>
+          <input
+            type="text"
+            placeholder="D1521-8840"
+            value={partNumero}
+            onChange={(e) => setPartNumero(e.target.value)}
+            className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 text-slate-900 font-mono"
+          />
+        </div>
+
+        <div className="sm:col-span-2">
+          <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+            Paquete / Operación
+          </label>
+          <select
+            value={partPackage}
+            onChange={(e) => setPartPackage(e.target.value)}
+            className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 text-slate-900 font-medium"
+          >
+            {DEFAULT_OPERATION_PACKAGES.map((pkg) => (
+              <option key={pkg} value={pkg}>
+                {pkg}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="sm:col-span-2">
+          <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+            Proveedor
+          </label>
+          <select
+            value={partProveedor}
+            onChange={(e) => setPartProveedor(e.target.value)}
+            className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 text-slate-900"
+          >
+            {PROVEEDORES_REFACCIONES.map((prov) => (
+              <option key={prov} value={prov}>
+                {prov}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="sm:col-span-1">
+          <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+            Cant.
+          </label>
+          <input
+            type="number"
+            min="1"
+            value={partCantidad}
+            onChange={(e) => setPartCantidad(parseInt(e.target.value) || 1)}
+            className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 text-center tabular-nums"
+          />
+        </div>
+
+        <div className="sm:col-span-1">
+          <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+            Costo Prov.
+          </label>
+          <input
+            type="number"
+            step="10"
+            placeholder="0.00"
+            value={partCostoUnitario}
+            onChange={(e) => setPartCostoUnitario(e.target.value)}
+            className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 text-slate-900 font-bold tabular-nums"
+          />
+        </div>
+      </div>
+
+      {/* Live Calculation Bar */}
+      <div className="bg-white border border-indigo-200 rounded-md p-2.5 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-1.5">
+            <label className="text-[10px] font-bold uppercase text-slate-500">
+              Markup (%):
+            </label>
+            <input
+              type="number"
+              step="1"
+              value={partMargen}
+              onChange={(e) => setPartMargen(e.target.value)}
+              className="w-16 h-7 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-300 rounded px-2 text-center tabular-nums"
+            />
+          </div>
+
+          <div className="text-xs">
+            <span className="text-slate-500">P. Venta: </span>
+            <strong className="text-slate-900 font-mono tabular-nums">
+              ${calcPrecioUnitario.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+            </strong>
+          </div>
+
+          <div className="text-xs">
+            <span className="text-slate-500">Subtotal: </span>
+            <strong className="text-indigo-700 font-mono tabular-nums">
+              ${calcSubtotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+            </strong>
+          </div>
+
+          <div className="text-xs">
+            <span className="text-slate-500">Utilidad Pieza: </span>
+            <strong className="text-emerald-700 font-mono tabular-nums">
+              +${calcUtilidad.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+            </strong>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsAddingPart(false)}
+            className="px-3 h-7 text-xs text-slate-500 hover:text-slate-800 cursor-pointer"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            disabled={!partNombre.trim() || numericCosto <= 0 || addingPartLoading}
+            onClick={handleAddPart}
+            className="px-3.5 h-7 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold disabled:opacity-50 cursor-pointer"
+          >
+            {addingPartLoading ? "Agregando..." : "Agregar Refacción"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="flex flex-col bg-slate-50 text-slate-900">
       {/* Top Action Header Bar (Shopmonkey Style) */}
@@ -1825,121 +2248,441 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                 </div>
               )}
 
-              {/* 1. MANO DE OBRA (SERVICIOS DE TALLER) */}
-              <div className="bg-white border border-slate-200 rounded-lg shadow-2xs overflow-hidden">
-                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Wrench size={15} className="text-blue-600" />
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                      Mano de Obra y Servicios ({servicesList.length})
-                    </h3>
-                  </div>
+              {/* QUOTE TOOLBAR & QUICK PROMOS */}
+              <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-2xs flex flex-wrap items-center justify-between gap-2.5">
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-md">
                   <button
                     type="button"
-                    onClick={() => setIsAddingService(!isAddingService)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors cursor-pointer"
+                    onClick={() => setQuoteViewMode("operaciones")}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                      quoteViewMode === "operaciones"
+                        ? "bg-white text-blue-700 shadow-2xs border border-slate-200"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
                   >
-                    <Plus size={13} /> Agregar Mano de Obra
+                    <Layers size={13} />
+                    Vista por Paquetes / Operaciones
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setQuoteViewMode("clasico")}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                      quoteViewMode === "clasico"
+                        ? "bg-white text-blue-700 shadow-2xs border border-slate-200"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    <FolderTree size={13} />
+                    Vista Clásica por Categorías
                   </button>
                 </div>
 
-                {isAddingService && (
-                  <div className="p-4 bg-blue-50/40 border-b border-slate-200 space-y-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                      <div className="sm:col-span-5">
-                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-                          Servicio del Catálogo
-                        </label>
-                        <select
-                          value={selectedServiceId}
-                          onChange={(e) => handleSelectCatalogService(e.target.value)}
-                          className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 text-slate-900"
-                        >
-                          <option value="">Seleccionar servicio...</option>
-                          {availableServices.map((s) => (
-                            <option key={s.id} value={s.id}>
-                              {s.codigo_sku ? `[${s.codigo_sku}] ` : ""}
-                              {s.nombre} — ${Number(s.precio).toLocaleString("es-MX")}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleApplyFourTiresPromo}
+                    disabled={addingServiceLoading}
+                    title="Añade automáticamente Montaje y Válvulas a $0.00 como cortesía al vender 4 llantas"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-2xs transition-all cursor-pointer"
+                  >
+                    <Sparkles size={13} />
+                    ⚡ Paquete 4 Llantas (Montaje + Válvulas GRATIS)
+                  </button>
+                </div>
+              </div>
 
-                      <div className="sm:col-span-3">
-                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-                          Técnico Asignado
-                        </label>
-                        <select
-                          value={serviceMechanicId}
-                          onChange={(e) => setServiceMechanicId(e.target.value)}
-                          className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 text-slate-900"
-                        >
-                          <option value="">Técnico de la orden</option>
-                          {mechanics
-                            .filter((m) => m.rol === "Mecánico")
-                            .map((m) => (
-                              <option key={m.id} value={m.id}>
-                                {m.nombre} ({m.comision_porcentaje || 15}%)
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-
-                      <div className="sm:col-span-2">
-                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-                          Horas Labor
-                        </label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={serviceHours}
-                          onChange={(e) => setServiceHours(e.target.value)}
-                          className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 text-slate-900 tabular-nums"
-                        />
-                      </div>
-
-                      <div className="sm:col-span-2">
-                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-                          Precio ($)
-                        </label>
-                        <input
-                          type="number"
-                          step="10"
-                          value={servicePrice}
-                          onChange={(e) => setServicePrice(e.target.value)}
-                          className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 text-slate-900 font-bold tabular-nums"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
-                      <input
-                        type="text"
-                        placeholder="Notas técnicas de la partida (opcional)..."
-                        value={serviceNotes}
-                        onChange={(e) => setServiceNotes(e.target.value)}
-                        className="w-full sm:flex-1 h-8 text-xs bg-white border border-slate-300 rounded-md px-2.5 text-slate-800"
-                      />
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => setIsAddingService(false)}
-                          className="px-3 h-8 text-xs font-medium text-slate-600 hover:text-slate-900"
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          type="button"
-                          disabled={!selectedServiceId || addingServiceLoading}
-                          onClick={handleAddService}
-                          className="px-4 h-8 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold disabled:opacity-50 cursor-pointer"
-                        >
-                          {addingServiceLoading ? "Guardando..." : "Guardar Mano de Obra"}
-                        </button>
-                      </div>
+              {quoteViewMode === "operaciones" ? (
+                <div className="space-y-4">
+                  {/* Action Bar in Operaciones mode */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 bg-blue-50/50 border border-blue-200 rounded-lg px-3 py-2">
+                    <span className="text-xs font-bold text-blue-950 flex items-center gap-1.5">
+                      <Layers size={14} className="text-blue-600" />
+                      Desglose Segmentado por Operación ({operationGroups.length} paquetes)
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setServicePackage("Llantas y Ruedas");
+                          setIsAddingService(true);
+                        }}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold cursor-pointer"
+                      >
+                        <Wrench size={12} className="text-blue-600" /> + Mano de Obra
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPartPackage("Suspensión y Dirección");
+                          setIsAddingPart(true);
+                        }}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold cursor-pointer"
+                      >
+                        <Package size={12} className="text-indigo-600" /> + Refacción
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setQuoteViewMode("clasico");
+                          setTireTab("jit");
+                          setIsAddingTire(true);
+                        }}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold cursor-pointer"
+                      >
+                        <CircleDot size={12} className="text-blue-600" /> + Neumático JIT
+                      </button>
                     </div>
                   </div>
-                )}
+
+                  {/* Add drawers if active */}
+                  {isAddingService && renderServiceForm()}
+                  {isAddingPart && renderPartForm()}
+
+                  {/* Operation Cards */}
+                  {operationGroups.length === 0 ? (
+                    <div className="bg-white border border-slate-200 rounded-lg p-8 text-center text-xs text-slate-400">
+                      No hay operaciones o partidas cargadas en esta orden. Usa los botones superiores para agregar neumáticos, refacciones o mano de obra.
+                    </div>
+                  ) : (
+                    operationGroups.map((group, gIdx) => {
+                      const isLlantasCat = group.categoria === "Llantas";
+                      return (
+                        <div
+                          key={group.id}
+                          className="bg-white border border-slate-200 rounded-lg shadow-2xs overflow-hidden"
+                        >
+                          {/* Operation Header */}
+                          <div className="px-4 py-3 bg-slate-50/90 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2.5">
+                              <span className="w-5 h-5 rounded-full bg-slate-900 text-white font-mono font-bold text-[10px] flex items-center justify-center">
+                                {gIdx + 1}
+                              </span>
+                              <div>
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                                  {group.nombre}
+                                  <span className="text-[9px] font-bold uppercase px-1.5 py-0.2 rounded bg-blue-100 text-blue-800 border border-blue-200">
+                                    {group.categoria}
+                                  </span>
+                                </h3>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-mono font-bold text-slate-900 tabular-nums">
+                                Subtotal: ${group.subtotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Warranty Policy Banner for this Operation */}
+                          <div
+                            className={`px-4 py-2 border-b text-xs flex items-center gap-2 ${
+                              group.hasMontajeEnTaller || group.categoria !== "Llantas"
+                                ? "bg-emerald-50/70 border-emerald-100 text-emerald-900"
+                                : "bg-amber-50 border-amber-200 text-amber-900"
+                            }`}
+                          >
+                            {group.hasMontajeEnTaller || group.categoria !== "Llantas" ? (
+                              <ShieldCheck size={14} className="text-emerald-600 shrink-0" />
+                            ) : (
+                              <AlertTriangle size={14} className="text-amber-600 shrink-0" />
+                            )}
+                            <span className="font-semibold">{group.garantiaTexto}</span>
+                          </div>
+
+                          {/* Items Table */}
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                              <thead>
+                                <tr className="border-b border-slate-200 bg-slate-50/50 text-[10px] uppercase font-bold text-slate-500">
+                                  <th className="py-2 px-3 w-28">Tipo</th>
+                                  <th className="py-2 px-3">Concepto / Partida</th>
+                                  <th className="py-2 px-3 text-center w-14">Cant.</th>
+                                  <th className="py-2 px-3 text-right w-28">P. Unitario</th>
+                                  <th className="py-2 px-3 text-right w-28">Importe</th>
+                                  <th className="py-2 px-3 text-right w-28">Acciones</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100 text-xs">
+                                {/* Tires in this operation */}
+                                {group.tires.map((t: any) => {
+                                  const tire = t.inventario_llantas || t.llanta;
+                                  const medida = tire ? `${tire.ancho}/${tire.perfil} R${tire.rin}` : "";
+                                  const name = tire ? `${tire.marca} ${tire.modelo_llanta}` : (t.nombre || "Neumático");
+                                  const qty = Number(t.cantidad || 1);
+                                  const unit = Number(t.precio_unitario || 0);
+                                  const sub = t.subtotal != null ? Number(t.subtotal) : unit * qty;
+                                  return (
+                                    <tr key={`g-tire-${t.id}`} className="hover:bg-slate-50/70">
+                                      <td className="py-2 px-3 font-semibold text-blue-700 text-[11px]">
+                                        🛞 Neumático
+                                      </td>
+                                      <td className="py-2 px-3">
+                                        <div className="font-semibold text-slate-900">{name}</div>
+                                        <div className="text-[11px] font-mono font-bold text-slate-600">{medida}</div>
+                                      </td>
+                                      <td className="py-2 px-3 text-center tabular-nums font-bold">{qty}</td>
+                                      <td className="py-2 px-3 text-right tabular-nums text-slate-700">
+                                        ${unit.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                                      </td>
+                                      <td className="py-2 px-3 text-right font-bold text-slate-900 tabular-nums">
+                                        ${sub.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                                      </td>
+                                      <td className="py-2 px-3 text-right">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemoveTire(t)}
+                                          className="p-1 text-slate-400 hover:text-red-600 cursor-pointer"
+                                          title="Eliminar neumático"
+                                        >
+                                          <Trash2 size={13} />
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+
+                                {/* Parts in this operation */}
+                                {group.parts.map((r: any) => {
+                                  const qty = Number(r.cantidad || 1);
+                                  const unit = Number(r.precio_unitario || 0);
+                                  const sub = r.subtotal != null ? Number(r.subtotal) : unit * qty;
+                                  const isDeferred = r.estatus_aprobacion === "Diferido";
+                                  return (
+                                    <tr key={`g-part-${r.id}`} className={isDeferred ? "bg-slate-50 opacity-60" : "hover:bg-slate-50/70"}>
+                                      <td className="py-2 px-3 font-semibold text-indigo-700 text-[11px]">
+                                        🔩 Refacción
+                                      </td>
+                                      <td className="py-2 px-3">
+                                        <div className="font-semibold text-slate-900">{r.nombre}</div>
+                                        {(r.numero_parte || r.proveedor) && (
+                                          <div className="text-[11px] text-slate-500 font-mono">
+                                            {r.numero_parte ? `P/N: ${r.numero_parte}` : ""} {r.proveedor ? `• Prov: ${r.proveedor}` : ""}
+                                          </div>
+                                        )}
+                                      </td>
+                                      <td className="py-2 px-3 text-center tabular-nums font-bold">{qty}</td>
+                                      <td className="py-2 px-3 text-right tabular-nums text-slate-700">
+                                        ${unit.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                                      </td>
+                                      <td className="py-2 px-3 text-right font-bold text-slate-900 tabular-nums">
+                                        ${sub.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                                      </td>
+                                      <td className="py-2 px-3 text-right">
+                                        <div className="inline-flex items-center gap-1">
+                                          {!isDeferred && (
+                                            <button
+                                              type="button"
+                                              onClick={() => handleDeferPart(r)}
+                                              title="Diferir para próxima visita"
+                                              className="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 cursor-pointer"
+                                            >
+                                              Diferir
+                                            </button>
+                                          )}
+                                          <button
+                                            type="button"
+                                            onClick={() => handleRemovePart(r.id)}
+                                            className="p-1 text-slate-400 hover:text-red-600 cursor-pointer"
+                                            title="Eliminar refacción"
+                                          >
+                                            <Trash2 size={13} />
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+
+                                {/* Services in this operation */}
+                                {group.services.map((s: any) => {
+                                  const qty = Number(s.cantidad || 1);
+                                  const unit = Number(s.precio_cobrado || 0);
+                                  const sub = unit * qty;
+                                  const srvName = s.servicios_taller?.nombre || s.nombre || "Servicio";
+                                  const isCortesia = s.es_cortesia || unit === 0;
+                                  const isDeferred = s.estatus_aprobacion === "Diferido";
+                                  const isEditing = editingServiceId === s.id;
+
+                                  return (
+                                    <tr key={`g-srv-${s.id}`} className={isDeferred ? "bg-slate-50 opacity-60" : "hover:bg-slate-50/70"}>
+                                      <td className="py-2 px-3 font-semibold text-emerald-700 text-[11px]">
+                                        🔧 Mano Obra
+                                      </td>
+                                      <td className="py-2 px-3">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          <span className="font-semibold text-slate-900">{srvName}</span>
+                                          {isCortesia && (
+                                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-0.5">
+                                              <Gift size={10} /> GRATIS
+                                            </span>
+                                          )}
+                                        </div>
+                                        {s.notas && <div className="text-[11px] text-slate-500">{s.notas}</div>}
+                                      </td>
+                                      <td className="py-2 px-3 text-center tabular-nums font-bold">{qty}</td>
+                                      <td className="py-2 px-3 text-right tabular-nums">
+                                        {isEditing ? (
+                                          <div className="inline-flex items-center gap-1 justify-end">
+                                            <input
+                                              type="number"
+                                              value={editingServicePrice}
+                                              onChange={(e) => setEditingServicePrice(e.target.value)}
+                                              className="w-20 h-7 text-xs border border-blue-400 rounded px-1 text-right font-bold"
+                                              autoFocus
+                                              onKeyDown={(e) => {
+                                                if (e.key === "Enter") {
+                                                  handleInlineUpdateServicePrice(s.id, parseFloat(editingServicePrice) || 0);
+                                                } else if (e.key === "Escape") {
+                                                  setEditingServiceId(null);
+                                                }
+                                              }}
+                                            />
+                                            <button
+                                              type="button"
+                                              onClick={() => handleInlineUpdateServicePrice(s.id, parseFloat(editingServicePrice) || 0)}
+                                              className="p-1 text-emerald-600 hover:text-emerald-800 cursor-pointer"
+                                              title="Guardar precio"
+                                            >
+                                              <Check size={13} />
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <div className="inline-flex items-center gap-1 justify-end">
+                                            <span className={isCortesia ? "text-emerald-700 font-bold" : "text-slate-800"}>
+                                              {isCortesia ? "$0.00" : `$${unit.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`}
+                                            </span>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setEditingServiceId(s.id);
+                                                setEditingServicePrice(String(unit));
+                                              }}
+                                              className="p-0.5 text-slate-400 hover:text-blue-600 cursor-pointer"
+                                              title="Editar precio al vuelo"
+                                            >
+                                              <Pencil size={11} />
+                                            </button>
+                                          </div>
+                                        )}
+                                      </td>
+                                      <td className="py-2 px-3 text-right font-bold tabular-nums">
+                                        {isCortesia ? (
+                                          <span className="text-emerald-700 font-black">$0.00</span>
+                                        ) : (
+                                          <span className="text-slate-900">${sub.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+                                        )}
+                                      </td>
+                                      <td className="py-2 px-3 text-right">
+                                        <div className="inline-flex items-center gap-1">
+                                          <button
+                                            type="button"
+                                            onClick={() => handleToggleCortesia(s)}
+                                            title={isCortesia ? "Restaurar precio normal de catálogo" : "Hacer gratis / cortesía ($0.00)"}
+                                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold border cursor-pointer ${
+                                              isCortesia
+                                                ? "bg-emerald-600 text-white border-emerald-700"
+                                                : "bg-white hover:bg-emerald-50 text-emerald-700 border-emerald-300"
+                                            }`}
+                                          >
+                                            <Gift size={11} />
+                                          </button>
+                                          {!isDeferred && (
+                                            <button
+                                              type="button"
+                                              onClick={() => handleDeferService(s)}
+                                              title="Diferir mano de obra"
+                                              className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 cursor-pointer"
+                                            >
+                                              Diferir
+                                            </button>
+                                          )}
+                                          <button
+                                            type="button"
+                                            onClick={() => handleRemoveService(s.id)}
+                                            className="p-1 text-slate-400 hover:text-red-600 cursor-pointer"
+                                            title="Eliminar mano de obra"
+                                          >
+                                            <Trash2 size={13} />
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          {/* Operation Card Footer with Quick Add to this package */}
+                          <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                              <span>Agregar a este paquete:</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setServicePackage(group.nombre);
+                                  setIsAddingService(true);
+                                }}
+                                className="px-2 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-300 text-[11px] font-semibold text-slate-700 cursor-pointer"
+                              >
+                                + Mano de Obra
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPartPackage(group.nombre);
+                                  setIsAddingPart(true);
+                                }}
+                                className="px-2 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-300 text-[11px] font-semibold text-slate-700 cursor-pointer"
+                              >
+                                + Refacción
+                              </button>
+                              {isLlantasCat && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setQuoteViewMode("clasico");
+                                    setTireTab("jit");
+                                    setIsAddingTire(true);
+                                  }}
+                                  className="px-2 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-300 text-[11px] font-semibold text-slate-700 cursor-pointer"
+                                >
+                                  + Neumático JIT
+                                </button>
+                              )}
+                            </div>
+
+                            <div className="text-xs font-mono font-bold text-slate-900">
+                              Subtotal {group.nombre}: ${group.subtotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  {/* 1. MANO DE OBRA (SERVICIOS DE TALLER) */}
+                  <div className="bg-white border border-slate-200 rounded-lg shadow-2xs overflow-hidden">
+                    <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Wrench size={15} className="text-blue-600" />
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                          Mano de Obra y Servicios ({servicesList.length})
+                        </h3>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingService(!isAddingService)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors cursor-pointer"
+                      >
+                        <Plus size={13} /> Agregar Mano de Obra
+                      </button>
+                    </div>
+
+                {isAddingService && renderServiceForm()}
 
                 {servicesList.length === 0 ? (
                   <div className="p-6 text-center text-xs text-slate-400">
@@ -1968,6 +2711,8 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                           const importe = Number(row.precio_cobrado || 0) * Number(row.cantidad || 1);
                           const comisionMonto = importe * (pct / 100);
                           const isDeferred = row.estatus_aprobacion === "Diferido";
+                          const isCortesia = row.es_cortesia || Number(row.precio_cobrado) === 0;
+                          const isEditing = editingServiceId === row.id;
 
                           return (
                             <tr
@@ -1975,8 +2720,20 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                               className={isDeferred ? "bg-slate-50 opacity-60" : "hover:bg-slate-50/80"}
                             >
                               <td className="py-2.5 px-3">
-                                <div className="font-semibold text-slate-900">
-                                  {row.servicios_taller?.nombre || "Servicio"}
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-semibold text-slate-900">
+                                    {row.servicios_taller?.nombre || "Servicio"}
+                                  </span>
+                                  {row.paquete_operacion && (
+                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                      {row.paquete_operacion}
+                                    </span>
+                                  )}
+                                  {isCortesia && (
+                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-0.5">
+                                      <Gift size={10} /> GRATIS
+                                    </span>
+                                  )}
                                 </div>
                                 {row.notas && (
                                   <div className="text-[11px] text-slate-500">{row.notas}</div>
@@ -2007,11 +2764,65 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                   {row.estatus_aprobacion || "Aprobado"}
                                 </button>
                               </td>
-                              <td className="py-2.5 px-3 text-right font-bold text-slate-900 tabular-nums">
-                                ${importe.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                              <td className="py-2.5 px-3 text-right font-bold tabular-nums">
+                                {isEditing ? (
+                                  <div className="inline-flex items-center gap-1 justify-end">
+                                    <input
+                                      type="number"
+                                      value={editingServicePrice}
+                                      onChange={(e) => setEditingServicePrice(e.target.value)}
+                                      className="w-20 h-7 text-xs border border-blue-400 rounded px-1 text-right font-bold"
+                                      autoFocus
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                          handleInlineUpdateServicePrice(row.id, parseFloat(editingServicePrice) || 0);
+                                        } else if (e.key === "Escape") {
+                                          setEditingServiceId(null);
+                                        }
+                                      }}
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => handleInlineUpdateServicePrice(row.id, parseFloat(editingServicePrice) || 0)}
+                                      className="p-1 text-emerald-600 hover:text-emerald-800 cursor-pointer"
+                                      title="Guardar precio"
+                                    >
+                                      <Check size={13} />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="inline-flex items-center gap-1 justify-end">
+                                    <span className={isCortesia ? "text-emerald-700 font-bold" : "text-slate-900"}>
+                                      {isCortesia ? "$0.00" : `$${importe.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingServiceId(row.id);
+                                        setEditingServicePrice(String(row.precio_cobrado || 0));
+                                      }}
+                                      className="p-0.5 text-slate-400 hover:text-blue-600 cursor-pointer"
+                                      title="Editar precio al vuelo"
+                                    >
+                                      <Pencil size={11} />
+                                    </button>
+                                  </div>
+                                )}
                               </td>
                               <td className="py-2.5 px-3 text-right">
                                 <div className="inline-flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleCortesia(row)}
+                                    title={isCortesia ? "Restaurar precio normal" : "Hacer cortesía ($0.00)"}
+                                    className={`px-1.5 py-0.5 rounded text-[10px] font-bold border cursor-pointer ${
+                                      isCortesia
+                                        ? "bg-emerald-600 text-white border-emerald-700"
+                                        : "bg-white hover:bg-emerald-50 text-emerald-700 border-emerald-300"
+                                    }`}
+                                  >
+                                    <Gift size={11} />
+                                  </button>
                                   {!isDeferred && (
                                     <button
                                       type="button"
@@ -2026,6 +2837,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                     type="button"
                                     onClick={() => handleRemoveService(row.id)}
                                     className="p-1 text-slate-400 hover:text-red-600 cursor-pointer"
+                                    title="Eliminar mano de obra"
                                   >
                                     <Trash2 size={14} />
                                   </button>
@@ -2060,148 +2872,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                   </button>
                 </div>
 
-                {isAddingPart && (
-                  <div className="p-4 bg-indigo-50/40 border-b border-slate-200 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-indigo-950 flex items-center gap-1.5">
-                        <Calculator size={14} className="text-indigo-600" />
-                        Calculadora de Margen de Refacciones en Vivo
-                      </span>
-                      <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded">
-                        Margen Taller Default: {empresa?.margen_refacciones_default ?? 35}%
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
-                      <div className="sm:col-span-4">
-                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-                          Concepto / Refacción
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Ej. Juego Balatas Cerámicas Del."
-                          value={partNombre}
-                          onChange={(e) => setPartNombre(e.target.value)}
-                          className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2.5 text-slate-900"
-                        />
-                      </div>
-
-                      <div className="sm:col-span-2">
-                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-                          No. Parte (SKU)
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="D1521-8840"
-                          value={partNumero}
-                          onChange={(e) => setPartNumero(e.target.value)}
-                          className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 text-slate-900 font-mono"
-                        />
-                      </div>
-
-                      <div className="sm:col-span-3">
-                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-                          Proveedor
-                        </label>
-                        <select
-                          value={partProveedor}
-                          onChange={(e) => setPartProveedor(e.target.value)}
-                          className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 text-slate-900"
-                        >
-                          {PROVEEDORES_REFACCIONES.map((prov) => (
-                            <option key={prov} value={prov}>
-                              {prov}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="sm:col-span-1">
-                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-                          Cant.
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={partCantidad}
-                          onChange={(e) => setPartCantidad(parseInt(e.target.value) || 1)}
-                          className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 text-center tabular-nums"
-                        />
-                      </div>
-
-                      <div className="sm:col-span-2">
-                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-                          Costo Prov. ($)
-                        </label>
-                        <input
-                          type="number"
-                          step="10"
-                          placeholder="0.00"
-                          value={partCostoUnitario}
-                          onChange={(e) => setPartCostoUnitario(e.target.value)}
-                          className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 text-slate-900 font-bold tabular-nums"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Live Calculation Bar */}
-                    <div className="bg-white border border-indigo-200 rounded-md p-2.5 flex flex-wrap items-center justify-between gap-3">
-                      <div className="flex flex-wrap items-center gap-4">
-                        <div className="flex items-center gap-1.5">
-                          <label className="text-[10px] font-bold uppercase text-slate-500">
-                            Markup (%):
-                          </label>
-                          <input
-                            type="number"
-                            step="1"
-                            value={partMargen}
-                            onChange={(e) => setPartMargen(e.target.value)}
-                            className="w-16 h-7 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-300 rounded px-2 text-center tabular-nums"
-                          />
-                        </div>
-
-                        <div className="text-xs">
-                          <span className="text-slate-500">P. Venta Unitario: </span>
-                          <strong className="text-slate-900 font-mono tabular-nums">
-                            ${calcPrecioUnitario.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                          </strong>
-                        </div>
-
-                        <div className="text-xs">
-                          <span className="text-slate-500">Subtotal Cliente: </span>
-                          <strong className="text-indigo-700 font-mono tabular-nums">
-                            ${calcSubtotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                          </strong>
-                        </div>
-
-                        <div className="text-xs">
-                          <span className="text-slate-500">Utilidad Neta Pieza: </span>
-                          <strong className="text-emerald-700 font-mono tabular-nums">
-                            +${calcUtilidad.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                          </strong>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setIsAddingPart(false)}
-                          className="px-3 h-7 text-xs text-slate-500 hover:text-slate-800"
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          type="button"
-                          disabled={!partNombre.trim() || numericCosto <= 0 || addingPartLoading}
-                          onClick={handleAddPart}
-                          className="px-3.5 h-7 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold disabled:opacity-50 cursor-pointer"
-                        >
-                          {addingPartLoading ? "Agregando..." : "Agregar Refacción"}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                {isAddingPart && renderPartForm()}
 
                 {partsList.length === 0 ? (
                   <div className="p-6 text-center text-xs text-slate-400">
@@ -2234,7 +2905,14 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                               className={isDeferred ? "bg-slate-50 opacity-60" : "hover:bg-slate-50/80"}
                             >
                               <td className="py-2.5 px-3">
-                                <div className="font-semibold text-slate-900">{part.nombre}</div>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-semibold text-slate-900">{part.nombre}</span>
+                                  {part.paquete_operacion && (
+                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                      {part.paquete_operacion}
+                                    </span>
+                                  )}
+                                </div>
                                 {part.numero_parte && (
                                   <span className="font-mono text-[10px] text-slate-500">
                                     P/N: {part.numero_parte}
@@ -2944,6 +3622,8 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                 )}
               </div>
             </div>
+          )}
+        </div>
 
             {/* Right 4 Cols: Resumen Financiero y Rentabilidad */}
             <div className="lg:col-span-4 space-y-4">

@@ -1,5 +1,6 @@
 "use client";
 import TenantBrandLogo from "@/components/brand/TenantBrandLogo";
+import { groupItemsByOperation } from "@/lib/services/serviceOperationsEngine";
 
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -131,6 +132,7 @@ export function OrderPrintSheet({ order, mechanicName, isStandalone = false }: O
     return acc + val;
   }, 0);
   const subtotalDiferidoItems = subtotalDiferidoServicios + subtotalDiferidoRefacciones + subtotalDiferidoLlantas;
+  const operationGroups = groupItemsByOperation(tires, services, parts);
 
   const hasDeferred =
     deferredServices.length > 0 ||
@@ -372,116 +374,167 @@ export function OrderPrintSheet({ order, mechanicName, isStandalone = false }: O
         </div>
       )}
 
-      {/* ─── TABLA 1: PARTIDAS AUTORIZADAS Y EJECUTADAS ─── */}
-      <div className="border border-slate-200 rounded-md overflow-hidden mb-2">
-        <div className="bg-slate-100 px-3 py-1.5 border-b border-slate-200 flex items-center justify-between">
+      {/* ─── TABLA 1: PARTIDAS AUTORIZADAS AGRUPADAS POR OPERACIÓN ─── */}
+      <div className="space-y-2.5 mb-2.5">
+        <div className="bg-slate-100 px-3 py-1.5 border border-slate-200 rounded-t-md flex items-center justify-between">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
             <CheckCircle2 size={12} className="text-emerald-600" />
-            Desglose de Servicios, Refacciones y Neumáticos Autorizados
+            Desglose de Operaciones, Servicios, Refacciones y Neumáticos Autorizados
           </span>
           <span className="text-[8.5px] font-bold uppercase px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
             Aprobado para Ejecución
           </span>
         </div>
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="border-b border-slate-200 text-[9px] uppercase font-bold text-slate-500 bg-slate-50/80">
-              <th className="py-1 px-2.5 w-24">Tipo</th>
-              <th className="py-1 px-2.5">Concepto / Referencia / Medida</th>
-              <th className="py-1 px-2.5 text-center w-12">Cant.</th>
-              <th className="py-1 px-2.5 text-right w-24">P. Unitario</th>
-              <th className="py-1 px-2.5 text-right w-24">Importe</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 text-[10.5px]">
-            {services.map((s: any) => {
-              const qty = Number(s.cantidad || 1);
-              const unit = Number(s.precio_cobrado || 0);
-              const srvName = s.servicios_taller?.nombre || s.servicio?.nombre || s.nombre || "Servicio de Taller";
-              return (
-                <tr key={`srv-${s.id}`} className="hover:bg-slate-50/50">
-                  <td className="py-1 px-2.5 font-semibold text-slate-600 text-[9.5px]">Mano de Obra</td>
-                  <td className="py-1 px-2.5 font-medium text-slate-900">
-                    {srvName}
-                    {s.notas && <span className="block text-[9px] text-slate-500">{s.notas}</span>}
-                  </td>
-                  <td className="py-1 px-2.5 text-center tabular-nums">{qty}</td>
-                  <td className="py-1 px-2.5 text-right tabular-nums text-slate-700">
-                    ${unit.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                  </td>
-                  <td className="py-1 px-2.5 text-right font-bold tabular-nums text-slate-900">
-                    ${(unit * qty).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                  </td>
-                </tr>
-              );
-            })}
 
-            {parts.map((r: any) => {
-              const qty = Number(r.cantidad || 1);
-              const unit = Number(r.precio_unitario || 0);
-              const sub = r.subtotal != null ? Number(r.subtotal) : unit * qty;
-              return (
-                <tr key={`part-${r.id}`} className="hover:bg-slate-50/50">
-                  <td className="py-1 px-2.5 font-semibold text-slate-600 text-[9.5px]">Refacción</td>
-                  <td className="py-1 px-2.5 font-medium text-slate-900">
-                    {r.nombre}
-                    {(r.numero_parte || r.proveedor) && (
-                      <span className="block text-[9px] text-slate-500 font-mono">
-                        {r.numero_parte ? `P/N: ${r.numero_parte}` : ""}{" "}
-                        {r.proveedor ? `• Prov: ${r.proveedor}` : ""}
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-1 px-2.5 text-center tabular-nums">{qty}</td>
-                  <td className="py-1 px-2.5 text-right tabular-nums text-slate-700">
-                    ${unit.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                  </td>
-                  <td className="py-1 px-2.5 text-right font-bold tabular-nums text-slate-900">
-                    ${sub.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                  </td>
-                </tr>
-              );
-            })}
+        {operationGroups.length === 0 ? (
+          <div className="border border-slate-200 rounded-md p-4 text-center text-slate-400 italic text-[10px]">
+            Sin partidas autorizadas en esta orden.
+          </div>
+        ) : (
+          operationGroups.map((group, idx) => (
+            <div
+              key={group.id}
+              className="border border-slate-200 rounded-md overflow-hidden bg-white shadow-2xs"
+            >
+              {/* Operation Header */}
+              <div className="bg-slate-50/90 px-3 py-1.5 border-b border-slate-200 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-4 h-4 rounded-full bg-slate-900 text-white font-mono font-bold text-[9px] flex items-center justify-center">
+                    {idx + 1}
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-900 uppercase tracking-tight">
+                    Operación: {group.nombre}
+                  </span>
+                  <span className="text-[8px] font-bold uppercase px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                    {group.categoria}
+                  </span>
+                </div>
+                <div className="text-[9.5px] font-mono font-bold text-slate-900">
+                  Subtotal Operación: ${group.subtotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
+                </div>
+              </div>
 
-            {tires.map((t: any) => {
-              const tire = t.inventario_llantas || t.llanta;
-              const medida = tire ? `${tire.ancho}/${tire.perfil} R${tire.rin}` : "";
-              const tireName = tire ? `${tire.marca} ${tire.modelo_llanta}` : (t.nombre || "Neumático");
-              const qty = Number(t.cantidad || 1);
-              const unit = Number(t.precio_unitario || 0);
-              const sub = t.subtotal != null ? Number(t.subtotal) : unit * qty;
-              return (
-                <tr key={`tire-${t.id}`} className="hover:bg-slate-50/50">
-                  <td className="py-1 px-2.5 font-semibold text-slate-600 text-[9.5px]">Neumático</td>
-                  <td className="py-1 px-2.5 font-medium text-slate-900">
-                    {tireName}{" "}
-                    <span className="font-mono text-slate-700 font-semibold">{medida}</span>
-                  </td>
-                  <td className="py-1 px-2.5 text-center tabular-nums font-bold">{qty}</td>
-                  <td className="py-1 px-2.5 text-right tabular-nums text-slate-700">
-                    ${unit.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                  </td>
-                  <td className="py-1 px-2.5 text-right font-bold tabular-nums text-slate-900">
-                    ${sub.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                  </td>
-                </tr>
-              );
-            })}
+              {/* Items Table */}
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-100 text-[8.5px] uppercase font-bold text-slate-500 bg-slate-50/40">
+                    <th className="py-1 px-2.5 w-24">Tipo</th>
+                    <th className="py-1 px-2.5">Concepto / Refacción / Medida</th>
+                    <th className="py-1 px-2.5 text-center w-12">Cant.</th>
+                    <th className="py-1 px-2.5 text-right w-24">P. Unitario</th>
+                    <th className="py-1 px-2.5 text-right w-24">Importe</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-[10px]">
+                  {/* Tires in this operation */}
+                  {group.tires.map((t: any) => {
+                    const tire = t.inventario_llantas || t.llanta;
+                    const medida = tire ? `${tire.ancho}/${tire.perfil} R${tire.rin}` : "";
+                    const tireName = tire ? `${tire.marca} ${tire.modelo_llanta}` : (t.nombre || "Neumático");
+                    const qty = Number(t.cantidad || 1);
+                    const unit = Number(t.precio_unitario || 0);
+                    const sub = t.subtotal != null ? Number(t.subtotal) : unit * qty;
+                    return (
+                      <tr key={`tire-${t.id}`} className="hover:bg-slate-50/50">
+                        <td className="py-1 px-2.5 font-semibold text-blue-700 text-[9px]">🛞 Neumático</td>
+                        <td className="py-1 px-2.5 font-medium text-slate-900">
+                          {tireName}{" "}
+                          <span className="font-mono text-slate-700 font-bold">{medida}</span>
+                        </td>
+                        <td className="py-1 px-2.5 text-center tabular-nums font-bold">{qty}</td>
+                        <td className="py-1 px-2.5 text-right tabular-nums text-slate-700">
+                          ${unit.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-1 px-2.5 text-right font-bold tabular-nums text-slate-900">
+                          ${sub.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                        </td>
+                      </tr>
+                    );
+                  })}
 
-            {services.length === 0 && parts.length === 0 && tires.length === 0 && (
-              <tr>
-                <td colSpan={5} className="py-3 text-center text-slate-400 italic text-[10px]">
-                  Sin partidas autorizadas aún.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                  {/* Parts in this operation */}
+                  {group.parts.map((r: any) => {
+                    const qty = Number(r.cantidad || 1);
+                    const unit = Number(r.precio_unitario || 0);
+                    const sub = r.subtotal != null ? Number(r.subtotal) : unit * qty;
+                    return (
+                      <tr key={`part-${r.id}`} className="hover:bg-slate-50/50">
+                        <td className="py-1 px-2.5 font-semibold text-amber-700 text-[9px]">🔩 Refacción</td>
+                        <td className="py-1 px-2.5 font-medium text-slate-900">
+                          {r.nombre}
+                          {(r.numero_parte || r.proveedor) && (
+                            <span className="block text-[8.5px] text-slate-500 font-mono">
+                              {r.numero_parte ? `P/N: ${r.numero_parte}` : ""}{" "}
+                              {r.proveedor ? `• Prov: ${r.proveedor}` : ""}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-1 px-2.5 text-center tabular-nums">{qty}</td>
+                        <td className="py-1 px-2.5 text-right tabular-nums text-slate-700">
+                          ${unit.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-1 px-2.5 text-right font-bold tabular-nums text-slate-900">
+                          ${sub.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  {/* Associated Services in this operation */}
+                  {group.services.map((s: any) => {
+                    const qty = Number(s.cantidad || 1);
+                    const unit = Number(s.precio_cobrado || 0);
+                    const srvName = s.servicios_taller?.nombre || s.servicio?.nombre || s.nombre || "Servicio de Taller";
+                    const isCortesia = s.es_cortesia || unit === 0;
+                    return (
+                      <tr key={`srv-${s.id}`} className="hover:bg-slate-50/50">
+                        <td className="py-1 px-2.5 font-semibold text-emerald-700 text-[9px]">🔧 Mano de Obra</td>
+                        <td className="py-1 px-2.5 font-medium text-slate-900">
+                          {srvName}
+                          {isCortesia && (
+                            <span className="ml-1.5 px-1 py-0.2 rounded text-[8px] font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
+                              🎁 Cortesía / Promoción
+                            </span>
+                          )}
+                          {s.notas && <span className="block text-[8.5px] text-slate-500">{s.notas}</span>}
+                        </td>
+                        <td className="py-1 px-2.5 text-center tabular-nums">{qty}</td>
+                        <td className="py-1 px-2.5 text-right tabular-nums text-slate-700">
+                          {isCortesia ? (
+                            <span className="text-emerald-700 font-bold">$0.00</span>
+                          ) : (
+                            `$${unit.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`
+                          )}
+                        </td>
+                        <td className="py-1 px-2.5 text-right font-bold tabular-nums text-slate-900">
+                          {isCortesia ? (
+                            <span className="text-emerald-700 font-black">$0.00</span>
+                          ) : (
+                            `$${(unit * qty).toLocaleString("es-MX", { minimumFractionDigits: 2 })}`
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              {/* Warranty Banner specific to this Operation */}
+              <div className="bg-slate-50 border-t border-slate-100 px-3 py-1 flex items-center justify-between text-[8.5px]">
+                <div className="flex items-center gap-1.5 text-slate-600">
+                  <ShieldCheck size={11} className={group.hasMontajeEnTaller ? "text-emerald-600" : "text-amber-600"} />
+                  <span className="font-semibold text-slate-700 uppercase">Garantía Aplicable:</span>
+                  <span className="text-slate-600 font-medium">{group.garantiaTexto}</span>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
 
         {/* Totales Financieros Destacados */}
-        <div className="bg-slate-50 border-t border-slate-200 px-3 py-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div className="bg-slate-50 border border-slate-200 rounded-md px-3 py-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div className="text-[9px] text-slate-500 max-w-sm leading-tight">
-            <strong className="text-slate-700 uppercase block mb-0.5">Póliza de Garantía:</strong>
+            <strong className="text-slate-700 uppercase block mb-0.5">Póliza General de Servicio:</strong>
             {activeEmpresa?.terminos_condiciones ||
               "Garantía de 30 días o 1,000 km en mano de obra. Neumáticos y refacciones con garantía oficial de fábrica."}
           </div>

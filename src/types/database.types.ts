@@ -1067,9 +1067,12 @@ export type Database = {
           cantidad: number
           cotizacion_id: string
           empresa_id: string
+          es_cortesia: boolean | null
           estatus_aprobacion: string | null
+          garantia_especifica: string | null
           id: string
           llanta_id: string
+          paquete_operacion: string | null
           precio_unitario: number
           subtotal: number
         }
@@ -1077,9 +1080,12 @@ export type Database = {
           cantidad: number
           cotizacion_id: string
           empresa_id?: string
+          es_cortesia?: boolean | null
           estatus_aprobacion?: string | null
+          garantia_especifica?: string | null
           id?: string
           llanta_id: string
+          paquete_operacion?: string | null
           precio_unitario: number
           subtotal: number
         }
@@ -1087,9 +1093,12 @@ export type Database = {
           cantidad?: number
           cotizacion_id?: string
           empresa_id?: string
+          es_cortesia?: boolean | null
           estatus_aprobacion?: string | null
+          garantia_especifica?: string | null
           id?: string
           llanta_id?: string
+          paquete_operacion?: string | null
           precio_unitario?: number
           subtotal?: number
         }
@@ -1545,15 +1554,18 @@ export type Database = {
           costo_unitario: number
           created_at: string
           empresa_id: string
+          es_cortesia: boolean | null
           estatus_aprobacion: string | null
           evidencia_url: string | null
           folio_ticket_nota: string | null
           fuente_pago: string | null
+          garantia_especifica: string | null
           id: string
           margen_porcentaje: number
           nombre: string
           numero_parte: string | null
           orden_servicio_id: string
+          paquete_operacion: string | null
           precio_unitario: number
           proveedor: string | null
           proveedor_id: string | null
@@ -1565,15 +1577,18 @@ export type Database = {
           costo_unitario?: number
           created_at?: string
           empresa_id?: string
+          es_cortesia?: boolean | null
           estatus_aprobacion?: string | null
           evidencia_url?: string | null
           folio_ticket_nota?: string | null
           fuente_pago?: string | null
+          garantia_especifica?: string | null
           id?: string
           margen_porcentaje?: number
           nombre: string
           numero_parte?: string | null
           orden_servicio_id: string
+          paquete_operacion?: string | null
           precio_unitario?: number
           proveedor?: string | null
           proveedor_id?: string | null
@@ -1585,15 +1600,18 @@ export type Database = {
           costo_unitario?: number
           created_at?: string
           empresa_id?: string
+          es_cortesia?: boolean | null
           estatus_aprobacion?: string | null
           evidencia_url?: string | null
           folio_ticket_nota?: string | null
           fuente_pago?: string | null
+          garantia_especifica?: string | null
           id?: string
           margen_porcentaje?: number
           nombre?: string
           numero_parte?: string | null
           orden_servicio_id?: string
+          paquete_operacion?: string | null
           precio_unitario?: number
           proveedor?: string | null
           proveedor_id?: string | null
@@ -1636,12 +1654,15 @@ export type Database = {
           comision_porcentaje: number | null
           created_at: string | null
           empresa_id: string
+          es_cortesia: boolean | null
           estatus_aprobacion: string | null
+          garantia_especifica: string | null
           horas_labor: number | null
           id: string
           mecanico_id: string | null
           notas: string | null
           orden_servicio_id: string
+          paquete_operacion: string | null
           precio_cobrado: number
           servicio_id: string
         }
@@ -1650,12 +1671,15 @@ export type Database = {
           comision_porcentaje?: number | null
           created_at?: string | null
           empresa_id?: string
+          es_cortesia?: boolean | null
           estatus_aprobacion?: string | null
+          garantia_especifica?: string | null
           horas_labor?: number | null
           id?: string
           mecanico_id?: string | null
           notas?: string | null
           orden_servicio_id: string
+          paquete_operacion?: string | null
           precio_cobrado: number
           servicio_id: string
         }
@@ -1664,12 +1688,15 @@ export type Database = {
           comision_porcentaje?: number | null
           created_at?: string | null
           empresa_id?: string
+          es_cortesia?: boolean | null
           estatus_aprobacion?: string | null
+          garantia_especifica?: string | null
           horas_labor?: number | null
           id?: string
           mecanico_id?: string | null
           notas?: string | null
           orden_servicio_id?: string
+          paquete_operacion?: string | null
           precio_cobrado?: number
           servicio_id?: string
         }
@@ -2277,9 +2304,11 @@ export type Database = {
           aplica_promo_llantas: boolean | null
           categoria: string | null
           codigo_sku: string | null
+          condicion_promo: string | null
           created_at: string | null
           descripcion: string | null
           empresa_id: string
+          garantia_meses: number | null
           horas_estimadas: number | null
           id: string
           nombre: string
@@ -2290,9 +2319,11 @@ export type Database = {
           aplica_promo_llantas?: boolean | null
           categoria?: string | null
           codigo_sku?: string | null
+          condicion_promo?: string | null
           created_at?: string | null
           descripcion?: string | null
           empresa_id?: string
+          garantia_meses?: number | null
           horas_estimadas?: number | null
           id?: string
           nombre: string
@@ -2303,9 +2334,11 @@ export type Database = {
           aplica_promo_llantas?: boolean | null
           categoria?: string | null
           codigo_sku?: string | null
+          condicion_promo?: string | null
           created_at?: string | null
           descripcion?: string | null
           empresa_id?: string
+          garantia_meses?: number | null
           horas_estimadas?: number | null
           id?: string
           nombre?: string
