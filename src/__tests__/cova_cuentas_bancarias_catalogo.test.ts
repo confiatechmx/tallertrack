@@ -1,14 +1,14 @@
-import { describe, it, expect, vi } from "vitest";
-import { CajaTurnoService, CuentaBancaria } from "../services/cajaTurnoService";
+import { describe, it, expect } from "vitest";
+import { CuentaBancaria } from "../services/cajaTurnoService";
 
-describe("Punto C: Catálogo Autogestionable de Cuentas Bancarias SPEI y POS", () => {
-  const mockCuentas: CuentaBancaria[] = [
+describe("Punto C: Catálogo Autogestionable de Cuentas Bancarias SPEI y POS - Cova Tires", () => {
+  const mockCuentasCova: CuentaBancaria[] = [
     {
-      id: "c-bbva",
+      id: "c-banbajio",
       empresa_id: "b2ad09db-0a34-4876-9ca3-d584c40bd294",
       sucursal_id: "b2ad09db-0a34-4876-9ca3-d584c40bd295",
-      banco: "BBVA",
-      alias: "BBVA Fiscal (Facturación)",
+      banco: "BanBajío",
+      alias: "BanBajío Fiscal",
       titular: "Cova Tires S.A. de C.V.",
       clabe: null, // Pendiente de ingresar clave por el cliente
       numero_cuenta: null,
@@ -17,11 +17,11 @@ describe("Punto C: Catálogo Autogestionable de Cuentas Bancarias SPEI y POS", (
       tipo_cuenta: "FISCAL",
     },
     {
-      id: "c-banorte",
+      id: "c-inbursa",
       empresa_id: "b2ad09db-0a34-4876-9ca3-d584c40bd294",
       sucursal_id: "b2ad09db-0a34-4876-9ca3-d584c40bd295",
-      banco: "Banorte",
-      alias: "Banorte Operativa Taller",
+      banco: "Inbursa",
+      alias: "Inbursa Operativa",
       titular: "Cova Tires Servicios",
       clabe: null,
       numero_cuenta: null,
@@ -30,68 +30,61 @@ describe("Punto C: Catálogo Autogestionable de Cuentas Bancarias SPEI y POS", (
       tipo_cuenta: "OPERATIVA",
     },
     {
-      id: "c-santander",
+      id: "c-mp",
       empresa_id: "b2ad09db-0a34-4876-9ca3-d584c40bd294",
       sucursal_id: "b2ad09db-0a34-4876-9ca3-d584c40bd295",
-      banco: "Santander",
-      alias: "Santander Reserva",
-      titular: "Cova Tires Administración",
+      banco: "Mercado Pago",
+      alias: "Mercado Pago Wallet",
+      titular: "Cova Tires MP",
       clabe: null,
       numero_cuenta: null,
-      activo: false, // Inactiva
+      activo: true,
       es_fiscal: false,
       tipo_cuenta: "OPERATIVA",
     },
   ];
 
-  it("permite dar de alta cuentas bancarias sin CLABE inicial (dejando listo para ingresar la clave después)", () => {
-    const nuevaCuenta: Omit<CuentaBancaria, "id"> = {
-      empresa_id: "b2ad09db-0a34-4876-9ca3-d584c40bd294",
-      sucursal_id: null,
-      banco: "BanBajío",
-      alias: "BanBajío Fiscal",
-      titular: "Cova Tires S.A. de C.V.",
-      clabe: null,
-      numero_cuenta: null,
-      activo: true,
-      es_fiscal: true,
-      tipo_cuenta: "FISCAL",
-    };
+  it("garantiza que BanBajío es la cuenta oficial Fiscal (SAT) y las demás son operativas con CLABE pendiente", () => {
+    const cuentaFiscal = mockCuentasCova.find((c) => c.es_fiscal);
+    expect(cuentaFiscal).toBeDefined();
+    expect(cuentaFiscal?.banco).toBe("BanBajío");
+    expect(cuentaFiscal?.alias).toBe("BanBajío Fiscal");
+    expect(cuentaFiscal?.tipo_cuenta).toBe("FISCAL");
+    expect(cuentaFiscal?.clabe).toBeNull();
 
-    expect(nuevaCuenta.clabe).toBeNull();
-    expect(nuevaCuenta.alias).toBe("BanBajío Fiscal");
-    expect(nuevaCuenta.es_fiscal).toBe(true);
+    const cuentasOperativas = mockCuentasCova.filter((c) => !c.es_fiscal);
+    expect(cuentasOperativas.map((c) => c.banco)).toEqual(["Inbursa", "Mercado Pago"]);
   });
 
-  it("permite actualizar la CLABE de una cuenta previamente creada cuando el cliente la proporcione", () => {
-    const cuentaExistente = { ...mockCuentas[0] };
+  it("permite actualizar la CLABE de BanBajío cuando el cliente proporcione los 18 dígitos", () => {
+    const cuentaExistente = { ...mockCuentasCova[0] };
     expect(cuentaExistente.clabe).toBeNull();
 
-    // Actualización de CLABE por el usuario en configuración
-    const clabeReal = "012580001394829102";
+    const clabeReal = "030580900011223344";
     const cuentaActualizada = {
       ...cuentaExistente,
       clabe: clabeReal,
-      numero_cuenta: "0139482910",
+      numero_cuenta: "9000112233",
     };
 
-    expect(cuentaActualizada.clabe).toBe("012580001394829102");
-    expect(cuentaActualizada.numero_cuenta).toBe("0139482910");
+    expect(cuentaActualizada.clabe).toBe("030580900011223344");
+    expect(cuentaActualizada.numero_cuenta).toBe("9000112233");
   });
 
   it("filtra únicamente cuentas activas para el punto de venta / terminal de cobro", () => {
-    const cuentasParaPOS = mockCuentas.filter((c) => c.activo);
-    expect(cuentasParaPOS).toHaveLength(2);
+    const cuentasParaPOS = mockCuentasCova.filter((c) => c.activo);
+    expect(cuentasParaPOS).toHaveLength(3);
     expect(cuentasParaPOS.map((c) => c.alias)).toEqual([
-      "BBVA Fiscal (Facturación)",
-      "Banorte Operativa Taller",
+      "BanBajío Fiscal",
+      "Inbursa Operativa",
+      "Mercado Pago Wallet",
     ]);
   });
 
-  it("asigna la cuenta_bancaria_id y el detalle de método al registrar un cobro por Transferencia SPEI", () => {
-    const selectedCuenta = mockCuentas[0]; // BBVA Fiscal
-    const monto = 3500.0;
-    const referenciaBancaria = "SPEI-789012";
+  it("asigna la cuenta_bancaria_id y el detalle de método al registrar un cobro por Transferencia BanBajío Fiscal", () => {
+    const selectedCuenta = mockCuentasCova[0]; // BanBajío Fiscal
+    const monto = 4200.0;
+    const referenciaBancaria = "SPEI-BAJIO-45819";
 
     const pagoRegistrado = {
       orden_servicio_id: "orden-123",
@@ -103,9 +96,9 @@ describe("Punto C: Catálogo Autogestionable de Cuentas Bancarias SPEI y POS", (
       estatus: "Aprobado",
     };
 
-    expect(pagoRegistrado.cuenta_bancaria_id).toBe("c-bbva");
-    expect(pagoRegistrado.metodo_detalle).toContain("BBVA Fiscal");
-    expect(pagoRegistrado.metodo_detalle).toContain("BBVA");
-    expect(pagoRegistrado.referencia).toBe("SPEI-789012");
+    expect(pagoRegistrado.cuenta_bancaria_id).toBe("c-banbajio");
+    expect(pagoRegistrado.metodo_detalle).toContain("BanBajío Fiscal");
+    expect(pagoRegistrado.metodo_detalle).toContain("BanBajío");
+    expect(pagoRegistrado.referencia).toBe("SPEI-BAJIO-45819");
   });
 });
