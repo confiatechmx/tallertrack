@@ -23,6 +23,8 @@ export interface EmpresaConfig {
   subdominio?: string | null;
   margen_refacciones_default: number;
   terminos_condiciones: string | null;
+  descuento_efectivo_habilitado?: boolean;
+  descuento_efectivo_porcentaje?: number;
   plan_suscripcion?: "STARTER" | "PRO" | "ENTERPRISE" | "BASICO";
   ambiente?: "PRODUCTION" | "SANDBOX" | "DEMO";
   activo?: boolean;
@@ -113,6 +115,8 @@ export const DEFAULT_EMPRESA: EmpresaConfig = {
   sitio_web: "www.torqueyruta.mx",
   subdominio: "torqueyruta",
   margen_refacciones_default: 35,
+  descuento_efectivo_habilitado: false,
+  descuento_efectivo_porcentaje: 0.0,
   terminos_condiciones:
     "Garantía de 30 días o 1,000 km en mano de obra. Refacciones y neumáticos sujetos a garantía del fabricante.",
   plan_suscripcion: "ENTERPRISE",

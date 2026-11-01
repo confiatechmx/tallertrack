@@ -1201,6 +1201,8 @@ export type Database = {
           color_sidebar: string | null
           created_at: string
           custom_metadata: Json | null
+          descuento_efectivo_habilitado: boolean | null
+          descuento_efectivo_porcentaje: number | null
           direccion: string | null
           email_contacto: string | null
           eslogan: string | null
@@ -1226,6 +1228,8 @@ export type Database = {
           color_sidebar?: string | null
           created_at?: string
           custom_metadata?: Json | null
+          descuento_efectivo_habilitado?: boolean | null
+          descuento_efectivo_porcentaje?: number | null
           direccion?: string | null
           email_contacto?: string | null
           eslogan?: string | null
@@ -1251,6 +1255,8 @@ export type Database = {
           color_sidebar?: string | null
           created_at?: string
           custom_metadata?: Json | null
+          descuento_efectivo_habilitado?: boolean | null
+          descuento_efectivo_porcentaje?: number | null
           direccion?: string | null
           email_contacto?: string | null
           eslogan?: string | null
@@ -1739,6 +1745,8 @@ export type Database = {
           bahia_rampa: string | null
           checklist_recepcion: Json | null
           cotizacion_id: string | null
+          descuento_efectivo_monto: number | null
+          descuento_efectivo_porcentaje: number | null
           diagnostico_tecnico: string | null
           empresa_id: string
           estado: string
@@ -1767,6 +1775,8 @@ export type Database = {
           bahia_rampa?: string | null
           checklist_recepcion?: Json | null
           cotizacion_id?: string | null
+          descuento_efectivo_monto?: number | null
+          descuento_efectivo_porcentaje?: number | null
           diagnostico_tecnico?: string | null
           empresa_id?: string
           estado?: string
@@ -1795,6 +1805,8 @@ export type Database = {
           bahia_rampa?: string | null
           checklist_recepcion?: Json | null
           cotizacion_id?: string | null
+          descuento_efectivo_monto?: number | null
+          descuento_efectivo_porcentaje?: number | null
           diagnostico_tecnico?: string | null
           empresa_id?: string
           estado?: string
@@ -1870,6 +1882,7 @@ export type Database = {
           cotizacion_id: string | null
           cuenta_bancaria_id: string | null
           deleted_at: string | null
+          descuento_aplicado: number | null
           empresa_id: string
           estatus: string
           external_transaction_id: string | null
@@ -1894,6 +1907,7 @@ export type Database = {
           cotizacion_id?: string | null
           cuenta_bancaria_id?: string | null
           deleted_at?: string | null
+          descuento_aplicado?: number | null
           empresa_id?: string
           estatus?: string
           external_transaction_id?: string | null
@@ -1918,6 +1932,7 @@ export type Database = {
           cotizacion_id?: string | null
           cuenta_bancaria_id?: string | null
           deleted_at?: string | null
+          descuento_aplicado?: number | null
           empresa_id?: string
           estatus?: string
           external_transaction_id?: string | null

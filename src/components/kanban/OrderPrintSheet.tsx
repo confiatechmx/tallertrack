@@ -21,12 +21,16 @@ import {
   AlertTriangle,
   History,
   ShieldAlert,
+  Sparkles,
+  Receipt,
+  FileText,
 } from "lucide-react";
 
 interface OrderPrintSheetProps {
   order: any;
   mechanicName?: string;
   isStandalone?: boolean;
+  initialDocType?: "nota_venta" | "cotizacion";
 }
 
 const CHECKLIST_LABELS: Record<string, string> = {
@@ -39,9 +43,18 @@ const CHECKLIST_LABELS: Record<string, string> = {
 
 const FUEL_LEVELS = ["Vacío", "1/4", "1/2", "3/4", "Lleno"];
 
-export function OrderPrintSheet({ order, mechanicName, isStandalone = false }: OrderPrintSheetProps) {
+export function OrderPrintSheet({
+  order,
+  mechanicName,
+  isStandalone = false,
+  initialDocType,
+}: OrderPrintSheetProps) {
   const { empresa: tenantEmpresa, sucursales: tenantSucursales } = useTenant();
   const [mounted, setMounted] = useState(false);
+  const [docType, setDocType] = useState<"nota_venta" | "cotizacion">(() => {
+    if (initialDocType) return initialDocType;
+    return order?.estatus_pago === "Pagado" ? "nota_venta" : "nota_venta";
+  });
 
   useEffect(() => {
     setMounted(true);
@@ -149,8 +162,29 @@ export function OrderPrintSheet({ order, mechanicName, isStandalone = false }: O
   const pagosAprobados = pagos.filter(
     (p: any) => (p.estatus === "Aprobado" || !p.estatus || p.estatus.toLowerCase() !== "cancelado") && !p.deleted_at
   );
+
+  // Cash Discount Configuration & Calculation
+  const descuentoEfectivoHabilitado = Boolean(activeEmpresa?.descuento_efectivo_habilitado);
+  const descuentoEfectivoPct = Number(
+    order.descuento_efectivo_porcentaje || activeEmpresa?.descuento_efectivo_porcentaje || 0
+  );
+  const descuentoEfectivoMonto = Number(order.descuento_efectivo_monto || 0);
+
+  // For Cotización: cash promotional price
+  const precioEfectivoCotizado =
+    descuentoEfectivoHabilitado && descuentoEfectivoPct > 0
+      ? Math.round((granTotal * (1 - descuentoEfectivoPct / 100)) * 100) / 100
+      : granTotal;
+  const ahorroEfectivoCotizado = Math.max(0, granTotal - precioEfectivoCotizado);
+
   const totalPagado = pagosAprobados.reduce((acc: number, p: any) => acc + Number(p.monto_total || 0), 0);
-  const saldoPendiente = Math.max(0, granTotal - totalPagado);
+  const totalDescuentosEnPagos = pagosAprobados.reduce(
+    (acc: number, p: any) => acc + Number(p.descuento_aplicado || 0),
+    0
+  );
+  const totalDescuentoEfectivo = Math.max(descuentoEfectivoMonto, totalDescuentosEnPagos);
+  const saldoPendiente = Math.max(0, granTotal - totalPagado - totalDescuentoEfectivo);
+  const estaLiquidado = order.estatus_pago === "Pagado" || saldoPendiente <= 0;
 
   const tasaIva = Number(activeEmpresa?.tasa_iva ?? 16);
   const subtotalSinIva = granTotal / (1 + tasaIva / 100);
@@ -209,8 +243,8 @@ export function OrderPrintSheet({ order, mechanicName, isStandalone = false }: O
         {/* Folio & Estatus Badge (Muy Visible) */}
         <div className="flex flex-col items-end shrink-0 bg-slate-50 border border-slate-200 rounded px-3 py-1.5 text-right">
           <div className="flex items-center gap-1.5">
-            <span className="text-[9px] uppercase tracking-wider font-bold text-slate-500">
-              Orden de Servicio
+            <span className="text-[9px] uppercase tracking-wider font-extrabold text-slate-500">
+              {docType === "nota_venta" ? "Nota de Venta / Servicio" : "Presupuesto / Cotización"}
             </span>
             <span
               className="text-base sm:text-lg font-black font-mono tabular-nums leading-none"
@@ -219,9 +253,28 @@ export function OrderPrintSheet({ order, mechanicName, isStandalone = false }: O
               {folioFormatted}
             </span>
           </div>
-          <div className="text-[9.5px] text-slate-600 tabular-nums mt-0.5 flex items-center gap-2">
+
+          <div className="mt-1">
+            {docType === "nota_venta" ? (
+              estaLiquidado ? (
+                <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 border border-emerald-300 font-black px-2 py-0.5 rounded text-[9.5px] uppercase tracking-wide">
+                  <CheckCircle2 size={11} className="text-emerald-700" /> Venta Liquidada / Pagada
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-900 border border-amber-300 font-bold px-2 py-0.5 rounded text-[9px] uppercase">
+                  Saldo Pendiente (${saldoPendiente.toLocaleString("es-MX", { minimumFractionDigits: 2 })})
+                </span>
+              )
+            ) : (
+              <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-900 border border-blue-300 font-bold px-2 py-0.5 rounded text-[9px] uppercase tracking-wide">
+                <FileText size={10} className="text-blue-700" /> Cotización Vigente (7 Días)
+              </span>
+            )}
+          </div>
+
+          <div className="text-[9.5px] text-slate-600 tabular-nums mt-1 flex items-center gap-2">
             <span>
-              Ingreso:{" "}
+              {docType === "nota_venta" ? "Fecha Emisión:" : "Fecha Cotización:"}{" "}
               <strong className="text-slate-800">
                 {order.fecha_ingreso
                   ? new Date(order.fecha_ingreso).toLocaleString("es-MX", {
@@ -533,10 +586,28 @@ export function OrderPrintSheet({ order, mechanicName, isStandalone = false }: O
 
         {/* Totales Financieros Destacados */}
         <div className="bg-slate-50 border border-slate-200 rounded-md px-3 py-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <div className="text-[9px] text-slate-500 max-w-sm leading-tight">
-            <strong className="text-slate-700 uppercase block mb-0.5">Póliza General de Servicio:</strong>
-            {activeEmpresa?.terminos_condiciones ||
-              "Garantía de 30 días o 1,000 km en mano de obra. Neumáticos y refacciones con garantía oficial de fábrica."}
+          <div className="text-[9px] text-slate-500 max-w-sm leading-tight space-y-1">
+            <div>
+              <strong className="text-slate-700 uppercase block mb-0.5">Póliza General de Servicio:</strong>
+              {activeEmpresa?.terminos_condiciones ||
+                "Garantía de 30 días o 1,000 km en mano de obra. Neumáticos y refacciones con garantía oficial de fábrica."}
+            </div>
+
+            {/* In Cotización: Highlight Promotional Cash Price if enabled */}
+            {docType === "cotizacion" && descuentoEfectivoHabilitado && descuentoEfectivoPct > 0 && (
+              <div className="mt-1.5 p-2 bg-emerald-50 border border-emerald-300 rounded text-emerald-950">
+                <div className="flex items-center gap-1 font-bold text-[9.5px] text-emerald-900">
+                  <Sparkles size={11} className="text-emerald-700" />
+                  <span>PRECIO PREFERENCIAL EN EFECTIVO (-{descuentoEfectivoPct}%):</span>
+                </div>
+                <div className="text-xs font-black text-emerald-800 tabular-nums mt-0.5">
+                  ${precioEfectivoCotizado.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
+                </div>
+                <div className="text-[8.5px] text-emerald-700">
+                  Ahorro directo de ${ahorroEfectivoCotizado.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN pagando en efectivo en caja.
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="w-full sm:w-64 space-y-0.5 text-[10.5px]">
@@ -553,23 +624,69 @@ export function OrderPrintSheet({ order, mechanicName, isStandalone = false }: O
               </span>
             </div>
             <div className="flex justify-between text-xs sm:text-sm font-black text-slate-900 border-t border-slate-300 pt-0.5">
-              <span>GRAN TOTAL AUTORIZADO:</span>
+              <span>{docType === "nota_venta" ? "TOTAL VENTA:" : "GRAN TOTAL COTIZADO:"}</span>
               <span className="tabular-nums" style={{ color: primaryColor }}>
                 ${granTotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
               </span>
             </div>
-            <div className="flex justify-between text-[10px] text-slate-700 font-bold border-t border-slate-200 pt-0.5">
-              <span>Saldo Pendiente a Liquidar:</span>
-              <span className="tabular-nums text-slate-900 font-black">
-                ${saldoPendiente.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-              </span>
-            </div>
+
+            {/* On Nota de Venta: Cash discount applied line */}
+            {docType === "nota_venta" && totalDescuentoEfectivo > 0 && (
+              <div className="flex justify-between text-[10px] text-emerald-800 font-bold bg-emerald-50 px-1 py-0.5 rounded">
+                <span>Descuento Promoción Efectivo ({descuentoEfectivoPct}%):</span>
+                <span className="tabular-nums">-${totalDescuentoEfectivo.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+              </div>
+            )}
+
+            {/* On Nota de Venta: Total Liquidado or Saldo */}
+            {docType === "nota_venta" ? (
+              <>
+                <div className="flex justify-between text-[10px] text-slate-700 font-bold border-t border-slate-200 pt-0.5">
+                  <span>Total Pagado / Liquidado:</span>
+                  <span className="tabular-nums text-emerald-700 font-black">
+                    ${(totalPagado).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                {saldoPendiente > 0 ? (
+                  <div className="flex justify-between text-[10px] text-red-700 font-black border-t border-red-200 pt-0.5">
+                    <span>Saldo Pendiente:</span>
+                    <span className="tabular-nums">
+                      ${saldoPendiente.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="text-right text-[9px] font-bold text-emerald-800">
+                    ✓ Comprobante completamente liquidado
+                  </div>
+                )}
+
+                {/* Formas de Pago Aplicadas */}
+                {pagosAprobados.length > 0 && (
+                  <div className="pt-1 mt-1 border-t border-slate-200 text-[9px]">
+                    <span className="font-bold text-slate-500 uppercase block mb-0.5">Pagos Aplicados:</span>
+                    {pagosAprobados.map((p: any) => (
+                      <div key={p.id} className="flex justify-between text-slate-600">
+                        <span>{p.proveedor_pago} ({p.metodo_detalle || "Caja"})</span>
+                        <span className="tabular-nums font-semibold">${Number(p.monto_total).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="flex justify-between text-[10px] text-slate-700 font-bold border-t border-slate-200 pt-0.5">
+                <span>Anticipo sugerido (50%):</span>
+                <span className="tabular-nums text-slate-900 font-black">
+                  ${(granTotal * 0.5).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* ─── 5. TABLA 2: TRABAJOS RECOMENDADOS / COTIZADOS NO AUTORIZADOS (DIFERIDOS) ─── */}
-      {hasDeferred && (
+      {/* ─── 5. TABLA 2: TRABAJOS RECOMENDADOS / COTIZADOS NO AUTORIZADOS (DIFERIDOS) (SÓLO EN COTIZACIÓN) ─── */}
+      {docType === "cotizacion" && hasDeferred && (
         <div className="border border-amber-300/80 rounded-md overflow-hidden mb-2 bg-amber-50/20">
           <div className="bg-amber-100/70 px-3 py-1 border-b border-amber-200 flex items-center justify-between">
             <div className="flex items-center gap-1.5">
@@ -719,22 +836,28 @@ export function OrderPrintSheet({ order, mechanicName, isStandalone = false }: O
         </div>
       )}
 
-      {/* ─── 6. FIRMAS DE CONFORMIDAD Y RESPONSABILIDAD (Compactas) ─── */}
+      {/* ─── 6. FIRMAS DE CONFORMIDAD Y RESPONSABILIDAD ─── */}
       <div className="grid grid-cols-2 gap-6 pt-3 mt-1 text-[9.5px]">
         <div className="border-t border-slate-400 pt-1 text-center">
           <p className="font-bold text-slate-800">
             {order.aprobado_cliente_nombre || c.nombre || "Nombre y Firma del Cliente"}
           </p>
           <p className="text-[8.5px] text-slate-500 leading-tight">
-            Acepto inventario de recepción, presupuesto autorizado y tomo conocimiento de partidas no autorizadas (diferidas).
+            {docType === "nota_venta"
+              ? "Recibí de conformidad el vehículo y los trabajos y refacciones pagadas detalladas en esta nota de venta."
+              : "Acepto presupuesto, inventario de recepción y tomo conocimiento de partidas sugeridas/diferidas."}
           </p>
         </div>
         <div className="border-t border-slate-400 pt-1 text-center">
           <p className="font-bold text-slate-800">
-            Asesor de Servicio • {activeEmpresa?.nombre_comercial}
+            {docType === "nota_venta"
+              ? `Caja y Entrega • ${activeEmpresa?.nombre_comercial}`
+              : `Asesor Técnico Cotizador • ${activeEmpresa?.nombre_comercial}`}
           </p>
           <p className="text-[8.5px] text-slate-500 leading-tight">
-            Control de Calidad y Entrega ({activeSucursal?.nombre || "Matriz"})
+            {docType === "nota_venta"
+              ? `Comprobante de venta y liquidación (${activeSucursal?.nombre || "Matriz"})`
+              : `Cotización formal sujeta a cambios y disponibilidad (${activeSucursal?.nombre || "Matriz"})`}
           </p>
         </div>
       </div>
@@ -749,21 +872,58 @@ export function OrderPrintSheet({ order, mechanicName, isStandalone = false }: O
           <div className="flex items-center gap-2.5">
             <FileCheck2 size={18} className="text-blue-400 shrink-0" />
             <div>
-              <h4 className="text-xs font-bold">Hoja Oficial de Recepción y Orden de Trabajo ({folioFormatted})</h4>
+              <h4 className="text-xs font-bold">
+                {docType === "nota_venta"
+                  ? `Comprobante y Nota de Venta (${folioFormatted})`
+                  : `Presupuesto y Cotización Previa (${folioFormatted})`}
+              </h4>
               <p className="text-[11px] text-slate-300">
-                Formato optimizado para impresión tamaño Carta / A4 o exportación directa a PDF con el branding del taller.
+                {docType === "nota_venta"
+                  ? "Solo incluye partidas autorizadas/pagadas, desglose de pagos y descuentos. Excluye trabajos diferidos."
+                  : "Muestra presupuesto completo, trabajos adicionales sugeridos y promoción por pago en efectivo."}
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={handlePrint}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md text-xs font-bold text-white shadow-sm transition-opacity hover:opacity-95 cursor-pointer shrink-0"
-            style={{ backgroundColor: primaryColor }}
-          >
-            <Printer size={15} />
-            Imprimir / Descargar PDF
-          </button>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Toggle Doc Type */}
+            <div className="flex items-center bg-slate-800 p-0.5 rounded-lg border border-slate-700">
+              <button
+                type="button"
+                onClick={() => setDocType("nota_venta")}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-colors cursor-pointer ${
+                  docType === "nota_venta"
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "text-slate-300 hover:text-white"
+                }`}
+              >
+                <Receipt size={13} />
+                Nota de Venta
+              </button>
+              <button
+                type="button"
+                onClick={() => setDocType("cotizacion")}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-colors cursor-pointer ${
+                  docType === "cotizacion"
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "text-slate-300 hover:text-white"
+                }`}
+              >
+                <FileText size={13} />
+                Cotización Previa
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="inline-flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-bold text-white shadow-sm transition-opacity hover:opacity-95 cursor-pointer shrink-0"
+              style={{ backgroundColor: primaryColor }}
+            >
+              <Printer size={15} />
+              Imprimir
+            </button>
+          </div>
         </div>
       )}
 

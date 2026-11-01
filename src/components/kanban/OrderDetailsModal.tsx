@@ -254,6 +254,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   const [paymentMode, setPaymentMode] = useState<"directo" | "link">("directo");
   const [addingPaymentLoading, setAddingPaymentLoading] = useState(false);
   const [paymentStatusMessage, setPaymentStatusMessage] = useState("");
+  const [applyCashDiscount, setApplyCashDiscount] = useState(true);
 
   useEffect(() => {
     if (empresa?.margen_refacciones_default) {
@@ -414,7 +415,11 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   const totalPagado = pagosList
     .filter((p: any) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO") && !p.deleted_at)
     .reduce((acc: number, p: any) => acc + Number(p.monto_total || 0), 0);
-  const saldoPendiente = Math.max(0, granTotal - totalPagado);
+  const totalDescuentosEnPagos = pagosList
+    .filter((p: any) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO") && !p.deleted_at)
+    .reduce((acc: number, p: any) => acc + Number(p.descuento_aplicado || 0), 0);
+  const totalDescuentoOrden = Math.max(Number(order.descuento_efectivo_monto || 0), totalDescuentosEnPagos);
+  const saldoPendiente = Math.max(0, granTotal - totalPagado - totalDescuentoOrden);
 
   // Live Buyout Margin Calculator values
   const numericCosto = parseFloat(partCostoUnitario) || 0;
@@ -1562,6 +1567,22 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
       return;
     }
 
+    const isEfectivo = paymentProvider === "Efectivo";
+    const hasDiscountConfig = Boolean(
+      empresa?.descuento_efectivo_habilitado && Number(empresa?.descuento_efectivo_porcentaje || 0) > 0
+    );
+    const cashPct = hasDiscountConfig ? Number(empresa?.descuento_efectivo_porcentaje) : 0;
+
+    let descuentoAplicado = 0;
+    if (isEfectivo && hasDiscountConfig && applyCashDiscount) {
+      const netToClear = Math.round((saldoPendiente * (1 - cashPct / 100)) * 100) / 100;
+      if (Math.abs(monto - netToClear) < 0.1 || monto >= netToClear) {
+        descuentoAplicado = Math.round((saldoPendiente * (cashPct / 100)) * 100) / 100;
+      } else {
+        descuentoAplicado = Math.round((monto * (cashPct / (100 - cashPct))) * 100) / 100;
+      }
+    }
+
     const payload = {
       orden_servicio_id: orderId,
       sucursal_id: order.sucursal_id || sucursalActiva?.id || null,
@@ -1571,6 +1592,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
       referencia: paymentReferencia.trim() || `AUT-${Date.now().toString().slice(-6)}`,
       estatus: "Aprobado",
       comision_pasarela: Math.round(comision * 100) / 100,
+      descuento_aplicado: descuentoAplicado,
     };
 
     const { data: intent, error } = await supabase
@@ -1584,20 +1606,30 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
       const newTotalPagado = newPagos
         .filter((p: any) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO") && !p.deleted_at)
         .reduce((acc: number, curr: any) => acc + Number(curr.monto_total), 0);
+      const newTotalDescuentos = newPagos
+        .filter((p: any) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO") && !p.deleted_at)
+        .reduce((acc: number, curr: any) => acc + Number(curr.descuento_aplicado || 0), 0);
 
+      const totalCovered = newTotalPagado + newTotalDescuentos;
       let newEstatus = "Pendiente";
-      if (newTotalPagado > 0 && newTotalPagado < granTotal) newEstatus = "Parcial";
-      if (newTotalPagado >= granTotal && granTotal > 0) newEstatus = "Pagado";
+      if (totalCovered > 0 && totalCovered < granTotal) newEstatus = "Parcial";
+      if (totalCovered >= granTotal - 0.05 && granTotal > 0) newEstatus = "Pagado";
 
       await supabase
         .from("ordenes_servicio")
-        .update({ estatus_pago: newEstatus })
+        .update({
+          estatus_pago: newEstatus,
+          descuento_efectivo_porcentaje: isEfectivo && descuentoAplicado > 0 ? cashPct : (order.descuento_efectivo_porcentaje || 0),
+          descuento_efectivo_monto: (order.descuento_efectivo_monto || 0) + descuentoAplicado,
+        })
         .eq("id", orderId);
 
       setOrder((prev: any) => ({
         ...prev,
         pagos_orden: newPagos,
         estatus_pago: newEstatus,
+        descuento_efectivo_porcentaje: isEfectivo && descuentoAplicado > 0 ? cashPct : prev.descuento_efectivo_porcentaje,
+        descuento_efectivo_monto: (prev.descuento_efectivo_monto || 0) + descuentoAplicado,
       }));
       setIsAddingPayment(false);
       setPaymentAmount("");
@@ -1615,16 +1647,30 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
     if (!error) {
       const newPagos = (order.pagos_orden || []).filter((p: any) => p.id !== pagoId);
       const newTotalPagado = newPagos
-        .filter((p: any) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO"))
+        .filter((p: any) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO") && !p.deleted_at)
         .reduce((acc: number, curr: any) => acc + Number(curr.monto_total), 0);
+      const newTotalDescuentos = newPagos
+        .filter((p: any) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO") && !p.deleted_at)
+        .reduce((acc: number, curr: any) => acc + Number(curr.descuento_aplicado || 0), 0);
+
+      const totalCovered = newTotalPagado + newTotalDescuentos;
       let newEstatus = "Pendiente";
-      if (newTotalPagado > 0 && newTotalPagado < granTotal) newEstatus = "Parcial";
-      if (newTotalPagado >= granTotal && granTotal > 0) newEstatus = "Pagado";
+      if (totalCovered > 0 && totalCovered < granTotal) newEstatus = "Parcial";
+      if (totalCovered >= granTotal - 0.05 && granTotal > 0) newEstatus = "Pagado";
+
       await supabase
         .from("ordenes_servicio")
-        .update({ estatus_pago: newEstatus })
+        .update({
+          estatus_pago: newEstatus,
+          descuento_efectivo_monto: newTotalDescuentos,
+        })
         .eq("id", orderId);
-      setOrder((prev: any) => ({ ...prev, pagos_orden: newPagos, estatus_pago: newEstatus }));
+      setOrder((prev: any) => ({
+        ...prev,
+        pagos_orden: newPagos,
+        estatus_pago: newEstatus,
+        descuento_efectivo_monto: newTotalDescuentos,
+      }));
       onUpdate();
     }
   };
@@ -3720,6 +3766,26 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                       ${saldoPendiente.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                     </span>
                   </div>
+
+                  {empresa?.descuento_efectivo_habilitado && Number(empresa?.descuento_efectivo_porcentaje || 0) > 0 && (
+                    <div className="p-2.5 rounded-md bg-emerald-50 border border-emerald-300 text-xs">
+                      <div className="flex items-center justify-between text-emerald-900 font-bold">
+                        <span className="flex items-center gap-1">
+                          <Sparkles size={13} className="text-emerald-600" />
+                          Precio Preferencial en Efectivo:
+                        </span>
+                        <span className="px-1.5 py-0.2 rounded bg-emerald-200/80 text-emerald-800 text-[10px] font-black">
+                          -{empresa.descuento_efectivo_porcentaje}%
+                        </span>
+                      </div>
+                      <div className="text-base font-black text-emerald-800 tabular-nums mt-0.5">
+                        ${(Math.round((granTotal * (1 - Number(empresa.descuento_efectivo_porcentaje) / 100)) * 100) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
+                      </div>
+                      <div className="text-[10px] text-emerald-700 mt-0.5">
+                        Ahorro directo de ${(Math.round((granTotal * (Number(empresa.descuento_efectivo_porcentaje) / 100)) * 100) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN al liquidar en efectivo.
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Quick Actions */}
@@ -4242,8 +4308,15 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                               {p.estatus}
                             </span>
                           </td>
-                          <td className="py-2.5 px-3 text-right font-bold text-slate-900 tabular-nums">
-                            ${Number(p.monto_total).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                          <td className="py-2.5 px-3 text-right">
+                            <div className="font-bold text-slate-900 tabular-nums">
+                              ${Number(p.monto_total).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                            </div>
+                            {Number(p.descuento_aplicado || 0) > 0 && (
+                              <div className="text-[10px] text-emerald-700 font-bold tabular-nums">
+                                Desc. Efectivo: -${Number(p.descuento_aplicado).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                              </div>
+                            )}
                           </td>
                           <td className="py-2.5 px-3 text-right">
                             <div className="flex items-center justify-end gap-1.5">
@@ -4279,18 +4352,35 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
             {/* Right 5 Cols: Terminal / Payment Registration Box */}
             <div className="lg:col-span-5">
               <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-2xs space-y-4">
-                <div className="border-b border-slate-200 pb-3 flex items-center justify-between">
+                <div className="border-b border-slate-200 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
                     Terminal de Cobro en Caja
                   </h3>
                   {saldoPendiente > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setPaymentAmount(String(saldoPendiente))}
-                      className="text-[11px] font-bold text-blue-600 hover:underline cursor-pointer"
-                    >
-                      Cobrar Saldo Total (${saldoPendiente.toLocaleString("es-MX")})
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {empresa?.descuento_efectivo_habilitado && Number(empresa?.descuento_efectivo_porcentaje || 0) > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const pct = Number(empresa.descuento_efectivo_porcentaje);
+                            const netVal = Math.round((saldoPendiente * (1 - pct / 100)) * 100) / 100;
+                            setPaymentProvider("Efectivo");
+                            setPaymentMetodoDetalle("Efectivo en Caja");
+                            setPaymentAmount(String(netVal));
+                          }}
+                          className="text-[11px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded cursor-pointer"
+                        >
+                          💵 Liquidar con Desc. Efectivo (-{empresa.descuento_efectivo_porcentaje}%: ${(Math.round((saldoPendiente * (1 - Number(empresa.descuento_efectivo_porcentaje) / 100)) * 100) / 100).toLocaleString("es-MX")})
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setPaymentAmount(String(saldoPendiente))}
+                        className="text-[11px] font-bold text-blue-600 hover:underline cursor-pointer"
+                      >
+                        Cobrar Total (${saldoPendiente.toLocaleString("es-MX")})
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -4366,6 +4456,32 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                     />
                   </div>
                 </div>
+
+                {paymentProvider === "Efectivo" && empresa?.descuento_efectivo_habilitado && Number(empresa?.descuento_efectivo_porcentaje || 0) > 0 && (
+                  <div className="p-2.5 rounded-md bg-emerald-50 border border-emerald-300 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={applyCashDiscount}
+                        onChange={(e) => setApplyCashDiscount(e.target.checked)}
+                        className="w-4 h-4 text-emerald-600 rounded"
+                      />
+                      <div>
+                        <span className="font-bold text-emerald-950 block">
+                          Aplicar Precio Preferencial en Efectivo (-{empresa.descuento_efectivo_porcentaje}%)
+                        </span>
+                        <span className="text-[10.5px] text-emerald-700">
+                          Descuento institucional por liquidación en efectivo en caja.
+                        </span>
+                      </div>
+                    </label>
+                    {applyCashDiscount && (
+                      <span className="text-[11px] font-black text-emerald-800 tabular-nums shrink-0">
+                        Ahorro cliente: -${(Math.round(((parseFloat(paymentAmount) || saldoPendiente || 0) * (Number(empresa.descuento_efectivo_porcentaje) / 100)) * 100) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 {
                 ["KueskiPay", "Atrato"].includes(paymentProvider) && (

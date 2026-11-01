@@ -21,6 +21,10 @@ export default function StandaloneOrderPrintPage() {
   const router = useRouter();
   const orderId = params?.id;
   const autoPrint = searchParams?.get("auto") === "true";
+  const tipoQuery = searchParams?.get("tipo");
+  const [docType, setDocType] = useState<"nota_venta" | "cotizacion">(
+    tipoQuery === "cotizacion" ? "cotizacion" : "nota_venta"
+  );
 
   const [orderData, setOrderData] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
@@ -150,6 +154,32 @@ export default function StandaloneOrderPrintPage() {
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
+          {/* Doc Type Selector */}
+          <div className="flex items-center bg-slate-800 p-0.5 rounded-lg border border-slate-700">
+            <button
+              type="button"
+              onClick={() => setDocType("nota_venta")}
+              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors cursor-pointer ${
+                docType === "nota_venta"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "text-slate-300 hover:text-white"
+              }`}
+            >
+              🧾 Nota de Venta
+            </button>
+            <button
+              type="button"
+              onClick={() => setDocType("cotizacion")}
+              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors cursor-pointer ${
+                docType === "cotizacion"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "text-slate-300 hover:text-white"
+              }`}
+            >
+              📑 Cotización Previa
+            </button>
+          </div>
+
           <button
             type="button"
             onClick={() => window.print()}
@@ -165,9 +195,11 @@ export default function StandaloneOrderPrintPage() {
       {/* Sheet Content */}
       <div className="print:m-0 print:p-0">
         <OrderPrintSheet
+          key={docType}
           order={orderData}
           mechanicName={orderData.mecanico?.nombre}
           isStandalone={true}
+          initialDocType={docType}
         />
       </div>
 
