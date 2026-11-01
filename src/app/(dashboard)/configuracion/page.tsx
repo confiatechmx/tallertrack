@@ -34,6 +34,7 @@ import TenantBrandLogo from "@/components/brand/TenantBrandLogo";
 import CustomDomainModal from "@/components/hq/CustomDomainModal";
 import { TenantMetodosPagoConfig } from "@/components/configuracion/TenantMetodosPagoConfig";
 import { ProveedoresConfigSection } from "@/components/proveedores/ProveedoresConfigSection";
+import { TenantUsuariosConfigSection } from "@/components/configuracion/TenantUsuariosConfigSection";
 
 type ConfigTab = "WhiteLabel" | "Sucursales" | "Personal" | "Pagos" | "Proveedores";
 
@@ -472,14 +473,7 @@ export default function ConfiguracionPage() {
               >
                 <Plus size={16} /> Nueva Sucursal
               </button>
-            ) : activeTab === "Personal" ? (
-              <button
-                onClick={() => openEmpleadoModal()}
-                className="bg-primary hover:opacity-95 text-white px-4 py-2.5 rounded-xl text-xs md:text-sm font-bold shadow-sm flex items-center gap-1.5"
-              >
-                <Plus size={16} /> Nuevo Integrante
-              </button>
-            ) : (
+            ) : activeTab === "WhiteLabel" ? (
               <button
                 onClick={handleSaveGlobalConfig}
                 disabled={saving}
@@ -492,7 +486,7 @@ export default function ConfiguracionPage() {
                 )}
                 Guardar Cambios en Vivo
               </button>
-            )}
+            ) : null}
           </div>
         </header>
 
@@ -528,7 +522,7 @@ export default function ConfiguracionPage() {
             }`}
           >
             <Users size={16} />
-            3. Equipo, Técnicos y Comisiones ({empleados.length})
+            3. Personal y Accesos
           </button>
           <button
             onClick={() => setActiveTab("Pagos")}
@@ -1098,96 +1092,11 @@ export default function ConfiguracionPage() {
         {/* TAB 3: EQUIPO, TÉCNICOS Y COMISIONES                      */}
         {/* ========================================================= */}
         {activeTab === "Personal" && (
-          <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                    <th className="py-3.5 px-5">Integrante / Especialidad</th>
-                    <th className="py-3.5 px-5">Puesto / Rol</th>
-                    <th className="py-3.5 px-5">Sucursal</th>
-                    <th className="py-3.5 px-5 text-center">% Comisión MO</th>
-                    <th className="py-3.5 px-5 text-right">Tarifa Hora</th>
-                    <th className="py-3.5 px-5 text-center">Estatus</th>
-                    <th className="py-3.5 px-5 text-right">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-sm">
-                  {empleados.map((emp) => (
-                    <tr
-                      key={emp.id}
-                      className="hover:bg-slate-50/80 transition-colors"
-                    >
-                      <td className="py-3.5 px-5">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className="w-9 h-9 rounded-xl text-white font-bold text-xs flex items-center justify-center shrink-0"
-                            style={{
-                              backgroundColor: emp.color_avatar || "#2563EB",
-                            }}
-                          >
-                            {emp.nombre
-                              .split(" ")
-                              .map((n: string) => n[0])
-                              .slice(0, 2)
-                              .join("")}
-                          </div>
-                          <div>
-                            <p className="font-bold text-slate-900">
-                              {emp.nombre}
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              {emp.especialidad || emp.telefono || "General"}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-5">
-                        <span className="font-bold text-slate-800 block">
-                          {emp.puesto || emp.rol}
-                        </span>
-                        <span className="text-xs text-slate-400">
-                          Rol Sistema: {emp.rol}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-5 text-xs font-bold text-slate-700">
-                        {emp.sucursales
-                          ? `${emp.sucursales.codigo} • ${emp.sucursales.nombre}`
-                          : "Todas"}
-                      </td>
-                      <td className="py-3.5 px-5 text-center">
-                        <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          {Number(emp.comision_porcentaje || 0)}%
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-5 text-right font-bold text-slate-800 tabular-nums">
-                        ${Number(emp.tarifa_hora || 0).toLocaleString("es-MX")}/hr
-                      </td>
-                      <td className="py-3.5 px-5 text-center">
-                        <span
-                          className={`text-[10px] uppercase font-bold px-2.5 py-1 rounded-full ${
-                            emp.activo
-                              ? "bg-emerald-100 text-emerald-700"
-                              : "bg-rose-100 text-rose-700"
-                          }`}
-                        >
-                          {emp.activo ? "Activo" : "Inactivo"}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-5 text-right">
-                        <button
-                          onClick={() => openEmpleadoModal(emp)}
-                          className="p-2 rounded-lg text-slate-500 hover:text-primary hover:bg-slate-100 transition-colors"
-                        >
-                          <Pencil size={15} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <TenantUsuariosConfigSection
+            empresaId={tenantEmpresa?.id || "b2ad09db-0a34-4876-9ca3-d584c40bd294"}
+            sucursalId={sucursalActiva?.id}
+            sucursales={sucursales}
+          />
         )}
 
         {/* ========================================================= */}
@@ -1471,240 +1380,7 @@ export default function ConfiguracionPage() {
       )}
 
       {/* ========================================================= */}
-      {/* MODAL CRUD: EMPLEADO / TÉCNICO                            */}
-      {/* ========================================================= */}
-      {isEmpleadoModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-              <h3 className="text-base font-bold text-slate-900">
-                {editingEmpleadoId ? "Editar Integrante" : "Nuevo Integrante del Equipo"}
-              </h3>
-              <button
-                onClick={() => setIsEmpleadoModalOpen(false)}
-                className="text-slate-400 hover:text-slate-700 font-bold"
-              >
-                ✕
-              </button>
-            </div>
-            <form
-              onSubmit={handleSaveEmpleado}
-              className="p-6 flex flex-col gap-4"
-            >
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Nombre Completo
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={empleadoForm.nombre}
-                    onChange={(e) =>
-                      setEmpleadoForm({
-                        ...empleadoForm,
-                        nombre: e.target.value,
-                      })
-                    }
-                    className={inputClasses}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Sucursal Asignada
-                  </label>
-                  <select
-                    value={empleadoForm.sucursal_id}
-                    onChange={(e) =>
-                      setEmpleadoForm({
-                        ...empleadoForm,
-                        sucursal_id: e.target.value,
-                      })
-                    }
-                    className={inputClasses}
-                  >
-                    {sucursales.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.codigo} - {s.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Rol Operativo
-                  </label>
-                  <select
-                    value={empleadoForm.rol}
-                    onChange={(e) =>
-                      setEmpleadoForm({
-                        ...empleadoForm,
-                        rol: e.target.value as
-                          | "Mecánico"
-                          | "Vendedor"
-                          | "Administrador",
-                      })
-                    }
-                    className={inputClasses}
-                  >
-                    <option value="Mecánico">Mecánico / Técnico</option>
-                    <option value="Vendedor">Asesor de Servicio / Ventas</option>
-                    <option value="Administrador">Administrador / Gerente</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Título del Puesto
-                  </label>
-                  <input
-                    type="text"
-                    value={empleadoForm.puesto}
-                    onChange={(e) =>
-                      setEmpleadoForm({
-                        ...empleadoForm,
-                        puesto: e.target.value,
-                      })
-                    }
-                    placeholder="Ej. Maestro Técnico / Asesor"
-                    className={inputClasses}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Especialidad Técnica
-                  </label>
-                  <input
-                    type="text"
-                    value={empleadoForm.especialidad}
-                    onChange={(e) =>
-                      setEmpleadoForm({
-                        ...empleadoForm,
-                        especialidad: e.target.value,
-                      })
-                    }
-                    placeholder="Ej. Frenos, Suspensión y Diagnóstico"
-                    className={inputClasses}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Teléfono
-                  </label>
-                  <input
-                    type="text"
-                    value={empleadoForm.telefono}
-                    onChange={(e) =>
-                      setEmpleadoForm({
-                        ...empleadoForm,
-                        telefono: e.target.value,
-                      })
-                    }
-                    className={inputClasses}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    % Comisión Mano de Obra
-                  </label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    value={empleadoForm.comision_porcentaje}
-                    onChange={(e) =>
-                      setEmpleadoForm({
-                        ...empleadoForm,
-                        comision_porcentaje: parseFloat(e.target.value) || 0,
-                      })
-                    }
-                    className={inputClasses}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Tarifa por Hora ($ MXN)
-                  </label>
-                  <input
-                    type="number"
-                    step="10"
-                    value={empleadoForm.tarifa_hora}
-                    onChange={(e) =>
-                      setEmpleadoForm({
-                        ...empleadoForm,
-                        tarifa_hora: parseFloat(e.target.value) || 0,
-                      })
-                    }
-                    className={inputClasses}
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between pt-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-500 uppercase">
-                    Color Avatar:
-                  </span>
-                  {AVATAR_COLORS.map((c) => (
-                    <button
-                      type="button"
-                      key={c}
-                      onClick={() =>
-                        setEmpleadoForm({ ...empleadoForm, color_avatar: c })
-                      }
-                      className={`w-6 h-6 rounded-full border-2 ${
-                        empleadoForm.color_avatar === c
-                          ? "border-slate-900 scale-110"
-                          : "border-transparent"
-                      }`}
-                      style={{ backgroundColor: c }}
-                    />
-                  ))}
-                </div>
-
-                <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={empleadoForm.activo}
-                    onChange={(e) =>
-                      setEmpleadoForm({
-                        ...empleadoForm,
-                        activo: e.target.checked,
-                      })
-                    }
-                  />
-                  Activo
-                </label>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setIsEmpleadoModalOpen(false)}
-                  className="px-4 py-2 text-xs font-bold text-slate-600"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingEmpleado}
-                  className="bg-primary text-white px-5 py-2.5 rounded-xl text-xs font-bold"
-                >
-                  {savingEmpleado ? "Guardando..." : "Guardar Integrante"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-      {/* Modal Dominios Personalizados White-Label */}
+      {/* Modal Dominios Personalizados White-Label */}{/* Modal Dominios Personalizados White-Label */}
       {isDomainModalOpen && tenantEmpresa && (
         <CustomDomainModal
           isOpen={isDomainModalOpen}

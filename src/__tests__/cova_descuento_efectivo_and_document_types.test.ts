@@ -1,92 +1,86 @@
 import { describe, it, expect } from "vitest";
 
-describe("Cova Cash Discount & Document Types (Cotización vs Nota de Venta)", () => {
-  describe("Configurable Tenant Cash Discount", () => {
-    it("aplica descuento configurable del 3% en efectivo para Cova Tires", () => {
-      const granTotal = 19300.0;
-      const tenantConfig = {
-        descuento_efectivo_habilitado: true,
-        descuento_efectivo_porcentaje: 3.0,
-      };
+describe("Validaciones de Descuento en Efectivo y Diferenciación Cotización vs Nota", () => {
+  describe("Descuento en Efectivo Configurable por Tenant (Cova Tires: 3%)", () => {
+    it("debe calcular correctamente el 3% de descuento preferencial en efectivo", () => {
+      const subtotalConIva = 1000.0;
+      const descuentoEfectivoActivo = true;
+      const porcentajeDescuento = 3.0; // 3%
 
-      const pct = tenantConfig.descuento_efectivo_habilitado
-        ? tenantConfig.descuento_efectivo_porcentaje
+      const descuentoCalculado = descuentoEfectivoActivo
+        ? (subtotalConIva * porcentajeDescuento) / 100
         : 0;
-      const descuentoEsperado = Math.round((granTotal * (pct / 100)) * 100) / 100;
-      const netoCobrarEfectivo = granTotal - descuentoEsperado;
 
-      expect(pct).toBe(3.0);
-      expect(descuentoEsperado).toBe(579.0);
-      expect(netoCobrarEfectivo).toBe(18721.0);
+      const totalAPagar = subtotalConIva - descuentoCalculado;
+
+      expect(descuentoCalculado).toBe(30.0);
+      expect(totalAPagar).toBe(970.0);
     });
 
-    it("no aplica descuento si el tenant lo tiene deshabilitado", () => {
-      const granTotal = 19300.0;
-      const tenantConfig = {
-        descuento_efectivo_habilitado: false,
-        descuento_efectivo_porcentaje: 3.0,
-      };
+    it("no debe aplicar descuento si la opción de tenant está desactivada", () => {
+      const subtotalConIva = 1000.0;
+      const descuentoEfectivoActivo = false;
+      const porcentajeDescuento = 3.0;
 
-      const pct = tenantConfig.descuento_efectivo_habilitado
-        ? tenantConfig.descuento_efectivo_porcentaje
+      const descuentoCalculado = descuentoEfectivoActivo
+        ? (subtotalConIva * porcentajeDescuento) / 100
         : 0;
-      const descuento = Math.round((granTotal * (pct / 100)) * 100) / 100;
-      const netoCobrar = granTotal - descuento;
 
-      expect(descuento).toBe(0);
-      expect(netoCobrar).toBe(granTotal);
+      const totalAPagar = subtotalConIva - descuentoCalculado;
+
+      expect(descuentoCalculado).toBe(0);
+      expect(totalAPagar).toBe(1000.0);
     });
 
-    it("al liquidar con el neto en efectivo y acreditar el descuento, el saldo pendiente queda en 0 y estatus es Pagado", () => {
-      const granTotal = 19300.0;
-      const cashPct = 3.0;
-      const descuento = Math.round((granTotal * (cashPct / 100)) * 100) / 100; // 579.00
-      const netoPagado = granTotal - descuento; // 18721.00
+    it("solo aplica para método de pago EFECTIVO, no para tarjeta ni transferencia", () => {
+      const subtotalConIva = 5000.0;
+      const tasaDescuento = 3.0;
 
-      const pagosAprobados = [
-        {
-          id: "pago-1",
-          proveedor_pago: "Efectivo",
-          monto_total: netoPagado,
-          descuento_aplicado: descuento,
-          estatus: "Aprobado",
-        },
-      ];
+      const calcularTotal = (metodo: string) => {
+        const esEfectivo = metodo === "efectivo";
+        const desc = esEfectivo ? (subtotalConIva * tasaDescuento) / 100 : 0;
+        return subtotalConIva - desc;
+      };
 
-      const totalPagado = pagosAprobados.reduce((acc, p) => acc + p.monto_total, 0);
-      const totalDescuentos = pagosAprobados.reduce((acc, p) => acc + p.descuento_aplicado, 0);
-      const saldoPendiente = Math.max(0, granTotal - totalPagado - totalDescuentos);
-      const estatusPago = totalPagado + totalDescuentos >= granTotal ? "Pagado" : "Pendiente";
-
-      expect(totalPagado).toBe(18721.0);
-      expect(totalDescuentos).toBe(579.0);
-      expect(saldoPendiente).toBe(0);
-      expect(estatusPago).toBe("Pagado");
+      expect(calcularTotal("efectivo")).toBe(4850.0);
+      expect(calcularTotal("tarjeta")).toBe(5000.0);
+      expect(calcularTotal("transferencia")).toBe(5000.0);
     });
   });
 
-  describe("Separación entre Cotización y Nota de Venta", () => {
+  describe("Diferenciación de Impresión: Cotización vs Nota de Venta (Exclusión de Trabajos No Autorizados)", () => {
     const mockOrder = {
-      folio: 1001,
-      estatus_pago: "Pagado",
+      folio: "OT-2026-0042",
+      cliente: "Eduardo Mendoza",
       servicios: [
-        { id: "s1", nombre: "Alineación 3D", estatus_aprobacion: "Aprobado", subtotal: 480 },
-        { id: "s2", nombre: "Cambio de Bujes Horquilla", estatus_aprobacion: "Diferido", subtotal: 950 },
+        { id: "s1", nombre: "Alineación 3D", estatus_aprobacion: "Aprobado", precio: 450 },
+        { id: "s2", nombre: "Balanceo de 4 Ruedas", estatus_aprobacion: "Diferido", precio: 300 },
       ],
       refacciones: [
-        { id: "r1", nombre: "Amortiguador KYB", estatus_aprobacion: "Aprobado", subtotal: 2900 },
-        { id: "r2", nombre: "Horquilla Inferior Izq", estatus_aprobacion: "Diferido", subtotal: 1600 },
+        { id: "r1", nombre: "Amortiguador KYB", estatus_aprobacion: "Aprobado", precio: 2200 },
+        { id: "r2", nombre: "Bujes de Horquilla", estatus_aprobacion: "Diferido", precio: 800 },
       ],
     };
 
-    it("en Nota de Venta NUNCA deben mostrarse partidas diferidas / no autorizadas", () => {
-      const docType = "nota_venta";
+    it("en Nota de Venta solo deben salir partidas cobradas/autorizadas, NUNCA diferidas", () => {
+      const docType: "cotizacion" | "nota_venta" = "nota_venta";
 
-      // Solo partidas aprobadas
-      const partidasEnNota = [
-        ...mockOrder.servicios.filter((s) => s.estatus_aprobacion === "Aprobado"),
-        ...mockOrder.refacciones.filter((r) => r.estatus_aprobacion === "Aprobado"),
-      ];
+      // Filtro idéntico al de DocumentoPrintModal / Impresión
+      const serviciosFiltrados = mockOrder.servicios.filter((s) => {
+        if (docType === "nota_venta") return s.estatus_aprobacion !== "Diferido";
+        return true;
+      });
+
+      const refaccionesFiltradas = mockOrder.refacciones.filter((r) => {
+        if (docType === "nota_venta") return r.estatus_aprobacion !== "Diferido";
+        return true;
+      });
+
+      const partidasEnNota = [...serviciosFiltrados, ...refaccionesFiltradas];
+
+      // Verificamos que ninguna partida diferida esté presente
+      const tieneDiferidos = partidasEnNota.some((p) => p.estatus_aprobacion === "Diferido");
+      expect(tieneDiferidos).toBe(false);
 
       // Partidas diferidas
       const partidasDiferidas = [
@@ -95,7 +89,7 @@ describe("Cova Cash Discount & Document Types (Cotización vs Nota de Venta)", (
       ];
 
       // En nota de venta, la sección de diferidos no se renderiza
-      const mostrarSeccionDiferidos = docType === "cotizacion" && partidasDiferidas.length > 0;
+      const mostrarSeccionDiferidos = (docType as string) === "cotizacion" && partidasDiferidas.length > 0;
 
       expect(mostrarSeccionDiferidos).toBe(false);
       expect(partidasEnNota).toHaveLength(2);
@@ -103,7 +97,7 @@ describe("Cova Cash Discount & Document Types (Cotización vs Nota de Venta)", (
     });
 
     it("en Cotización SÍ se muestran las partidas diferidas como trabajos recomendados", () => {
-      const docType = "cotizacion";
+      const docType: "cotizacion" | "nota_venta" = "cotizacion";
 
       const partidasDiferidas = [
         ...mockOrder.servicios.filter((s) => s.estatus_aprobacion === "Diferido"),
@@ -114,8 +108,7 @@ describe("Cova Cash Discount & Document Types (Cotización vs Nota de Venta)", (
 
       expect(mostrarSeccionDiferidos).toBe(true);
       expect(partidasDiferidas).toHaveLength(2);
-      expect(partidasDiferidas.map((p) => p.nombre)).toContain("Cambio de Bujes Horquilla");
-      expect(partidasDiferidas.map((p) => p.nombre)).toContain("Horquilla Inferior Izq");
+      expect(partidasDiferidas.map((p) => p.nombre)).toEqual(["Balanceo de 4 Ruedas", "Bujes de Horquilla"]);
     });
   });
 });
