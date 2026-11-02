@@ -521,7 +521,7 @@ export const CajaTurnoService = {
     const entradasExtrasF1 = movimientos
       .filter(
         (m) =>
-          ["Fondo Inicial", "Ingreso Extra", "Reposición de Fondo"].includes(m.tipo) &&
+          ["Fondo Inicial", "Ingreso Extra", "Reposición de Fondo", "INGRESO"].includes(m.tipo) &&
           (!m.caja_fondo_id || m.caja_fondo_id === f1Id)
       )
       .reduce((sum, m) => sum + Number(m.monto || 0), 0);
@@ -529,7 +529,7 @@ export const CajaTurnoService = {
     const salidasGastosF1 = movimientos
       .filter(
         (m) =>
-          ["Gasto / Insumos", "Pago Proveedor", "Retiro de Efectivo", "Retiro Administrativo"].includes(m.tipo) &&
+          ["Gasto / Insumos", "Pago Proveedor", "Retiro de Efectivo", "Retiro Administrativo", "EGRESO"].includes(m.tipo) &&
           (!m.caja_fondo_id || m.caja_fondo_id === f1Id)
       )
       .reduce((sum, m) => sum + Number(m.monto || 0), 0);
@@ -554,7 +554,7 @@ export const CajaTurnoService = {
     const entradasExtrasF2 = movimientos
       .filter(
         (m) =>
-          ["Ingreso Extra", "Reposición de Fondo"].includes(m.tipo) &&
+          ["Ingreso Extra", "Reposición de Fondo", "INGRESO"].includes(m.tipo) &&
           m.caja_fondo_id === f2Id
       )
       .reduce((sum, m) => sum + Number(m.monto || 0), 0);
@@ -562,7 +562,7 @@ export const CajaTurnoService = {
     const salidasGastosF2 = movimientos
       .filter(
         (m) =>
-          ["Retiro de Efectivo", "Retiro Administrativo"].includes(m.tipo) &&
+          ["Retiro de Efectivo", "Retiro Administrativo", "EGRESO"].includes(m.tipo) &&
           m.caja_fondo_id === f2Id
       )
       .reduce((sum, m) => sum + Number(m.monto || 0), 0);

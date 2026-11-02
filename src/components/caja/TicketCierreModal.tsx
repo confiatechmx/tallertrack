@@ -31,9 +31,9 @@ export function TicketCierreModal({
   isOpen,
   onClose,
   cierreData,
-  empresaNombre = "Cova Tires",
-  sucursalNombre = "Matriz San Pedro",
-  cajeroNombre = "Alejandro Villarreal",
+  empresaNombre = "Cova",
+  sucursalNombre = "Cova",
+  cajeroNombre = "Cajero en Turno",
 }: TicketCierreModalProps) {
   const [formato, setFormato] = useState<FormatoImpresion>("CARTA");
   const printableRef = useRef<HTMLDivElement>(null);

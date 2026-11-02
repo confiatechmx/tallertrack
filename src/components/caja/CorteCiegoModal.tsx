@@ -76,7 +76,7 @@ export function CorteCiegoModal({
   const [justificacion, setJustificacion] = useState("");
 
   // Step 4: Cash drop / Remesa & Float for next shift
-  const [fondoSiguiente, setFondoSiguiente] = useState<string>(String(fondoOperativo?.saldo_actual || turnoActivo.monto_apertura_fondo1 || 400));
+  const [fondoSiguiente, setFondoSiguiente] = useState<string>(String(turnoActivo.monto_apertura_fondo1 || fondoOperativo?.saldo_minimo_alerta || 400));
   const [remesaRetirada, setRemesaRetirada] = useState<string>("0");
 
   // Load theoretical shift data on open
@@ -108,7 +108,7 @@ export function CorteCiegoModal({
 
   // Auto calculate remesa when entering Step 4
   const handleGoToRemesa = () => {
-    const baseSiguiente = Number(fondoOperativo?.saldo_actual || turnoActivo.monto_apertura_fondo1 || 400);
+    const baseSiguiente = Number(fondoSiguiente || turnoActivo.monto_apertura_fondo1 || 400);
     const fSiguienteNum = Number(fondoSiguiente || baseSiguiente);
     const remesaSugerida = Math.max(0, totalF1Declarado - fSiguienteNum);
     setRemesaRetirada(String(remesaSugerida));

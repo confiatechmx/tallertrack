@@ -2608,9 +2608,9 @@ export default function CajaPage() {
         isOpen={ticketCierreOpen}
         onClose={() => setTicketCierreOpen(false)}
         cierreData={cierreTicketData}
-        empresaNombre={empresa?.nombre_comercial || "Cova Tires"}
-        sucursalNombre={sucursalActiva?.nombre || "Matriz San Pedro"}
-        cajeroNombre="Alejandro Villarreal"
+        empresaNombre={empresa?.nombre_comercial || "Cova"}
+        sucursalNombre={sucursalActiva?.nombre || "Cova"}
+        cajeroNombre={perfil?.nombre || "Cajero en Turno"}
       />
 
       {/* Modal: Auditoría y Corte Diario (Excel 3 Hojas, PDF, Comisiones y Bancos) */}
@@ -2618,7 +2618,7 @@ export default function CajaPage() {
         isOpen={auditoriaModalOpen}
         onClose={() => setAuditoriaModalOpen(false)}
         turnoId={auditoriaTurnoId || turnoActivo?.id || ""}
-        nombreTaller={empresa?.nombre_comercial || "Cova Tires"}
+        nombreTaller={empresa?.nombre_comercial || "Cova"}
         onTurnoAuditado={() => {
           loadData();
         }}
