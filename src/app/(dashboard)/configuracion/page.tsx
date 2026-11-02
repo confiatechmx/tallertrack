@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
   useTenant,
@@ -17,8 +18,6 @@ import {
   Plus,
   Pencil,
   Shield,
-  UserCog,
-  Wrench,
   Palette,
   Sparkles,
   MapPin,
@@ -28,28 +27,40 @@ import {
   Trash2,
   ImageIcon,
   Upload,
+  Receipt,
+  RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 import TenantBrandLogo from "@/components/brand/TenantBrandLogo";
 import CustomDomainModal from "@/components/hq/CustomDomainModal";
 import { TenantMetodosPagoConfig } from "@/components/configuracion/TenantMetodosPagoConfig";
-import { ProveedoresConfigSection } from "@/components/proveedores/ProveedoresConfigSection";
 import { TenantUsuariosConfigSection } from "@/components/configuracion/TenantUsuariosConfigSection";
 
-type ConfigTab = "WhiteLabel" | "Sucursales" | "Personal" | "Pagos" | "Proveedores";
+type ConfigTab = "Marca" | "Empresa" | "Sucursales" | "Personal" | "Pagos";
 
-const AVATAR_COLORS = [
-  "#2563EB",
-  "#059669",
-  "#D97706",
-  "#7C3AED",
-  "#DC2626",
-  "#0891B2",
-  "#0F172A",
-];
+const INITIAL_FORM_EMPRESA = {
+  nombre_comercial: "",
+  eslogan: "",
+  rfc: "",
+  telefono: "",
+  email_contacto: "",
+  sitio_web: "",
+  direccion: "",
+  tasa_iva: 16,
+  margen_refacciones_default: 35,
+  terminos_condiciones: "",
+  logo_url: "",
+  logo_url_dark: "",
+  isotipo_url: "",
+  color_primario: "#2563EB",
+  color_sidebar: "#0F172A",
+};
 
-export default function ConfiguracionPage() {
+function ConfiguracionContent() {
   const supabase = createClient();
+  const searchParams = useSearchParams();
+  const initialTabParam = searchParams.get("tab");
+
   const {
     empresa: tenantEmpresa,
     sucursales,
@@ -59,35 +70,29 @@ export default function ConfiguracionPage() {
     updateBrandTheme,
   } = useTenant();
 
-  const [activeTab, setActiveTab] = useState<ConfigTab>("WhiteLabel");
+  // Determine initial tab from query param if provided
+  const resolveInitialTab = (): ConfigTab => {
+    if (!initialTabParam) return "Marca";
+    const p = initialTabParam.toLowerCase();
+    if (p.includes("sucursal")) return "Sucursales";
+    if (p.includes("personal") || p.includes("usuario") || p.includes("equipo")) return "Personal";
+    if (p.includes("pago") || p.includes("banco")) return "Pagos";
+    if (p.includes("empresa") || p.includes("fiscal") || p.includes("reglas")) return "Empresa";
+    return "Marca";
+  };
+
+  const [activeTab, setActiveTab] = useState<ConfigTab>(resolveInitialTab());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
 
-  // Tab 1: White-Label & Perfil State
-  const [formEmpresa, setFormEmpresa] = useState({
-    nombre_comercial: "",
-    eslogan: "",
-    rfc: "",
-    telefono: "",
-    email_contacto: "",
-    sitio_web: "",
-    direccion: "",
-    tasa_iva: 16,
-    margen_refacciones_default: 35,
-    terminos_condiciones: "",
-    logo_url: "",
-    logo_url_dark: "",
-    isotipo_url: "",
-    color_primario: "#2563EB",
-    color_sidebar: "#0F172A",
-  });
+  // Form State
+  const [formEmpresa, setFormEmpresa] = useState(INITIAL_FORM_EMPRESA);
+  const [baselineForm, setBaselineForm] = useState(INITIAL_FORM_EMPRESA);
 
-  // Tab 2: Sucursales CRUD Modal State
+  // Sucursales Modal State
   const [isSucursalModalOpen, setIsSucursalModalOpen] = useState(false);
-  const [editingSucursalId, setEditingSucursalId] = useState<string | null>(
-    null
-  );
+  const [editingSucursalId, setEditingSucursalId] = useState<string | null>(null);
   const [sucursalForm, setSucursalForm] = useState({
     nombre: "",
     codigo: "",
@@ -100,6 +105,63 @@ export default function ConfiguracionPage() {
   const [savingSucursal, setSavingSucursal] = useState(false);
   const [isDomainModalOpen, setIsDomainModalOpen] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  // Load tenant configuration into state
+  const loadConfigData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const sourceEmp = tenantEmpresa;
+      if (sourceEmp) {
+        const loaded = {
+          nombre_comercial: sourceEmp.nombre_comercial || "",
+          eslogan: sourceEmp.eslogan || "",
+          rfc: sourceEmp.rfc || "",
+          telefono: sourceEmp.telefono || "",
+          email_contacto: sourceEmp.email_contacto || "",
+          sitio_web: sourceEmp.sitio_web || "",
+          direccion: sourceEmp.direccion || "",
+          tasa_iva: Number(sourceEmp.tasa_iva ?? 16),
+          margen_refacciones_default: Number(sourceEmp.margen_refacciones_default ?? 35),
+          terminos_condiciones: sourceEmp.terminos_condiciones || "",
+          logo_url: sourceEmp.logo_url || "",
+          logo_url_dark: sourceEmp.logo_url_dark || "",
+          isotipo_url: sourceEmp.isotipo_url || "",
+          color_primario: sourceEmp.color_primario || "#2563EB",
+          color_sidebar: sourceEmp.color_sidebar || "#0F172A",
+        };
+        setFormEmpresa(loaded);
+        setBaselineForm(loaded);
+      }
+    } catch (error) {
+      console.error("Error loading configuration:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [tenantEmpresa]);
+
+  useEffect(() => {
+    loadConfigData();
+  }, [loadConfigData]);
+
+  // Detect unsaved changes (dirty state)
+  const isDirty = useMemo(() => {
+    return JSON.stringify(formEmpresa) !== JSON.stringify(baselineForm);
+  }, [formEmpresa, baselineForm]);
+
+  const handleDiscardChanges = () => {
+    setFormEmpresa(baselineForm);
+    applyThemeCssVariables(baselineForm.color_primario, baselineForm.color_sidebar);
+    toast.info("Cambios descartados.");
+  };
+
+  const handlePresetClick = (primary: string, sidebar: string) => {
+    setFormEmpresa((prev) => ({
+      ...prev,
+      color_primario: primary,
+      color_sidebar: sidebar,
+    }));
+    applyThemeCssVariables(primary, sidebar);
+  };
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -141,92 +203,6 @@ export default function ConfiguracionPage() {
     }
   };
 
-  // Tab 3: Equipo, Técnicos y Comisiones State
-  const [empleados, setEmpleados] = useState<any[]>([]);
-  const [isEmpleadoModalOpen, setIsEmpleadoModalOpen] = useState(false);
-  const [editingEmpleadoId, setEditingEmpleadoId] = useState<string | null>(
-    null
-  );
-  const [empleadoForm, setEmpleadoForm] = useState({
-    nombre: "",
-    rol: "Mecánico" as "Mecánico" | "Vendedor" | "Administrador",
-    puesto: "Técnico Mecánico",
-    especialidad: "",
-    telefono: "",
-    sucursal_id: "",
-    comision_porcentaje: 25,
-    tarifa_hora: 450,
-    color_avatar: "#2563EB",
-    activo: true,
-  });
-  const [savingEmpleado, setSavingEmpleado] = useState(false);
-
-  // Tab 4: Métodos de Pago
-  const [pagosConfig, setPagosConfig] = useState<any[]>([]);
-
-  const loadConfigData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [{ data: empData }, { data: pagosData }, { data: staffData }] =
-        await Promise.all([
-          supabase.from("empresas").select("*").limit(1).maybeSingle(),
-          supabase
-            .from("configuracion_pagos")
-            .select("*")
-            .order("proveedor", { ascending: true }),
-          supabase
-            .from("empleados")
-            .select("*, sucursales(nombre, codigo)")
-            .order("rol")
-            .order("nombre"),
-        ]);
-
-      const sourceEmp = empData || tenantEmpresa;
-      if (sourceEmp) {
-        setFormEmpresa({
-          nombre_comercial: sourceEmp.nombre_comercial || "",
-          eslogan: sourceEmp.eslogan || "",
-          rfc: sourceEmp.rfc || "",
-          telefono: sourceEmp.telefono || "",
-          email_contacto: sourceEmp.email_contacto || "",
-          sitio_web: sourceEmp.sitio_web || "",
-          direccion: sourceEmp.direccion || "",
-          tasa_iva: Number(sourceEmp.tasa_iva ?? 16),
-          margen_refacciones_default: Number(
-            sourceEmp.margen_refacciones_default ?? 35
-          ),
-          terminos_condiciones: sourceEmp.terminos_condiciones || "",
-          logo_url: sourceEmp.logo_url || "",
-          logo_url_dark: sourceEmp.logo_url_dark || "",
-          isotipo_url: sourceEmp.isotipo_url || "",
-          color_primario: sourceEmp.color_primario || "#2563EB",
-          color_sidebar: sourceEmp.color_sidebar || "#0F172A",
-        });
-      }
-
-      if (pagosData) setPagosConfig(pagosData);
-      if (staffData) setEmpleados(staffData);
-    } catch (error) {
-      console.error("Error loading configuration:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [tenantEmpresa]);
-
-  useEffect(() => {
-    loadConfigData();
-  }, [loadConfigData]);
-
-  // --- Tab 1 & Tab 4 Global Save ---
-  const handlePresetClick = (primary: string, sidebar: string) => {
-    setFormEmpresa((prev) => ({
-      ...prev,
-      color_primario: primary,
-      color_sidebar: sidebar,
-    }));
-    applyThemeCssVariables(primary, sidebar);
-  };
-
   const handleSaveGlobalConfig = async () => {
     setSaving(true);
     setSaveMessage("");
@@ -240,9 +216,7 @@ export default function ConfiguracionPage() {
         sitio_web: formEmpresa.sitio_web || null,
         direccion: formEmpresa.direccion || null,
         tasa_iva: Number(formEmpresa.tasa_iva || 16),
-        margen_refacciones_default: Number(
-          formEmpresa.margen_refacciones_default || 35
-        ),
+        margen_refacciones_default: Number(formEmpresa.margen_refacciones_default || 35),
         terminos_condiciones: formEmpresa.terminos_condiciones || null,
         logo_url: formEmpresa.logo_url || null,
         logo_url_dark: formEmpresa.logo_url_dark || null,
@@ -251,29 +225,20 @@ export default function ConfiguracionPage() {
         color_sidebar: formEmpresa.color_sidebar,
       });
 
-      if (pagosConfig.length > 0) {
-        for (const p of pagosConfig) {
-          await supabase
-            .from("configuracion_pagos")
-            .update({
-              comision_porcentaje: Number(p.comision_porcentaje || 0),
-              activo: Boolean(p.activo),
-            })
-            .eq("id", p.id);
-        }
-      }
-
       await refreshTenant();
-      setSaveMessage("Configuración y tema White-Label guardados en vivo.");
+      setBaselineForm(formEmpresa);
+      setSaveMessage("Configuración guardada en vivo.");
+      toast.success("Configuración actualizada con éxito.");
       setTimeout(() => setSaveMessage(""), 3500);
     } catch (err) {
       console.error("Error guardando configuración:", err);
+      toast.error("Error al guardar la configuración.");
     } finally {
       setSaving(false);
     }
   };
 
-  // --- Tab 2: Sucursales CRUD ---
+  // Sucursales Modal Handlers
   const openSucursalModal = (suc?: any) => {
     if (suc) {
       setEditingSucursalId(suc.id);
@@ -306,8 +271,7 @@ export default function ConfiguracionPage() {
     setSavingSucursal(true);
     try {
       const payload = {
-        empresa_id:
-          tenantEmpresa?.id || "a0000000-0000-0000-0000-000000000001",
+        empresa_id: tenantEmpresa?.id || "a0000000-0000-0000-0000-000000000001",
         nombre: sucursalForm.nombre.trim(),
         codigo: sucursalForm.codigo.trim().toUpperCase(),
         direccion: sucursalForm.direccion.trim() || null,
@@ -328,297 +292,197 @@ export default function ConfiguracionPage() {
 
       await refreshTenant();
       setIsSucursalModalOpen(false);
+      toast.success("Sucursal guardada correctamente.");
     } catch (err) {
       console.error("Error guardando sucursal:", err);
+      toast.error("Error al guardar la sucursal.");
     } finally {
       setSavingSucursal(false);
     }
   };
 
-  // --- Tab 3: Empleados CRUD ---
-  const openEmpleadoModal = (emp?: any) => {
-    if (emp) {
-      setEditingEmpleadoId(emp.id);
-      setEmpleadoForm({
-        nombre: emp.nombre || "",
-        rol: emp.rol || "Mecánico",
-        puesto: emp.puesto || emp.rol || "Técnico Mecánico",
-        especialidad: emp.especialidad || "",
-        telefono: emp.telefono || "",
-        sucursal_id: emp.sucursal_id || sucursales[0]?.id || "",
-        comision_porcentaje: Number(emp.comision_porcentaje ?? 25),
-        tarifa_hora: Number(emp.tarifa_hora ?? 450),
-        color_avatar: emp.color_avatar || "#2563EB",
-        activo: emp.activo !== false,
-      });
-    } else {
-      setEditingEmpleadoId(null);
-      setEmpleadoForm({
-        nombre: "",
-        rol: "Mecánico",
-        puesto: "Maestro Técnico",
-        especialidad: "Mecánica General y Frenos",
-        telefono: "",
-        sucursal_id:
-          sucursalActiva?.id ||
-          sucursales[0]?.id ||
-          "b0000000-0000-0000-0000-000000000001",
-        comision_porcentaje: 25,
-        tarifa_hora: 450,
-        color_avatar:
-          AVATAR_COLORS[empleados.length % AVATAR_COLORS.length] || "#2563EB",
-        activo: true,
-      });
-    }
-    setIsEmpleadoModalOpen(true);
-  };
-
-  const handleSaveEmpleado = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSavingEmpleado(true);
-    try {
-      const payload = {
-        empresa_id:
-          tenantEmpresa?.id || "a0000000-0000-0000-0000-000000000001",
-        sucursal_id:
-          empleadoForm.sucursal_id ||
-          sucursales[0]?.id ||
-          "b0000000-0000-0000-0000-000000000001",
-        nombre: empleadoForm.nombre.trim(),
-        rol: empleadoForm.rol,
-        puesto: empleadoForm.puesto.trim() || empleadoForm.rol,
-        especialidad: empleadoForm.especialidad.trim() || null,
-        telefono: empleadoForm.telefono.trim() || null,
-        comision_porcentaje: Number(empleadoForm.comision_porcentaje || 0),
-        tarifa_hora: Number(empleadoForm.tarifa_hora || 0),
-        color_avatar: empleadoForm.color_avatar,
-        activo: empleadoForm.activo,
-      };
-
-      if (editingEmpleadoId) {
-        await supabase
-          .from("empleados")
-          .update(payload)
-          .eq("id", editingEmpleadoId);
-      } else {
-        await supabase.from("empleados").insert(payload);
-      }
-
-      const { data: staffData } = await supabase
-        .from("empleados")
-        .select("*, sucursales(nombre, codigo)")
-        .order("rol")
-        .order("nombre");
-      if (staffData) setEmpleados(staffData);
-
-      setIsEmpleadoModalOpen(false);
-    } catch (err) {
-      console.error("Error guardando empleado:", err);
-    } finally {
-      setSavingEmpleado(false);
-    }
-  };
-
-  const handlePagoChange = (
-    id: string,
-    field: string,
-    value: string | number | boolean
-  ) => {
-    setPagosConfig((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, [field]: value } : p))
-    );
-  };
-
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-50">
+      <div className="flex h-[450px] items-center justify-center">
         <Loader2 className="animate-spin text-primary" size={32} />
       </div>
     );
   }
 
   const inputClasses =
-    "w-full border border-slate-200 rounded-xl p-2.5 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all bg-white text-slate-900";
+    "w-full border border-slate-200 rounded-xl p-2.5 text-xs font-medium focus:outline-none focus:border-slate-400 focus:bg-white transition-all bg-slate-50/70 text-slate-900";
 
   return (
-    <div className="flex flex-col gap-5 pb-12">
-      {/* Top Header & Tabs */}
-      <div className="bg-white border border-slate-200 rounded-xl shadow-xs">
-        <header className="px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
-              <Settings size={24} strokeWidth={2.2} />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-                Configuración White-Label y Multi-Sucursal
-              </h1>
-              <p className="text-xs md:text-sm text-slate-500 font-medium">
-                Personalización de marca SaaS, sucursales, comisiones de técnicos y pasarelas de pago
-              </p>
-            </div>
+    <div className="flex flex-col gap-4 pb-20 max-w-7xl mx-auto">
+      {/* Top Header Card */}
+      <div className="bg-white p-4 lg:p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 bg-slate-100 text-slate-800 rounded-2xl flex items-center justify-center shrink-0 border border-slate-200/60">
+            <Settings size={22} strokeWidth={2} />
           </div>
-
-          <div className="flex items-center gap-3">
-            {saveMessage && (
-              <span className="text-xs md:text-sm font-bold text-emerald-600 flex items-center gap-1.5 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200">
-                <CheckCircle2 size={15} /> {saveMessage}
-              </span>
-            )}
-
-            {activeTab === "Sucursales" ? (
-              <button
-                onClick={() => openSucursalModal()}
-                className="bg-primary hover:opacity-95 text-white px-4 py-2.5 rounded-xl text-xs md:text-sm font-bold shadow-sm flex items-center gap-1.5"
-              >
-                <Plus size={16} /> Nueva Sucursal
-              </button>
-            ) : activeTab === "WhiteLabel" ? (
-              <button
-                onClick={handleSaveGlobalConfig}
-                disabled={saving}
-                className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl text-xs md:text-sm font-bold shadow-sm flex items-center gap-2 disabled:opacity-50"
-              >
-                {saving ? (
-                  <Loader2 size={15} className="animate-spin" />
-                ) : (
-                  <Sparkles size={15} />
-                )}
-                Guardar Cambios en Vivo
-              </button>
-            ) : null}
+          <div>
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+              Ajustes & Configuración del Taller
+            </h1>
+            <p className="text-xs text-slate-500 font-medium">
+              Identidad de marca White-Label, datos comerciales, sucursales y accesos.
+            </p>
           </div>
-        </header>
+        </div>
 
-        <nav className="flex items-center px-6 gap-6 max-w-[1440px] mx-auto w-full overflow-x-auto">
-          <button
-            onClick={() => setActiveTab("WhiteLabel")}
-            className={`pb-3.5 text-xs md:text-sm font-bold border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${
-              activeTab === "WhiteLabel"
-                ? "border-primary text-primary"
-                : "border-transparent text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            <Palette size={16} />
-            1. White-Label y Perfil del Taller
-          </button>
-          <button
-            onClick={() => setActiveTab("Sucursales")}
-            className={`pb-3.5 text-xs md:text-sm font-bold border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${
-              activeTab === "Sucursales"
-                ? "border-primary text-primary"
-                : "border-transparent text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            <Building2 size={16} />
-            2. Sucursales ({sucursales.length})
-          </button>
-          <button
-            onClick={() => setActiveTab("Personal")}
-            className={`pb-3.5 text-xs md:text-sm font-bold border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${
-              activeTab === "Personal"
-                ? "border-primary text-primary"
-                : "border-transparent text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            <Users size={16} />
-            3. Personal y Accesos
-          </button>
-          <button
-            onClick={() => setActiveTab("Pagos")}
-            className={`pb-3.5 text-xs md:text-sm font-bold border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${
-              activeTab === "Pagos"
-                ? "border-primary text-primary"
-                : "border-transparent text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            <Landmark size={16} />
-            4. Métodos de Pago y Bancos
-          </button>
-          <button
-            onClick={() => setActiveTab("Proveedores")}
-            className={`pb-3.5 text-xs md:text-sm font-bold border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${
-              activeTab === "Proveedores"
-                ? "border-primary text-primary"
-                : "border-transparent text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            <Building2 size={16} />
-            5. Proveedores y Crédito
-          </button>
-        </nav>
+        <div className="flex items-center gap-2.5">
+          {saveMessage && (
+            <span className="text-xs font-bold text-emerald-700 flex items-center gap-1.5 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
+              <CheckCircle2 size={14} /> {saveMessage}
+            </span>
+          )}
+
+          {activeTab === "Sucursales" && (
+            <button
+              onClick={() => openSucursalModal()}
+              className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+            >
+              <Plus size={15} /> Nueva Sucursal
+            </button>
+          )}
+
+          {(activeTab === "Marca" || activeTab === "Empresa") && isDirty && (
+            <button
+              onClick={handleSaveGlobalConfig}
+              disabled={saving}
+              className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 disabled:opacity-50 cursor-pointer transition-colors"
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+              Guardar Cambios en Vivo
+            </button>
+          )}
+        </div>
       </div>
 
-      <main className="flex-1 w-full">
+      {/* Modern Segmented Navigation Pills */}
+      <div className="flex items-center gap-1.5 bg-slate-200/70 p-1 rounded-2xl overflow-x-auto dense-scrollbar w-full sm:w-fit">
+        <button
+          onClick={() => setActiveTab("Marca")}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === "Marca"
+              ? "bg-white text-slate-900 shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Palette size={15} className="text-indigo-600" />
+          1. Marca & White-Label
+        </button>
+
+        <button
+          onClick={() => setActiveTab("Empresa")}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === "Empresa"
+              ? "bg-white text-slate-900 shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Building2 size={15} className="text-blue-600" />
+          2. Datos Comerciales & Reglas
+        </button>
+
+        <button
+          onClick={() => setActiveTab("Sucursales")}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === "Sucursales"
+              ? "bg-white text-slate-900 shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <MapPin size={15} className="text-emerald-600" />
+          3. Sucursales ({sucursales.length})
+        </button>
+
+        <button
+          onClick={() => setActiveTab("Personal")}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === "Personal"
+              ? "bg-white text-slate-900 shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Users size={15} className="text-purple-600" />
+          4. Personal & Accesos
+        </button>
+
+        <button
+          onClick={() => setActiveTab("Pagos")}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === "Pagos"
+              ? "bg-white text-slate-900 shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Landmark size={15} className="text-amber-600" />
+          5. Métodos de Pago & Cuentas
+        </button>
+      </div>
+
+      <main className="w-full">
         {/* ========================================================= */}
-        {/* TAB 1: WHITE-LABEL Y PERFIL DEL TALLER                    */}
+        {/* TAB 1: MARCA & WHITE-LABEL                                */}
         {/* ========================================================= */}
-        {activeTab === "WhiteLabel" && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Left Column: Brand Theme Customizer & Live Preview (5 cols) */}
-            <div className="lg:col-span-5 flex flex-col gap-6">
-              <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs flex flex-col gap-5">
+        {activeTab === "Marca" && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            {/* Left Column: Color Palette & Presets (6 cols) */}
+            <div className="lg:col-span-6 space-y-5">
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs space-y-4">
                 <div>
                   <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                    <Palette size={16} className="text-primary" />
-                    Personalización White-Label (Temas en Vivo)
+                    <Palette size={16} className="text-indigo-600" />
+                    Temas en Vivo & Paleta de Color
                   </h2>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Adapta la plataforma a la identidad visual de cualquier taller, llantera o centro automotriz en segundos.
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Elige una combinación predeterminada o ingresa los colores institucionales de tu empresa.
                   </p>
                 </div>
 
                 {/* 4 Presets */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3 pt-1">
                   {WHITE_LABEL_PRESETS.map((preset) => {
                     const isSelected =
-                      formEmpresa.color_primario.toLowerCase() ===
-                      preset.primary.toLowerCase();
+                      formEmpresa.color_primario.toLowerCase() === preset.primary.toLowerCase();
                     return (
                       <button
                         key={preset.id}
                         type="button"
-                        onClick={() =>
-                          handlePresetClick(preset.primary, preset.sidebar)
-                        }
-                        className={`p-3 rounded-xl border text-left transition-all flex flex-col gap-2 ${
+                        onClick={() => handlePresetClick(preset.primary, preset.sidebar)}
+                        className={`p-3 rounded-xl border text-left transition-all flex flex-col gap-2 cursor-pointer ${
                           isSelected
-                            ? "border-primary ring-2 ring-primary/20 bg-slate-50"
+                            ? "border-slate-900 ring-2 ring-slate-900/10 bg-slate-50/80"
                             : "border-slate-200 hover:border-slate-300"
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1.5">
                             <span
-                              className="w-5 h-5 rounded-full border border-black/10"
+                              className="w-4 h-4 rounded-full border border-black/10"
                               style={{ backgroundColor: preset.primary }}
                             />
                             <span
-                              className="w-5 h-5 rounded-full border border-black/10"
+                              className="w-4 h-4 rounded-full border border-black/10"
                               style={{ backgroundColor: preset.sidebar }}
                             />
                           </div>
-                          {isSelected && (
-                            <Check size={14} className="text-primary" />
-                          )}
+                          {isSelected && <Check size={14} className="text-slate-900" />}
                         </div>
                         <div>
-                          <p className="text-xs font-bold text-slate-900">
-                            {preset.name}
-                          </p>
-                          <p className="text-[10px] text-slate-500 font-semibold">
-                            {preset.badge}
-                          </p>
+                          <p className="text-xs font-bold text-slate-900">{preset.name}</p>
+                          <p className="text-[10px] text-slate-500 font-semibold">{preset.badge}</p>
                         </div>
                       </button>
                     );
                   })}
                 </div>
 
-                {/* Custom Color Pickers */}
-                <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+                {/* Custom Pickers */}
+                <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100">
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
                       Color Primario (Botones)
                     </label>
                     <div className="flex items-center gap-2">
@@ -627,30 +491,22 @@ export default function ConfiguracionPage() {
                         value={formEmpresa.color_primario}
                         onChange={(e) => {
                           const val = e.target.value;
-                          setFormEmpresa({
-                            ...formEmpresa,
-                            color_primario: val,
-                          });
+                          setFormEmpresa({ ...formEmpresa, color_primario: val });
                           applyThemeCssVariables(val, formEmpresa.color_sidebar);
                         }}
-                        className="w-10 h-10 rounded-lg border border-slate-200 cursor-pointer"
+                        className="w-9 h-9 rounded-xl border border-slate-200 cursor-pointer p-0.5"
                       />
                       <input
                         type="text"
                         value={formEmpresa.color_primario}
-                        onChange={(e) =>
-                          setFormEmpresa({
-                            ...formEmpresa,
-                            color_primario: e.target.value,
-                          })
-                        }
-                        className="w-full border border-slate-200 rounded-lg p-2 text-xs font-mono font-bold uppercase"
+                        onChange={(e) => setFormEmpresa({ ...formEmpresa, color_primario: e.target.value })}
+                        className="w-full border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold uppercase bg-slate-50"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
                       Color Menú Lateral (Sidebar)
                     </label>
                     <div className="flex items-center gap-2">
@@ -659,106 +515,23 @@ export default function ConfiguracionPage() {
                         value={formEmpresa.color_sidebar}
                         onChange={(e) => {
                           const val = e.target.value;
-                          setFormEmpresa({
-                            ...formEmpresa,
-                            color_sidebar: val,
-                          });
-                          applyThemeCssVariables(
-                            formEmpresa.color_primario,
-                            val
-                          );
+                          setFormEmpresa({ ...formEmpresa, color_sidebar: val });
+                          applyThemeCssVariables(formEmpresa.color_primario, val);
                         }}
-                        className="w-10 h-10 rounded-lg border border-slate-200 cursor-pointer"
+                        className="w-9 h-9 rounded-xl border border-slate-200 cursor-pointer p-0.5"
                       />
                       <input
                         type="text"
                         value={formEmpresa.color_sidebar}
-                        onChange={(e) =>
-                          setFormEmpresa({
-                            ...formEmpresa,
-                            color_sidebar: e.target.value,
-                          })
-                        }
-                        className="w-full border border-slate-200 rounded-lg p-2 text-xs font-mono font-bold uppercase"
+                        onChange={(e) => setFormEmpresa({ ...formEmpresa, color_sidebar: e.target.value })}
+                        className="w-full border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold uppercase bg-slate-50"
                       />
                     </div>
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-2">
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase">
-                    Logotipo Institucional de la Marca
-                  </label>
-
-                  {/* Logo Preview & Upload Controls */}
-                  <div className="flex items-center gap-3">
-                    {formEmpresa.logo_url ? (
-                      <div className="relative group w-14 h-14 rounded-xl border border-slate-200 bg-white p-1 flex items-center justify-center shrink-0 shadow-xs">
-                        <img
-                          src={formEmpresa.logo_url}
-                          alt="Logo del Taller"
-                          className="w-full h-full object-contain rounded-lg"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setFormEmpresa((prev) => ({ ...prev, logo_url: "" }))}
-                          className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center text-[10px] shadow-xs cursor-pointer"
-                          title="Eliminar logo"
-                        >
-                          <Trash2 size={11} />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="w-14 h-14 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 flex items-center justify-center text-slate-400 shrink-0">
-                        <ImageIcon size={20} />
-                      </div>
-                    )}
-
-                    <div className="flex-1 space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs cursor-pointer shadow-xs transition-colors">
-                          <Upload size={13} className={uploadingLogo ? "animate-bounce text-primary" : "text-slate-500"} />
-                          <span>{uploadingLogo ? "Subiendo..." : "Subir Archivo de Imagen"}</span>
-                          <input
-                            type="file"
-                            accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                            onChange={handleLogoUpload}
-                            disabled={uploadingLogo}
-                            className="hidden"
-                          />
-                        </label>
-                        {formEmpresa.logo_url && (
-                          <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
-                            <CheckCircle2 size={11} /> Activo
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[10.5px] text-slate-400">
-                        Formatos soportados: PNG, JPG, WebP o SVG (máx. 5 MB).
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Fallback URL Input */}
-                  <div className="pt-1">
-                    <span className="text-[10px] text-slate-400 block mb-1">O escribe directamente la URL pública:</span>
-                    <input
-                      type="text"
-                      value={formEmpresa.logo_url}
-                      onChange={(e) =>
-                        setFormEmpresa({
-                          ...formEmpresa,
-                          logo_url: e.target.value,
-                        })
-                      }
-                      placeholder="https://ejemplo.com/logo-taller.png"
-                      className={inputClasses}
-                    />
-                  </div>
-                </div>
-
                 {/* Live Mini Preview */}
-                <div className="rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+                <div className="rounded-2xl border border-slate-200 overflow-hidden shadow-xs pt-1">
                   <div
                     className="p-4 text-white flex items-center justify-between"
                     style={{ backgroundColor: formEmpresa.color_sidebar }}
@@ -776,297 +549,339 @@ export default function ConfiguracionPage() {
                         <p className="text-xs font-bold leading-tight">
                           {formEmpresa.nombre_comercial || "Nombre del Taller"}
                         </p>
-                        <p className="text-[10px] text-white/70">
-                          Vista previa del Portal Digital y Menú
-                        </p>
+                        <p className="text-[10px] text-white/70">Vista previa de marca</p>
                       </div>
                     </div>
                     <span
-                      className="px-2.5 py-1 rounded-lg text-[10px] font-bold text-white"
+                      className="px-3 py-1.5 rounded-xl text-[10px] font-bold text-white shadow-xs"
                       style={{ backgroundColor: formEmpresa.color_primario }}
                     >
-                      Aprobar Presupuesto
+                      Botón de Acción
                     </span>
                   </div>
-                </div>
-
-                {/* Custom Domain Management Card */}
-                <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 flex flex-col gap-2.5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Globe size={16} className="text-primary" />
-                      <span className="text-xs font-bold text-slate-800">Dominio Personalizado & CNAME</span>
-                    </div>
-                    <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-bold uppercase">
-                      White-Label
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 leading-relaxed">
-                    Apunta tu propio subdominio web (ej. <code className="text-slate-700 font-mono">taller.midominio.com</code>) para que tus clientes y mecánicos vean tu propia marca institucional.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setIsDomainModalOpen(true)}
-                    className="w-full mt-1 py-2 px-3 bg-white border border-slate-300 hover:border-primary text-slate-800 hover:text-primary rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
-                  >
-                    <Globe size={14} />
-                    <span>Configurar Dominios y DNS</span>
-                  </button>
                 </div>
               </div>
             </div>
 
-            {/* Right Column: Datos Fiscales, Operativos y Garantías (7 cols) */}
-            <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-6 shadow-xs flex flex-col gap-5">
-              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                <Building2 size={16} className="text-primary" />
-                Perfil Operativo, Márgenes de Refacciones y Garantías
-              </h2>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Right Column: Logo & Custom Domain (6 cols) */}
+            <div className="lg:col-span-6 space-y-5">
+              {/* Logo Management Card */}
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Nombre Comercial del Taller
-                  </label>
-                  <input
-                    type="text"
-                    value={formEmpresa.nombre_comercial}
-                    onChange={(e) =>
-                      setFormEmpresa({
-                        ...formEmpresa,
-                        nombre_comercial: e.target.value,
-                      })
-                    }
-                    className={inputClasses}
-                  />
+                  <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                    <ImageIcon size={16} className="text-indigo-600" />
+                    Logotipo Institucional
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Se mostrará en la barra lateral, tickets impresos, cotizaciones y portal del cliente.
+                  </p>
                 </div>
+
+                <div className="flex items-center gap-4 p-4 bg-slate-50/70 rounded-2xl border border-slate-200/60">
+                  {formEmpresa.logo_url ? (
+                    <div className="relative group w-16 h-16 rounded-2xl border border-slate-200 bg-white p-1.5 flex items-center justify-center shrink-0 shadow-xs">
+                      <img
+                        src={formEmpresa.logo_url}
+                        alt="Logo del Taller"
+                        className="w-full h-full object-contain rounded-xl"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setFormEmpresa((prev) => ({ ...prev, logo_url: "" }))}
+                        className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center text-[10px] shadow-xs cursor-pointer"
+                        title="Eliminar logo"
+                      >
+                        <Trash2 size={11} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-16 h-16 rounded-2xl border-2 border-dashed border-slate-300 bg-white flex items-center justify-center text-slate-400 shrink-0">
+                      <ImageIcon size={24} />
+                    </div>
+                  )}
+
+                  <div className="flex-1 space-y-1.5">
+                    <label className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs cursor-pointer shadow-xs transition-colors">
+                      <Upload size={14} className={uploadingLogo ? "animate-bounce text-indigo-600" : "text-slate-500"} />
+                      <span>{uploadingLogo ? "Subiendo archivo..." : "Subir Logotipo"}</span>
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                        onChange={handleLogoUpload}
+                        disabled={uploadingLogo}
+                        className="hidden"
+                      />
+                    </label>
+                    <p className="text-[11px] text-slate-400">Formatos: PNG, JPG, WebP o SVG (máx. 5 MB).</p>
+                  </div>
+                </div>
+
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Eslogan / Especialidad Comercial
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
+                    O escribe la URL pública del logo:
                   </label>
                   <input
                     type="text"
-                    value={formEmpresa.eslogan}
-                    onChange={(e) =>
-                      setFormEmpresa({
-                        ...formEmpresa,
-                        eslogan: e.target.value,
-                      })
-                    }
+                    value={formEmpresa.logo_url}
+                    onChange={(e) => setFormEmpresa({ ...formEmpresa, logo_url: e.target.value })}
+                    placeholder="https://ejemplo.com/logo-taller.png"
                     className={inputClasses}
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    RFC Fiscal
-                  </label>
-                  <input
-                    type="text"
-                    value={formEmpresa.rfc}
-                    onChange={(e) =>
-                      setFormEmpresa({ ...formEmpresa, rfc: e.target.value })
-                    }
-                    className={inputClasses}
-                  />
+              {/* Custom Domain & DNS Card */}
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Globe size={16} className="text-blue-600" />
+                    <h3 className="text-sm font-bold text-slate-900">Dominio Personalizado & CNAME</h3>
+                  </div>
+                  <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-bold uppercase border border-blue-200/60">
+                    Marca Blanca
+                  </span>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Teléfono Principal
-                  </label>
-                  <input
-                    type="text"
-                    value={formEmpresa.telefono}
-                    onChange={(e) =>
-                      setFormEmpresa({
-                        ...formEmpresa,
-                        telefono: e.target.value,
-                      })
-                    }
-                    className={inputClasses}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Correo de Contacto
-                  </label>
-                  <input
-                    type="email"
-                    value={formEmpresa.email_contacto}
-                    onChange={(e) =>
-                      setFormEmpresa({
-                        ...formEmpresa,
-                        email_contacto: e.target.value,
-                      })
-                    }
-                    className={inputClasses}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Sitio Web
-                  </label>
-                  <input
-                    type="text"
-                    value={formEmpresa.sitio_web}
-                    onChange={(e) =>
-                      setFormEmpresa({
-                        ...formEmpresa,
-                        sitio_web: e.target.value,
-                      })
-                    }
-                    className={inputClasses}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Tasa de IVA (%)
-                  </label>
-                  <input
-                    type="number"
-                    value={formEmpresa.tasa_iva}
-                    onChange={(e) =>
-                      setFormEmpresa({
-                        ...formEmpresa,
-                        tasa_iva: parseFloat(e.target.value) || 0,
-                      })
-                    }
-                    className={inputClasses}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Margen Default Refacciones (%)
-                  </label>
-                  <input
-                    type="number"
-                    value={formEmpresa.margen_refacciones_default}
-                    onChange={(e) =>
-                      setFormEmpresa({
-                        ...formEmpresa,
-                        margen_refacciones_default:
-                          parseFloat(e.target.value) || 0,
-                      })
-                    }
-                    className={inputClasses}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                  Dirección Fiscal / Matriz
-                </label>
-                <input
-                  type="text"
-                  value={formEmpresa.direccion}
-                  onChange={(e) =>
-                    setFormEmpresa({
-                      ...formEmpresa,
-                      direccion: e.target.value,
-                    })
-                  }
-                  className={inputClasses}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                  Términos, Condiciones y Póliza de Garantía (Impresos en Orden y Portal)
-                </label>
-                <textarea
-                  rows={3}
-                  value={formEmpresa.terminos_condiciones}
-                  onChange={(e) =>
-                    setFormEmpresa({
-                      ...formEmpresa,
-                      terminos_condiciones: e.target.value,
-                    })
-                  }
-                  className={inputClasses}
-                />
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Apunta tu propio subdominio web (ej. <code className="text-slate-800 font-mono font-bold bg-slate-100 px-1 py-0.5 rounded">taller.midominio.com</code>) para que tus clientes y mecánicos interactúen con tu propia marca.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setIsDomainModalOpen(true)}
+                  className="w-full py-2.5 px-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Globe size={14} className="text-slate-500" />
+                  <span>Configurar Dominios y Registros DNS</span>
+                </button>
               </div>
             </div>
           </div>
         )}
 
         {/* ========================================================= */}
-        {/* TAB 2: SUCURSALES (MULTI-SUCURSAL)                        */}
+        {/* TAB 2: DATOS COMERCIALES & REGLAS                         */}
+        {/* ========================================================= */}
+        {activeTab === "Empresa" && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            {/* General Profile (7 cols) */}
+            <div className="lg:col-span-7 bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs space-y-4">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <Building2 size={16} className="text-blue-600" />
+                  Datos Generales & Contacto
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Información visible en presupuestos, notas de servicio y tickets impresos.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
+                    Nombre Comercial del Taller
+                  </label>
+                  <input
+                    type="text"
+                    value={formEmpresa.nombre_comercial}
+                    onChange={(e) => setFormEmpresa({ ...formEmpresa, nombre_comercial: e.target.value })}
+                    className={inputClasses}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
+                    Eslogan Comercial
+                  </label>
+                  <input
+                    type="text"
+                    value={formEmpresa.eslogan}
+                    onChange={(e) => setFormEmpresa({ ...formEmpresa, eslogan: e.target.value })}
+                    className={inputClasses}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">RFC Fiscal</label>
+                  <input
+                    type="text"
+                    value={formEmpresa.rfc}
+                    onChange={(e) => setFormEmpresa({ ...formEmpresa, rfc: e.target.value.toUpperCase() })}
+                    className={inputClasses}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Teléfono Principal</label>
+                  <input
+                    type="text"
+                    value={formEmpresa.telefono}
+                    onChange={(e) => setFormEmpresa({ ...formEmpresa, telefono: e.target.value })}
+                    className={inputClasses}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Correo de Contacto</label>
+                  <input
+                    type="email"
+                    value={formEmpresa.email_contacto}
+                    onChange={(e) => setFormEmpresa({ ...formEmpresa, email_contacto: e.target.value })}
+                    className={inputClasses}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Dirección Matriz</label>
+                <input
+                  type="text"
+                  value={formEmpresa.direccion}
+                  onChange={(e) => setFormEmpresa({ ...formEmpresa, direccion: e.target.value })}
+                  className={inputClasses}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Sitio Web</label>
+                <input
+                  type="text"
+                  value={formEmpresa.sitio_web}
+                  onChange={(e) => setFormEmpresa({ ...formEmpresa, sitio_web: e.target.value })}
+                  placeholder="https://taller.com"
+                  className={inputClasses}
+                />
+              </div>
+            </div>
+
+            {/* Operational & Financial Rules (5 cols) */}
+            <div className="lg:col-span-5 space-y-5">
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs space-y-4">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                    <Receipt size={16} className="text-emerald-600" />
+                    Reglas Comerciales de Taller
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Parámetros automáticos para cotizaciones y cálculo de márgenes.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/60">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                      Tasa de IVA (%)
+                    </label>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        value={formEmpresa.tasa_iva}
+                        onChange={(e) => setFormEmpresa({ ...formEmpresa, tasa_iva: parseFloat(e.target.value) || 0 })}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-2 text-sm font-bold text-right"
+                      />
+                      <span className="font-bold text-xs text-slate-500">%</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/60">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                      Margen Refacciones (%)
+                    </label>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        value={formEmpresa.margen_refacciones_default}
+                        onChange={(e) => setFormEmpresa({ ...formEmpresa, margen_refacciones_default: parseFloat(e.target.value) || 0 })}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-2 text-sm font-bold text-right"
+                      />
+                      <span className="font-bold text-xs text-slate-500">%</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
+                    Póliza de Garantía & Términos
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={formEmpresa.terminos_condiciones}
+                    onChange={(e) => setFormEmpresa({ ...formEmpresa, terminos_condiciones: e.target.value })}
+                    placeholder="Especifica aquí la vigencia de garantía en mano de obra y refacciones..."
+                    className={inputClasses}
+                  />
+                  <p className="text-[10.5px] text-slate-400 mt-1">
+                    Este texto se imprime al pie de las órdenes de servicio y tickets de entrega.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* TAB 3: SUCURSALES (MULTI-SUCURSAL)                        */}
         {/* ========================================================= */}
         {activeTab === "Sucursales" && (
-          <div className="flex flex-col gap-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {sucursales.map((s) => {
                 const isCurrentActive = sucursalActiva?.id === s.id;
                 return (
                   <div
                     key={s.id}
-                    className={`bg-white rounded-xl p-6 border shadow-xs flex flex-col justify-between gap-4 transition-all ${
+                    className={`bg-white rounded-2xl p-5 border shadow-xs flex flex-col justify-between gap-4 transition-all ${
                       isCurrentActive
-                        ? "border-primary ring-2 ring-primary/15"
-                        : "border-slate-200"
+                        ? "border-slate-900 ring-2 ring-slate-900/10"
+                        : "border-slate-200/80 hover:border-slate-300"
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-2">
                         <div className="flex items-center gap-2">
-                          <span className="px-2.5 py-0.5 rounded-md text-xs font-mono font-bold bg-slate-900 text-white">
+                          <span className="px-2 py-0.5 rounded-lg text-xs font-mono font-bold bg-slate-900 text-white">
                             {s.codigo}
                           </span>
                           {s.es_matriz && (
-                            <span className="px-2.5 py-0.5 rounded-md text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                              Sucursal Matriz
+                            <span className="px-2 py-0.5 rounded-lg text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200/80">
+                              Matriz Principal
                             </span>
                           )}
                           <span
-                            className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                              s.activa
-                                ? "bg-emerald-50 text-emerald-700"
-                                : "bg-rose-50 text-rose-700"
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                              s.activa ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60" : "bg-rose-50 text-rose-700 border border-rose-200/60"
                             }`}
                           >
                             {s.activa ? "Operando" : "Inactiva"}
                           </span>
                         </div>
-                        <h3 className="text-lg font-bold text-slate-900 mt-2">
-                          {s.nombre}
-                        </h3>
-                        <p className="text-xs text-slate-600 mt-1 flex items-center gap-1.5">
-                          <MapPin size={13} className="text-slate-400 shrink-0" />
-                          {s.direccion || "Sin dirección registrada"}
-                        </p>
-                        <p className="text-xs text-slate-600 mt-1 flex items-center gap-1.5">
-                          <Phone size={13} className="text-slate-400 shrink-0" />
-                          {s.telefono || "Sin teléfono"} • Gerente:{" "}
-                          <strong className="text-slate-800">
-                            {s.gerente || "No asignado"}
-                          </strong>
-                        </p>
+
+                        <button
+                          onClick={() => openSucursalModal(s)}
+                          className="p-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer"
+                          title="Editar Sucursal"
+                        >
+                          <Pencil size={13} />
+                        </button>
                       </div>
 
-                      <button
-                        onClick={() => openSucursalModal(s)}
-                        className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600"
-                        title="Editar Sucursal"
-                      >
-                        <Pencil size={15} />
-                      </button>
+                      <h3 className="text-base font-bold text-slate-900 mt-1">{s.nombre}</h3>
+                      <p className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
+                        <MapPin size={13} className="text-slate-400 shrink-0" />
+                        {s.direccion || "Sin dirección registrada"}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
+                        <Phone size={13} className="text-slate-400 shrink-0" />
+                        {s.telefono || "Sin teléfono"} • Gerente: <strong className="text-slate-800">{s.gerente || "No asignado"}</strong>
+                      </p>
                     </div>
 
-                    <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                       {isCurrentActive ? (
-                        <span className="text-xs font-bold text-primary flex items-center gap-1.5">
-                          <CheckCircle2 size={15} /> Sucursal Activa en Sesión
+                        <span className="text-xs font-bold text-emerald-700 flex items-center gap-1.5">
+                          <CheckCircle2 size={14} /> Sucursal Activa en Sesión
                         </span>
                       ) : (
                         <button
                           onClick={() => setSucursalActivaId(s.id)}
-                          className="text-xs font-bold text-slate-700 hover:text-primary underline"
+                          className="text-xs font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer"
                         >
                           Filtrar sistema por esta sucursal →
                         </button>
@@ -1075,9 +890,9 @@ export default function ConfiguracionPage() {
                       {isCurrentActive && (
                         <button
                           onClick={() => setSucursalActivaId(null)}
-                          className="text-xs font-semibold text-slate-500 hover:text-slate-800"
+                          className="text-xs font-semibold text-slate-500 hover:text-slate-800 cursor-pointer"
                         >
-                          Ver Todas las Sucursales
+                          Ver Todas
                         </button>
                       )}
                     </div>
@@ -1089,7 +904,7 @@ export default function ConfiguracionPage() {
         )}
 
         {/* ========================================================= */}
-        {/* TAB 3: EQUIPO, TÉCNICOS Y COMISIONES                      */}
+        {/* TAB 4: PERSONAL & ACCESOS                                 */}
         {/* ========================================================= */}
         {activeTab === "Personal" && (
           <TenantUsuariosConfigSection
@@ -1100,7 +915,7 @@ export default function ConfiguracionPage() {
         )}
 
         {/* ========================================================= */}
-        {/* TAB 4: MÉTODOS DE PAGO Y COMISIONES BANCARIAS             */}
+        {/* TAB 5: MÉTODOS DE PAGO & CUENTAS BANCARIAS                */}
         {/* ========================================================= */}
         {activeTab === "Pagos" && (
           <div className="max-w-4xl mx-auto space-y-6">
@@ -1110,119 +925,41 @@ export default function ConfiguracionPage() {
             />
           </div>
         )}
-
-        {/* ========================================================= */}
-        {/* TAB 5: CATÁLOGO DE PROVEEDORES, CRÉDITO Y GARANTÍAS       */}
-        {/* ========================================================= */}
-        {activeTab === "Proveedores" && (
-          <div className="max-w-4xl mx-auto space-y-6">
-            <ProveedoresConfigSection
-              empresaId={tenantEmpresa?.id || "b2ad09db-0a34-4876-9ca3-d584c40bd294"}
-              sucursalId={sucursalActiva?.id}
-            />
-          </div>
-        )}
-
-        {false && activeTab === "Pagos" && (
-          <div className="max-w-3xl mx-auto bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
-            <div className="p-5 bg-slate-50 border-b border-slate-200">
-              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                Métodos de Pago y Comisiones de Terminal (TPV)
-              </h2>
-              <p className="text-xs text-slate-500 mt-1">
-                Define el porcentaje de comisión bancaria que retiene cada pasarela para calcular automáticamente el ingreso neto en el Corte de Caja.
-              </p>
-            </div>
-            <div className="divide-y divide-slate-100">
-              {pagosConfig.map((p) => (
-                <div
-                  key={p.id}
-                  className="p-5 flex items-center justify-between hover:bg-slate-50/70 transition-colors"
-                >
-                  <div className="flex items-center gap-3.5">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(p.activo)}
-                      onChange={(e) =>
-                        handlePagoChange(p.id, "activo", e.target.checked)
-                      }
-                      className="w-5 h-5 rounded border-slate-300 text-primary cursor-pointer"
-                    />
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`font-bold text-sm ${
-                            p.activo
-                              ? "text-slate-900"
-                              : "text-slate-400 line-through"
-                          }`}
-                        >
-                          {p.proveedor}
-                        </span>
-                        {p.proveedor === "KueskiPay" && (
-                          <span className="text-[10px] bg-blue-100 text-blue-700 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                            BNPL Quincenas
-                          </span>
-                        )}
-                        {p.proveedor === "Atrato" && (
-                          <span className="text-[10px] bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                            BNPL Meses sin Tarjeta
-                          </span>
-                        )}
-                        {p.proveedor === "Stripe" && (
-                          <span className="text-[10px] bg-purple-100 text-purple-700 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                            Tarjetas Visa / MC / Amex
-                          </span>
-                        )}
-                        {p.proveedor === "Mercado Pago" && (
-                          <span className="text-[10px] bg-sky-100 text-sky-700 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                            TPV Point Smart & Link
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-slate-400">
-                        Disponible en Ventanilla de Caja y Expediente Operativo
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-bold text-slate-500 uppercase">
-                      Comisión Pasarela:
-                    </span>
-                    <div className="flex items-center w-28">
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={p.comision_porcentaje}
-                        disabled={!p.activo}
-                        onChange={(e) =>
-                          handlePagoChange(
-                            p.id,
-                            "comision_porcentaje",
-                            parseFloat(e.target.value) || 0
-                          )
-                        }
-                        className="w-full border border-slate-200 rounded-l-lg p-2 text-sm font-bold text-right"
-                      />
-                      <span className="bg-slate-100 border border-l-0 border-slate-200 rounded-r-lg p-2 text-xs font-bold text-slate-600">
-                        %
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </main>
 
-      {/* ========================================================= */}
-      {/* MODAL CRUD: SUCURSAL                                      */}
-      {/* ========================================================= */}
+      {/* Floating Bottom Save Bar (Appears when unsaved changes exist) */}
+      {isDirty && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl border border-slate-700/80 flex items-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-200">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
+            <span className="text-xs font-semibold">Tienes cambios sin guardar en la configuración</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleDiscardChanges}
+              disabled={saving}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+            >
+              Descartar
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveGlobalConfig}
+              disabled={saving}
+              className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+            >
+              {saving ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+              Guardar Cambios
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Sucursal CRUD */}
       {isSucursalModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200">
             <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
               <h3 className="text-base font-bold text-slate-900">
                 {editingSucursalId ? "Editar Sucursal" : "Nueva Sucursal"}
@@ -1234,43 +971,26 @@ export default function ConfiguracionPage() {
                 ✕
               </button>
             </div>
-            <form
-              onSubmit={handleSaveSucursal}
-              className="p-6 flex flex-col gap-4"
-            >
+            <form onSubmit={handleSaveSucursal} className="p-6 flex flex-col gap-4">
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Código
-                  </label>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Código</label>
                   <input
                     type="text"
                     required
                     value={sucursalForm.codigo}
-                    onChange={(e) =>
-                      setSucursalForm({
-                        ...sucursalForm,
-                        codigo: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setSucursalForm({ ...sucursalForm, codigo: e.target.value })}
                     placeholder="MTY-03"
                     className={inputClasses}
                   />
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Nombre de Sucursal
-                  </label>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Nombre</label>
                   <input
                     type="text"
                     required
                     value={sucursalForm.nombre}
-                    onChange={(e) =>
-                      setSucursalForm({
-                        ...sucursalForm,
-                        nombre: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setSucursalForm({ ...sucursalForm, nombre: e.target.value })}
                     placeholder="Sucursal Cumbres"
                     className={inputClasses}
                   />
@@ -1278,52 +998,31 @@ export default function ConfiguracionPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                  Dirección Completa
-                </label>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Dirección Completa</label>
                 <input
                   type="text"
                   value={sucursalForm.direccion}
-                  onChange={(e) =>
-                    setSucursalForm({
-                      ...sucursalForm,
-                      direccion: e.target.value,
-                    })
-                  }
+                  onChange={(e) => setSucursalForm({ ...sucursalForm, direccion: e.target.value })}
                   className={inputClasses}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Teléfono
-                  </label>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Teléfono</label>
                   <input
                     type="text"
                     value={sucursalForm.telefono}
-                    onChange={(e) =>
-                      setSucursalForm({
-                        ...sucursalForm,
-                        telefono: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setSucursalForm({ ...sucursalForm, telefono: e.target.value })}
                     className={inputClasses}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Gerente / Encargado
-                  </label>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Gerente</label>
                   <input
                     type="text"
                     value={sucursalForm.gerente}
-                    onChange={(e) =>
-                      setSucursalForm({
-                        ...sucursalForm,
-                        gerente: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setSucursalForm({ ...sucursalForm, gerente: e.target.value })}
                     className={inputClasses}
                   />
                 </div>
@@ -1334,12 +1033,8 @@ export default function ConfiguracionPage() {
                   <input
                     type="checkbox"
                     checked={sucursalForm.es_matriz}
-                    onChange={(e) =>
-                      setSucursalForm({
-                        ...sucursalForm,
-                        es_matriz: e.target.checked,
-                      })
-                    }
+                    onChange={(e) => setSucursalForm({ ...sucursalForm, es_matriz: e.target.checked })}
+                    className="rounded border-slate-300 text-slate-900"
                   />
                   Es Matriz Principal
                 </label>
@@ -1347,12 +1042,8 @@ export default function ConfiguracionPage() {
                   <input
                     type="checkbox"
                     checked={sucursalForm.activa}
-                    onChange={(e) =>
-                      setSucursalForm({
-                        ...sucursalForm,
-                        activa: e.target.checked,
-                      })
-                    }
+                    onChange={(e) => setSucursalForm({ ...sucursalForm, activa: e.target.checked })}
+                    className="rounded border-slate-300 text-slate-900"
                   />
                   Sucursal Activa
                 </label>
@@ -1362,14 +1053,14 @@ export default function ConfiguracionPage() {
                 <button
                   type="button"
                   onClick={() => setIsSucursalModalOpen(false)}
-                  className="px-4 py-2 text-xs font-bold text-slate-600"
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={savingSucursal}
-                  className="bg-primary text-white px-5 py-2.5 rounded-xl text-xs font-bold"
+                  className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-xs cursor-pointer"
                 >
                   {savingSucursal ? "Guardando..." : "Guardar Sucursal"}
                 </button>
@@ -1379,8 +1070,7 @@ export default function ConfiguracionPage() {
         </div>
       )}
 
-      {/* ========================================================= */}
-      {/* Modal Dominios Personalizados White-Label */}{/* Modal Dominios Personalizados White-Label */}
+      {/* Modal: Dominios Personalizados */}
       {isDomainModalOpen && tenantEmpresa && (
         <CustomDomainModal
           isOpen={isDomainModalOpen}
@@ -1391,5 +1081,19 @@ export default function ConfiguracionPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function ConfiguracionPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="animate-spin text-primary" size={32} />
+        </div>
+      }
+    >
+      <ConfiguracionContent />
+    </Suspense>
   );
 }
