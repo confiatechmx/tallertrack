@@ -148,6 +148,7 @@ export default function CajaPage() {
     monto: "",
     metodo: "Efectivo",
     responsable: "Alejandro Villarreal",
+    cajaFondoId: "",
   });
   const [savingMov, setSavingMov] = useState(false);
 
@@ -523,7 +524,7 @@ export default function CajaPage() {
   const entradasCajaEfectivo = movimientosCaja
     .filter(
       (m) =>
-        (m.tipo === "Fondo Inicial" || m.tipo === "Ingreso Extra") &&
+        ["Fondo Inicial", "Ingreso Extra", "Reposición de Fondo", "Traspaso Entrada"].includes(m.tipo) &&
         m.metodo === "Efectivo"
     )
     .reduce((acc, m) => acc + Number(m.monto || 0), 0);
@@ -531,7 +532,7 @@ export default function CajaPage() {
   const salidasCajaEfectivo = movimientosCaja
     .filter(
       (m) =>
-        (m.tipo === "Gasto / Insumos" || m.tipo === "Pago Proveedor") &&
+        ["Gasto / Insumos", "Pago Proveedor", "Retiro Administrativo", "Retiro de Efectivo", "Traspaso Salida"].includes(m.tipo) &&
         m.metodo === "Efectivo"
     )
     .reduce((acc, m) => acc + Number(m.monto || 0), 0);
@@ -809,13 +810,16 @@ export default function CajaPage() {
         sucursales[0]?.id ||
         "b0000000-0000-0000-0000-000000000001";
 
+      const targetFondoId = movForm.cajaFondoId || (fondos.find(f => f.tipo === "OPERATIVO") || fondos[0])?.id;
       const cajaRes = await ConcurrencyService.registrarMovimientoCaja({
         tipo: movForm.tipo,
         concepto: movForm.concepto.trim(),
         monto: montoNum,
         metodo: movForm.metodo,
-        responsable: movForm.responsable.trim() || "Administrador",
+        responsable: movForm.responsable.trim() || perfil?.nombre || "Administrador",
         sucursalId: targetSucursalId,
+        cajaTurnoId: turnoActivo?.id || undefined,
+        cajaFondoId: targetFondoId || undefined,
       });
 
       if (!cajaRes.success) {
@@ -829,7 +833,8 @@ export default function CajaPage() {
         concepto: "",
         monto: "",
         metodo: "Efectivo",
-        responsable: "Alejandro Villarreal",
+        responsable: perfil?.nombre || "Administrador",
+        cajaFondoId: (fondos.find(f => f.tipo === "OPERATIVO") || fondos[0])?.id || "",
       });
       await loadData();
     } catch (err) {
@@ -2319,19 +2324,29 @@ export default function CajaPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {movimientosCaja.map((m) => {
-                      const isInflow = m.tipo === "Fondo Inicial" || m.tipo === "Ingreso Extra";
+                      const isInflow = ["Fondo Inicial", "Ingreso Extra", "Reposición de Fondo", "Traspaso Entrada"].includes(m.tipo);
+                      const fObj = fondos.find((f) => f.id === m.caja_fondo_id);
                       return (
-                        <tr key={m.id}>
+                        <tr key={m.id} className="hover:bg-slate-50/50 transition-colors">
                           <td className="py-2.5 px-4 font-bold">
-                            <span className={isInflow ? "text-emerald-700" : "text-rose-700"}>
+                            <span className={isInflow ? "text-emerald-700 font-semibold" : "text-rose-700 font-semibold"}>
                               {m.tipo}
                             </span>
+                            {fObj && (
+                              <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded font-mono font-medium ${
+                                fObj.tipo === "OPERATIVO" ? "bg-slate-100 text-slate-700" : "bg-purple-50 text-purple-700"
+                              }`}>
+                                {fObj.tipo === "OPERATIVO" ? "F1 Mostrador" : "F2 Reserva"}
+                              </span>
+                            )}
                           </td>
                           <td className="py-2.5 px-4 text-slate-800 font-medium">{m.concepto}</td>
                           <td className="py-2.5 px-4 text-slate-500">{m.metodo}</td>
                           <td className="py-2.5 px-4 text-slate-500">{m.responsable}</td>
                           <td className="py-2.5 px-4 text-right font-bold tabular-nums">
-                            {isInflow ? "+" : "-"}${Number(m.monto).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                            <span className={isInflow ? "text-emerald-700" : "text-rose-700"}>
+                              {isInflow ? "+" : "-"}${Number(m.monto).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                            </span>
                           </td>
                         </tr>
                       );
@@ -2472,14 +2487,37 @@ export default function CajaPage() {
                 <select
                   value={movForm.tipo}
                   onChange={(e) => setMovForm({ ...movForm, tipo: e.target.value })}
-                  className="w-full p-2 border border-slate-200 rounded-lg bg-white"
+                  className="w-full p-2 border border-slate-200 rounded-lg bg-white font-medium"
                 >
-                  <option value="Gasto / Insumos">Gasto / Insumos de Taller (Salida)</option>
-                  <option value="Pago Proveedor">Pago a Repartidor / Proveedor (Salida)</option>
-                  <option value="Fondo Inicial">Fondo Inicial de Caja (Entrada)</option>
-                  <option value="Ingreso Extra">Ingreso Extra (Entrada)</option>
+                  <optgroup label="Salidas / Egresos de Efectivo">
+                    <option value="Gasto / Insumos">Gasto / Insumos de Taller (Salida)</option>
+                    <option value="Pago Proveedor">Pago a Repartidor / Proveedor (Salida)</option>
+                    <option value="Retiro Administrativo">Retiro Administrativo / Depósito Bancario (Salida)</option>
+                  </optgroup>
+                  <optgroup label="Entradas / Inyecciones de Efectivo">
+                    <option value="Reposición de Fondo">Reposición de Fondo (Entrada Externa / Admin)</option>
+                    <option value="Fondo Inicial">Fondo Inicial de Caja (Entrada)</option>
+                    <option value="Ingreso Extra">Ingreso Extra (Entrada)</option>
+                  </optgroup>
                 </select>
               </div>
+
+              {fondos.length > 0 && (
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Fondo / Gaveta Afectada:</label>
+                  <select
+                    value={movForm.cajaFondoId || (fondos.find(f => f.tipo === "OPERATIVO") || fondos[0])?.id || ""}
+                    onChange={(e) => setMovForm({ ...movForm, cajaFondoId: e.target.value })}
+                    className="w-full p-2 border border-slate-200 rounded-lg bg-white font-medium"
+                  >
+                    {fondos.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.nombre} ({f.tipo === "OPERATIVO" ? "F1 Mostrador" : "F2 Reserva"}) - Saldo: ${Number(f.saldo_actual).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Concepto:</label>

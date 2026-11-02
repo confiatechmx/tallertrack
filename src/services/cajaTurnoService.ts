@@ -518,8 +518,20 @@ export const CajaTurnoService = {
       .filter((p) => p.proveedor_pago === "Efectivo" && (!p.caja_fondo_id || p.caja_fondo_id === f1Id))
       .reduce((sum, p) => sum + Number(p.monto_total || 0), 0);
 
-    const salidasGastos = movimientos
-      .filter((m) => ["Gasto / Insumos", "Pago Proveedor"].includes(m.tipo) && (!m.caja_fondo_id || m.caja_fondo_id === f1Id))
+    const entradasExtrasF1 = movimientos
+      .filter(
+        (m) =>
+          ["Fondo Inicial", "Ingreso Extra", "Reposición de Fondo"].includes(m.tipo) &&
+          (!m.caja_fondo_id || m.caja_fondo_id === f1Id)
+      )
+      .reduce((sum, m) => sum + Number(m.monto || 0), 0);
+
+    const salidasGastosF1 = movimientos
+      .filter(
+        (m) =>
+          ["Gasto / Insumos", "Pago Proveedor", "Retiro de Efectivo", "Retiro Administrativo"].includes(m.tipo) &&
+          (!m.caja_fondo_id || m.caja_fondo_id === f1Id)
+      )
       .reduce((sum, m) => sum + Number(m.monto || 0), 0);
 
     const traspasosRecibidosF1 = traspasos
@@ -532,12 +544,29 @@ export const CajaTurnoService = {
 
     const saldoTeoricoF1 =
       Number(turno.monto_apertura_fondo1 || 0) +
-      entradasEfectivoPOS -
-      salidasGastos +
+      entradasEfectivoPOS +
+      entradasExtrasF1 -
+      salidasGastosF1 +
       traspasosRecibidosF1 -
       traspasosEnviadosF1;
 
     // Desglose de Fondo 2 (Reserva)
+    const entradasExtrasF2 = movimientos
+      .filter(
+        (m) =>
+          ["Ingreso Extra", "Reposición de Fondo"].includes(m.tipo) &&
+          m.caja_fondo_id === f2Id
+      )
+      .reduce((sum, m) => sum + Number(m.monto || 0), 0);
+
+    const salidasGastosF2 = movimientos
+      .filter(
+        (m) =>
+          ["Retiro de Efectivo", "Retiro Administrativo"].includes(m.tipo) &&
+          m.caja_fondo_id === f2Id
+      )
+      .reduce((sum, m) => sum + Number(m.monto || 0), 0);
+
     const traspasosRecibidosF2 = traspasos
       .filter((t) => t.fondo_destino_id === f2Id)
       .reduce((sum, t) => sum + Number(t.monto || 0), 0);
@@ -547,7 +576,11 @@ export const CajaTurnoService = {
       .reduce((sum, t) => sum + Number(t.monto || 0), 0);
 
     const saldoTeoricoF2 =
-      Number(turno.monto_apertura_fondo2 || 0) + traspasosRecibidosF2 - traspasosEnviadosF2;
+      Number(turno.monto_apertura_fondo2 || 0) +
+      entradasExtrasF2 -
+      salidasGastosF2 +
+      traspasosRecibidosF2 -
+      traspasosEnviadosF2;
 
     // Desglose SPEI por cuenta bancaria
     const bancosSPEI = cuentas.map((cta) => {
@@ -588,7 +621,7 @@ export const CajaTurnoService = {
         nombre: f1?.nombre || "Fondo 1: Operativo Mostrador",
         apertura: Number(turno.monto_apertura_fondo1 || 0),
         entradasEfectivoPOS,
-        salidasGastos,
+        salidasGastos: salidasGastosF1,
         traspasosRecibidos: traspasosRecibidosF1,
         traspasosEnviados: traspasosEnviadosF1,
         saldoTeoricoCalculado: saldoTeoricoF1,
