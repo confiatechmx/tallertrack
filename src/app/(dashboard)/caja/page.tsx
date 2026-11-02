@@ -54,6 +54,7 @@ import {
   Sparkles,
   ShieldCheck,
   ChevronRight,
+  ChevronDown,
   ExternalLink,
   Coins,
   Split,
@@ -117,6 +118,7 @@ export default function CajaPage() {
   const [tpvReference, setTpvReference] = useState<string>("");
   const [speiRastreo, setSpeiRastreo] = useState<string>("");
   const [copiedClabe, setCopiedClabe] = useState(false);
+  const [showOtherMethods, setShowOtherMethods] = useState(false);
 
   // BNPL & Online Links
   const [bnplProvider, setBnplProvider] = useState<"KueskiPay" | "Atrato">("KueskiPay");
@@ -995,47 +997,83 @@ export default function CajaPage() {
   }
 
   return (
-    <div className="flex flex-col gap-5 pb-12">
-      {/* Header & Navigation Tabs */}
-      <div className="bg-white border border-slate-200 rounded-xl shadow-xs">
-        <header className="px-5 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+    <div className="flex flex-col gap-4 pb-12">
+      {/* 1. Header Unificado y Navegación Moderna */}
+      <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden">
+        <header className="px-5 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 bg-primary/10 text-primary rounded-xl flex items-center justify-center shrink-0">
-              <Receipt size={24} strokeWidth={2.2} />
+            <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center shrink-0">
+              <Receipt size={22} strokeWidth={2.2} />
             </div>
             <div>
-              <div className="flex items-center gap-2.5">
-                <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-                  Punto de Venta (POS) y Caja de Ventanilla
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-lg font-bold text-slate-900 tracking-tight">
+                  Terminal de Caja
                 </h1>
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-900 text-white">
-                  <Building2 size={11} />
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-900 text-white">
+                  <Building2 size={10} />
                   {sucursalActiva ? sucursalActiva.nombre : "Todas las Sucursales"}
                 </span>
                 {cuentasPorCobrar.length > 0 && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-700">
-                    {cuentasPorCobrar.length} pendientes por liquidar
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200/60">
+                    {cuentasPorCobrar.length} pendientes
                   </span>
                 )}
               </div>
-              <p className="text-xs md:text-sm text-slate-500 font-medium">
-                Terminal de cobro en mostrador, financiamiento BNPL (Kueski / Atrato), terminales TPV y tickets térmicos
-              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
-            <div className="bg-slate-100 p-1 rounded-xl flex items-center text-xs font-bold">
-              <span className="px-2.5 py-1 text-slate-500">Por Cobrar en Taller:</span>
-              <span className="px-2.5 py-1 bg-white text-rose-600 rounded-lg shadow-xs font-black tabular-nums">
-                ${totalPorCobrar.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-              </span>
-            </div>
-          </div>
+          {/* Switcher de Pestañas Tipo Pill */}
+          <nav className="flex items-center gap-1 bg-slate-100/90 p-1 rounded-xl self-start md:self-auto overflow-x-auto max-w-full">
+            <button
+              onClick={() => setActiveTab("POS")}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                activeTab === "POS"
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <Smartphone size={13} />
+              Terminal POS
+            </button>
+            <button
+              onClick={() => setActiveTab("Cobranza")}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                activeTab === "Cobranza"
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <Landmark size={13} />
+              Corte & Auditoría
+            </button>
+            <button
+              onClick={() => setActiveTab("CajaChica")}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                activeTab === "CajaChica"
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <Wallet size={13} />
+              Caja Chica
+            </button>
+            <button
+              onClick={() => setActiveTab("Comisiones")}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                activeTab === "Comisiones"
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <Wrench size={13} />
+              Comisiones
+            </button>
+          </nav>
         </header>
 
-        {/* Turno & Arqueo Ciego Status Bar */}
-        <div className="px-5 pt-3 pb-1 w-full">
+        {/* Franja Compacta de Turno & Arqueo Ciego */}
+        <div className="p-2.5 bg-slate-50/50">
           <TurnoStatusBar
             turnoActivo={turnoActivo}
             fondos={fondos}
@@ -1045,75 +1083,18 @@ export default function CajaPage() {
             onTraspaso={() => setIsTraspasoOpen(true)}
           />
         </div>
-
-        <nav className="flex items-center px-5 gap-6 w-full overflow-x-auto border-t border-slate-100">
-          <button
-            onClick={() => setActiveTab("POS")}
-            className={`py-3.5 text-xs md:text-sm font-bold border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${
-              activeTab === "POS"
-                ? "border-primary text-primary"
-                : "border-transparent text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            <Smartphone size={16} />
-            1. Terminal de Cobro Rápido (POS)
-          </button>
-          <button
-            onClick={() => setActiveTab("Cobranza")}
-            className={`py-3.5 text-xs md:text-sm font-bold border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${
-              activeTab === "Cobranza"
-                ? "border-primary text-primary"
-                : "border-transparent text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            <Landmark size={16} />
-            2. Corte del Día y Auditoría ({cuentasPorCobrar.length} abiertas)
-          </button>
-          <button
-            onClick={() => setActiveTab("CajaChica")}
-            className={`py-3.5 text-xs md:text-sm font-bold border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${
-              activeTab === "CajaChica"
-                ? "border-primary text-primary"
-                : "border-transparent text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            <Wallet size={16} />
-            3. Caja Chica (Entradas / Salidas)
-          </button>
-          <button
-            onClick={() => setActiveTab("Comisiones")}
-            className={`py-3.5 text-xs md:text-sm font-bold border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${
-              activeTab === "Comisiones"
-                ? "border-primary text-primary"
-                : "border-transparent text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            <Wrench size={16} />
-            4. Nómina de Comisiones por Técnico
-          </button>
-        </nav>
       </div>
 
       <main className="flex-1 w-full">
         {/* ========================================================= */}
-        {/* TAB 1: TERMINAL DE COBRO RÁPIDO (POS VENTANILLA)         */}
+        {/* TAB 1: TERMINAL DE COBRO RÁPIDO (SPLIT VIEW POS)          */}
         {/* ========================================================= */}
         {activeTab === "POS" && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-            {/* Left Col (5 cols): Order Selector & Search */}
+            {/* Columna Izquierda (5 cols): Órdenes por Cobrar */}
             <div className="lg:col-span-5 flex flex-col gap-3">
-              <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                    <Receipt size={14} className="text-primary" />
-                    Órdenes con Saldo ({filteredPosOrders.length})
-                  </h2>
-                  <span className="text-[11px] text-slate-400 font-medium">
-                    Haz clic para cargar en la terminal
-                  </span>
-                </div>
-
-                {/* Search */}
+              <div className="bg-white border border-slate-200/90 rounded-2xl p-3 shadow-xs flex flex-col gap-2.5">
+                {/* Buscador Rápido */}
                 <div className="relative">
                   <Search
                     size={14}
@@ -1123,16 +1104,16 @@ export default function CajaPage() {
                     type="text"
                     value={posSearchQuery}
                     onChange={(e) => setPosSearchQuery(e.target.value)}
-                    placeholder="Buscar por folio, placa (SPG-902-A), cliente..."
-                    className="w-full pl-8 pr-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:border-primary bg-slate-50/50"
+                    placeholder="Buscar por auto, placa o cliente..."
+                    className="w-full pl-8 pr-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-primary bg-slate-50/70"
                   />
                 </div>
 
-                {/* Filter Pills */}
+                {/* Filtros Simplificados */}
                 <div className="flex items-center gap-1.5 text-xs">
                   <button
                     onClick={() => setPosStatusFilter("ALL")}
-                    className={`px-2.5 py-1 rounded-md font-bold transition-all ${
+                    className={`px-2.5 py-1 rounded-lg font-bold text-xs transition-all cursor-pointer ${
                       posStatusFilter === "ALL"
                         ? "bg-slate-900 text-white"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -1142,17 +1123,17 @@ export default function CajaPage() {
                   </button>
                   <button
                     onClick={() => setPosStatusFilter("READY")}
-                    className={`px-2.5 py-1 rounded-md font-bold transition-all ${
+                    className={`px-2.5 py-1 rounded-lg font-bold text-xs transition-all cursor-pointer ${
                       posStatusFilter === "READY"
                         ? "bg-emerald-600 text-white"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                   >
-                    Listos ({ordenes.filter((o) => o.estado === "Listo para Entrega" && o.saldo > 0).length})
+                    Listas ({ordenes.filter((o) => o.estado === "Listo para Entrega" && o.saldo > 0).length})
                   </button>
                   <button
                     onClick={() => setPosStatusFilter("PARTIAL")}
-                    className={`px-2.5 py-1 rounded-md font-bold transition-all ${
+                    className={`px-2.5 py-1 rounded-lg font-bold text-xs transition-all cursor-pointer ${
                       posStatusFilter === "PARTIAL"
                         ? "bg-amber-600 text-white"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -1163,8 +1144,8 @@ export default function CajaPage() {
                 </div>
               </div>
 
-              {/* Order Cards List */}
-              <div className="flex flex-col gap-2 max-h-[700px] overflow-y-auto pr-1">
+              {/* Lista Escaneable de Órdenes */}
+              <div className="flex flex-col gap-2 max-h-[calc(100vh-270px)] overflow-y-auto pr-1">
                 {filteredPosOrders.map((ord) => {
                   const isSelected = ord.id === posSelectedOrderId;
                   const isReady = ord.estado === "Listo para Entrega";
@@ -1176,48 +1157,48 @@ export default function CajaPage() {
                     <div
                       key={ord.id}
                       onClick={() => setPosSelectedOrderId(ord.id)}
-                      className={`cursor-pointer rounded-xl p-3.5 border transition-all flex flex-col gap-2 ${
+                      className={`cursor-pointer rounded-xl p-3 border transition-all flex flex-col gap-1.5 ${
                         isSelected
-                          ? "bg-white border-primary ring-2 ring-primary/20 shadow-md"
+                          ? "bg-primary/5 border-primary ring-2 ring-primary/20 shadow-sm border-l-4 border-l-primary"
                           : "bg-white border-slate-200 hover:border-slate-300 shadow-xs"
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono font-bold text-slate-900 text-sm">
-                              {folio}
-                            </span>
-                            <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                isReady
-                                  ? "bg-emerald-100 text-emerald-800 border border-emerald-200 animate-pulse"
-                                  : "bg-slate-100 text-slate-700"
-                              }`}
-                            >
-                              {ord.estado}
-                            </span>
-                          </div>
-                          <p className="text-xs font-bold text-slate-800 mt-0.5">
-                            {veh.marca} {veh.modelo} ({veh.placas || "Sin placas"})
-                          </p>
-                          <p className="text-[11px] text-slate-500">{cli.nombre || "Venta General"}</p>
-                        </div>
-
-                        <div className="text-right shrink-0">
-                          <span className="text-sm font-bold text-rose-600 tabular-nums">
-                            ${ord.saldo.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                      {/* Nivel 1: Folio + Estatus + Saldo Destacado */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono font-bold text-slate-900 text-xs">
+                            {folio}
                           </span>
-                          <p className="text-[10px] text-slate-400">
-                            Total: ${ord.granTotal.toLocaleString("es-MX", { maximumFractionDigits: 0 })}
-                          </p>
+                          <span
+                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                              isReady
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-slate-100 text-slate-600"
+                            }`}
+                          >
+                            {ord.estado}
+                          </span>
                         </div>
+                        <span className="text-sm font-extrabold text-rose-600 tabular-nums">
+                          ${ord.saldo.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                        </span>
                       </div>
 
-                      <div className="flex items-center justify-between text-[10px] text-slate-400 border-t border-slate-100 pt-1.5 mt-0.5">
-                        <span>Rampa: {ord.bahia_rampa || "General"}</span>
-                        <span className="text-primary font-bold inline-flex items-center gap-0.5">
-                          {isSelected ? "Seleccionada en POS" : "Cargar en Terminal →"}
+                      {/* Nivel 2: Vehículo + Placa */}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-slate-800 truncate">
+                          {veh.marca} {veh.modelo}
+                        </span>
+                        <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold shrink-0">
+                          {veh.placas || "Sin placas"}
+                        </span>
+                      </div>
+
+                      {/* Nivel 3: Cliente */}
+                      <div className="flex items-center justify-between text-[11px] text-slate-400">
+                        <span className="truncate">{cli.nombre || "Venta General"}</span>
+                        <span className="shrink-0 text-[10px]">
+                          Total: ${ord.granTotal.toLocaleString("es-MX", { maximumFractionDigits: 0 })}
                         </span>
                       </div>
                     </div>
@@ -1226,91 +1207,60 @@ export default function CajaPage() {
 
                 {filteredPosOrders.length === 0 && (
                   <div className="bg-white border border-slate-200 rounded-xl p-8 text-center text-slate-400 text-xs">
-                    No se encontraron órdenes con saldo pendiente.
+                    No hay órdenes con saldo pendiente.
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Right Col (7 cols): Active POS Terminal */}
+            {/* Columna Derecha (7 cols): Terminal de Cobro Guiada */}
             <div className="lg:col-span-7 flex flex-col gap-4">
               {activeOrder ? (
-                <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden flex flex-col">
-                  {/* Top Bar of Active Order */}
-                  <div className="bg-slate-900 text-white p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden flex flex-col">
+                  {/* Encabezado Conciso de la Orden Activa */}
+                  <div className="bg-slate-900 text-white px-5 py-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono font-bold text-sm text-white">
+                        #{1000 + Number(activeOrder.folio || 1)}
+                      </span>
+                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/15 text-white font-medium">
+                        {activeOrder.vehiculos?.marca} {activeOrder.vehiculos?.modelo}
+                      </span>
+                      <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-slate-200">
+                        {activeOrder.vehiculos?.placas || "Sin placas"}
+                      </span>
+                      <span className="text-xs text-slate-300">
+                        • {activeOrder.vehiculos?.clientes?.nombre}
+                      </span>
+                    </div>
+
+                    <Link
+                      href={`/tablero?ordenId=${activeOrder.id}`}
+                      className="text-xs px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white font-semibold transition-colors inline-flex items-center gap-1 shrink-0"
+                    >
+                      Ver Orden <ExternalLink size={12} />
+                    </Link>
+                  </div>
+
+                  {/* Saldo y Monto a Cobrar Destacado */}
+                  <div className="p-5 border-b border-slate-100 bg-gradient-to-b from-slate-50/70 to-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-base text-white">
-                          #{1000 + Number(activeOrder.folio || 1)}
-                        </span>
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-white/20 text-white font-medium">
-                          {activeOrder.estado}
-                        </span>
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-rose-500 text-white font-bold">
-                          Debe: ${activeOrder.saldo.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                        </span>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+                        Total por Cobrar
+                      </span>
+                      <div className="text-3xl font-black text-slate-900 tabular-nums mt-0.5">
+                        ${amountToPay.toLocaleString("es-MX", { minimumFractionDigits: 2 })}{" "}
+                        <span className="text-sm font-semibold text-slate-400">MXN</span>
                       </div>
-                      <p className="text-xs text-slate-300 mt-1">
-                        {activeOrder.vehiculos?.marca} {activeOrder.vehiculos?.modelo} (
-                        {activeOrder.vehiculos?.placas || "Sin placas"}) •{" "}
-                        <span className="font-semibold text-white">
-                          {activeOrder.vehiculos?.clientes?.nombre}
-                        </span>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Total de la orden: ${Number(activeOrder.granTotal || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })} • Anticipos: ${Number(activeOrder.pagado || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <Link
-                        href={`/tablero?ordenId=${activeOrder.id}`}
-                        className="text-xs px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold transition-colors inline-flex items-center gap-1"
-                      >
-                        Ver Orden <ExternalLink size={12} />
-                      </Link>
-                    </div>
-                  </div>
-
-                  {/* Summary of Items */}
-                  <div className="p-4 bg-slate-50/70 border-b border-slate-200 text-xs grid grid-cols-2 sm:grid-cols-4 gap-3 text-slate-600">
-                    <div>
-                      <span className="text-[10px] uppercase text-slate-400 block font-bold">Mano de Obra</span>
-                      <span className="font-bold text-slate-900">
-                        ${Number(activeOrder.srvTotal || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] uppercase text-slate-400 block font-bold">Refacciones</span>
-                      <span className="font-bold text-slate-900">
-                        ${Number(activeOrder.refTotal || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] uppercase text-slate-400 block font-bold">Llantas</span>
-                      <span className="font-bold text-slate-900">
-                        ${Number(activeOrder.llantasTotal || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] uppercase text-slate-400 block font-bold">Abonado Previo</span>
-                      <span className="font-bold text-emerald-600">
-                        ${Number(activeOrder.pagado || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Amount to Collect Input */}
-                  <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white">
-                    <div>
-                      <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                        Monto a Cobrar en esta Transacción:
-                      </label>
-                      <span className="text-[11px] text-slate-400">
-                        Puedes liquidar el saldo total o registrar un anticipo parcial
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
+                    {/* Input y Botón de Ajuste de Monto */}
+                    <div className="flex items-center gap-2 self-start sm:self-auto">
                       <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-base">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-sm">
                           $
                         </span>
                         <input
@@ -1318,31 +1268,32 @@ export default function CajaPage() {
                           step="0.01"
                           value={paymentAmount}
                           onChange={(e) => setPaymentAmount(e.target.value)}
-                          className="pl-7 pr-3 py-2 text-lg font-bold text-slate-900 border border-slate-300 rounded-xl w-44 text-right focus:outline-none focus:border-primary"
+                          className="w-32 pl-7 pr-3 py-2 text-sm font-bold text-slate-900 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-primary text-right"
                         />
                       </div>
                       <button
                         type="button"
                         onClick={() => setPaymentAmount(activeOrder.saldo.toFixed(2))}
-                        className="px-2.5 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                        className="px-2.5 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
                       >
-                        Saldo Total
+                        Total
                       </button>
                     </div>
                   </div>
 
-                  {/* Payment Method Selector Grid */}
-                  <div className="p-5 flex flex-col gap-4">
-                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                      Selecciona Método de Pago o Pasarela:
+                  {/* Selector Guiado de Métodos de Pago */}
+                  <div className="p-5 flex flex-col gap-3">
+                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                      ¿Cómo paga el cliente?
                     </label>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                    {/* 3 Métodos Directos */}
+                    <div className="grid grid-cols-3 gap-2.5">
                       {/* 1. Efectivo */}
                       <button
                         type="button"
                         onClick={() => setSelectedMethod("Efectivo")}
-                        className={`p-3 rounded-xl border text-left flex flex-col gap-1 transition-all ${
+                        className={`p-3 rounded-xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
                           selectedMethod === "Efectivo"
                             ? "border-emerald-600 bg-emerald-50/50 ring-2 ring-emerald-600/20"
                             : "border-slate-200 hover:border-slate-300 bg-white"
@@ -1350,19 +1301,19 @@ export default function CajaPage() {
                       >
                         <div className="flex items-center justify-between">
                           <Banknote size={18} className="text-emerald-600" />
-                          <span className="text-[10px] font-bold uppercase text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+                          <span className="text-[9px] font-bold uppercase text-emerald-700 bg-emerald-100 px-1 py-0.2 rounded">
                             Sin comisión
                           </span>
                         </div>
-                        <span className="font-bold text-xs text-slate-900 mt-1">Efectivo en Gaveta</span>
-                        <span className="text-[10px] text-slate-500">Con calculadora de cambio</span>
+                        <span className="font-bold text-xs text-slate-900 mt-1">Efectivo</span>
+                        <span className="text-[10px] text-slate-500">Gaveta</span>
                       </button>
 
-                      {/* 2. TPV Bancaria / Point */}
+                      {/* 2. Tarjeta TPV */}
                       <button
                         type="button"
                         onClick={() => setSelectedMethod("TPV")}
-                        className={`p-3 rounded-xl border text-left flex flex-col gap-1 transition-all ${
+                        className={`p-3 rounded-xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
                           selectedMethod === "TPV"
                             ? "border-primary bg-primary/5 ring-2 ring-primary/20"
                             : "border-slate-200 hover:border-slate-300 bg-white"
@@ -1370,19 +1321,19 @@ export default function CajaPage() {
                       >
                         <div className="flex items-center justify-between">
                           <CreditCard size={18} className="text-primary" />
-                          <span className="text-[10px] font-bold uppercase text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
-                            TPV Física
+                          <span className="text-[9px] font-bold uppercase text-slate-500 bg-slate-100 px-1 py-0.2 rounded">
+                            Point
                           </span>
                         </div>
-                        <span className="font-bold text-xs text-slate-900 mt-1">Terminal TPV Point</span>
-                        <span className="text-[10px] text-slate-500">Tarjeta Débito / Crédito</span>
+                        <span className="font-bold text-xs text-slate-900 mt-1">Tarjeta</span>
+                        <span className="text-[10px] text-slate-500">Terminal TPV</span>
                       </button>
 
-                      {/* 3. SPEI Bancario */}
+                      {/* 3. Transferencia SPEI */}
                       <button
                         type="button"
                         onClick={() => setSelectedMethod("SPEI")}
-                        className={`p-3 rounded-xl border text-left flex flex-col gap-1 transition-all ${
+                        className={`p-3 rounded-xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
                           selectedMethod === "SPEI"
                             ? "border-blue-600 bg-blue-50/50 ring-2 ring-blue-600/20"
                             : "border-slate-200 hover:border-slate-300 bg-white"
@@ -1390,118 +1341,123 @@ export default function CajaPage() {
                       >
                         <div className="flex items-center justify-between">
                           <Landmark size={18} className="text-blue-600" />
-                          <span className="text-[10px] font-bold uppercase text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">
-                            SPEI
+                          <span className="text-[9px] font-bold uppercase text-blue-700 bg-blue-100 px-1 py-0.2 rounded">
+                            Directo
                           </span>
                         </div>
-                        <span className="font-bold text-xs text-slate-900 mt-1">Transferencia SPEI</span>
-                        <span className="text-[10px] text-slate-500">CLABE BBVA en pantalla</span>
-                      </button>
-
-                      {/* 4. Kueski Pay (BNPL) */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedMethod("KueskiPay");
-                          handleGenerateQR("KueskiPay");
-                        }}
-                        className={`p-3 rounded-xl border text-left flex flex-col gap-1 transition-all ${
-                          selectedMethod === "KueskiPay"
-                            ? "border-indigo-600 bg-indigo-50/50 ring-2 ring-indigo-600/20"
-                            : "border-slate-200 hover:border-slate-300 bg-white"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <Coins size={18} className="text-indigo-600" />
-                          <span className="text-[10px] font-bold uppercase text-indigo-700 bg-indigo-100 px-1.5 py-0.5 rounded">
-                            BNPL Quincenas
-                          </span>
-                        </div>
-                        <span className="font-bold text-xs text-slate-900 mt-1">Kueski Pay (BNPL)</span>
-                        <span className="text-[10px] text-slate-500">Sin tarjeta requerida</span>
-                      </button>
-
-                      {/* 5. Atrato Pago (BNPL Automotriz) */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedMethod("Atrato");
-                          handleGenerateQR("Atrato");
-                        }}
-                        className={`p-3 rounded-xl border text-left flex flex-col gap-1 transition-all ${
-                          selectedMethod === "Atrato"
-                            ? "border-purple-600 bg-purple-50/50 ring-2 ring-purple-600/20"
-                            : "border-slate-200 hover:border-slate-300 bg-white"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <Sparkles size={18} className="text-purple-600" />
-                          <span className="text-[10px] font-bold uppercase text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded">
-                            Crédito Llantas
-                          </span>
-                        </div>
-                        <span className="font-bold text-xs text-slate-900 mt-1">Atrato Pago</span>
-                        <span className="text-[10px] text-slate-500">Hasta 24 meses automotriz</span>
-                      </button>
-
-                      {/* 6. Stripe Checkout */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedMethod("Stripe");
-                          handleGenerateQR("Stripe");
-                        }}
-                        className={`p-3 rounded-xl border text-left flex flex-col gap-1 transition-all ${
-                          selectedMethod === "Stripe"
-                            ? "border-sky-600 bg-sky-50/50 ring-2 ring-sky-600/20"
-                            : "border-slate-200 hover:border-slate-300 bg-white"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <CreditCard size={18} className="text-sky-600" />
-                          <span className="text-[10px] font-bold uppercase text-sky-700 bg-sky-100 px-1.5 py-0.5 rounded">
-                            Enlace / MSI
-                          </span>
-                        </div>
-                        <span className="font-bold text-xs text-slate-900 mt-1">Stripe Checkout</span>
-                        <span className="text-[10px] text-slate-500">Pago en línea con tarjeta</span>
-                      </button>
-
-                      {/* 7. Multi-Método Split Payment */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedMethod("Split");
-                          const amt = parseFloat(paymentAmount) || activeOrder.saldo;
-                          setSplitPayments([
-                            {
-                              id: `caja-split-${Date.now()}`,
-                              metodo: "Efectivo",
-                              monto: Number(amt.toFixed(2)),
-                              montoRecibido: Number(amt.toFixed(2)),
-                              cambio: 0,
-                            }
-                          ]);
-                        }}
-                        className={`p-3 rounded-xl border text-left flex flex-col gap-1 transition-all ${
-                          selectedMethod === "Split"
-                            ? "border-amber-600 bg-amber-50/50 ring-2 ring-amber-600/20"
-                            : "border-slate-200 hover:border-slate-300 bg-white"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <Split size={18} className="text-amber-600" />
-                          <span className="text-[10px] font-bold uppercase text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
-                            Multi-Método
-                          </span>
-                        </div>
-                        <span className="font-bold text-xs text-slate-900 mt-1">Pago Dividido</span>
-                        <span className="text-[10px] text-slate-500">Efectivo + Tarjeta + SPEI</span>
+                        <span className="font-bold text-xs text-slate-900 mt-1">SPEI</span>
+                        <span className="text-[10px] text-slate-500">Transferencia</span>
                       </button>
                     </div>
 
-                    {/* METHOD DETAILS CONTAINER */}
-                    <div className="bg-slate-50/70 border border-slate-200 rounded-xl p-4 mt-2">
+                    {/* Revelación Progresiva: Otros Métodos */}
+                    {(() => {
+                      const isOtherActive = ["KueskiPay", "Atrato", "Stripe", "Split"].includes(selectedMethod);
+                      const isExpanded = showOtherMethods || isOtherActive;
+
+                      return (
+                        <div className="flex flex-col gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowOtherMethods(!isExpanded)}
+                            className="text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center justify-between px-3 py-2 rounded-xl border border-dashed border-slate-200 hover:border-slate-300 bg-slate-50/50 transition-all cursor-pointer"
+                          >
+                            <span className="flex items-center gap-1.5">
+                              <Split size={13} className="text-slate-400" />
+                              <span>Más opciones: Pago Dividido o Financiamiento (Kueski / Atrato / Stripe)</span>
+                            </span>
+                            <ChevronDown
+                              size={14}
+                              className={`transform transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                            />
+                          </button>
+
+                          {isExpanded && (
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 animate-in fade-in duration-200">
+                              {/* Multi-Método Split */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedMethod("Split");
+                                  const amt = parseFloat(paymentAmount) || activeOrder.saldo;
+                                  setSplitPayments([
+                                    {
+                                      id: `caja-split-${Date.now()}`,
+                                      metodo: "Efectivo",
+                                      monto: Number(amt.toFixed(2)),
+                                      montoRecibido: Number(amt.toFixed(2)),
+                                      cambio: 0,
+                                    }
+                                  ]);
+                                }}
+                                className={`p-2.5 rounded-xl border text-left flex flex-col gap-0.5 transition-all cursor-pointer ${
+                                  selectedMethod === "Split"
+                                    ? "border-amber-600 bg-amber-50/50 ring-2 ring-amber-600/20"
+                                    : "border-slate-200 hover:border-slate-300 bg-white"
+                                }`}
+                              >
+                                <span className="font-bold text-xs text-slate-900">Multi-Método</span>
+                                <span className="text-[10px] text-slate-500">Dividir pago</span>
+                              </button>
+
+                              {/* Kueski Pay */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedMethod("KueskiPay");
+                                  handleGenerateQR("KueskiPay");
+                                }}
+                                className={`p-2.5 rounded-xl border text-left flex flex-col gap-0.5 transition-all cursor-pointer ${
+                                  selectedMethod === "KueskiPay"
+                                    ? "border-indigo-600 bg-indigo-50/50 ring-2 ring-indigo-600/20"
+                                    : "border-slate-200 hover:border-slate-300 bg-white"
+                                }`}
+                              >
+                                <span className="font-bold text-xs text-slate-900">Kueski Pay</span>
+                                <span className="text-[10px] text-slate-500">BNPL Quincenas</span>
+                              </button>
+
+                              {/* Atrato Pago */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedMethod("Atrato");
+                                  handleGenerateQR("Atrato");
+                                }}
+                                className={`p-2.5 rounded-xl border text-left flex flex-col gap-0.5 transition-all cursor-pointer ${
+                                  selectedMethod === "Atrato"
+                                    ? "border-purple-600 bg-purple-50/50 ring-2 ring-purple-600/20"
+                                    : "border-slate-200 hover:border-slate-300 bg-white"
+                                }`}
+                              >
+                                <span className="font-bold text-xs text-slate-900">Atrato Pago</span>
+                                <span className="text-[10px] text-slate-500">Crédito Llantas</span>
+                              </button>
+
+                              {/* Stripe */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedMethod("Stripe");
+                                  handleGenerateQR("Stripe");
+                                }}
+                                className={`p-2.5 rounded-xl border text-left flex flex-col gap-0.5 transition-all cursor-pointer ${
+                                  selectedMethod === "Stripe"
+                                    ? "border-sky-600 bg-sky-50/50 ring-2 ring-sky-600/20"
+                                    : "border-slate-200 hover:border-slate-300 bg-white"
+                                }`}
+                              >
+                                <span className="font-bold text-xs text-slate-900">Stripe Link</span>
+                                <span className="text-[10px] text-slate-500">Pago en línea</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {/* DETALLES DEL MÉTODO SELECCIONADO */}
+                    <div className="bg-slate-50/70 border border-slate-200/90 rounded-2xl p-4 mt-1">
                       {/* 0. MULTI-METODO SPLIT PAYMENT */}
                       {selectedMethod === "Split" && (
                         <div className="flex flex-col gap-3">
@@ -1518,56 +1474,36 @@ export default function CajaPage() {
                       {/* 1. EFECTIVO EN VENTANILLA */}
                       {selectedMethod === "Efectivo" && (
                         <div className="flex flex-col gap-3">
-                          {/* Banner de Precio Preferencial en Efectivo */}
+                          {/* Banner de Descuento en Efectivo (Promo Cova) */}
                           {tieneDescuentoEfectivoConfigurado && activeOrder && (
-                            <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl flex items-center justify-between gap-2 shadow-2xs">
+                            <div className="p-2.5 bg-emerald-50 border border-emerald-300 rounded-xl flex items-center justify-between gap-2 shadow-2xs">
                               <div className="flex items-center gap-2">
                                 <Sparkles className="w-4 h-4 text-emerald-700 shrink-0" />
-                                <div>
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="text-xs font-bold text-emerald-950">
-                                      Precio Preferencial en Efectivo (-{pctDescEfectivo}%)
-                                    </span>
-                                    <span className="text-[10px] font-bold bg-emerald-200/90 text-emerald-900 px-1.5 py-0.2 rounded">
-                                      PROMO COVA
-                                    </span>
-                                  </div>
-                                  <p className="text-[11px] text-emerald-800 mt-0.5">
-                                    Ahorro de <strong className="font-bold text-emerald-950">${ahorroEfectivo.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN</strong> para el cliente.
-                                  </p>
-                                </div>
+                                <span className="text-xs font-bold text-emerald-950">
+                                  Precio Promocional en Efectivo (-{pctDescEfectivo}%): ahorra ${ahorroEfectivo.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
+                                </span>
                               </div>
-                              <label className="flex items-center gap-1.5 text-xs font-bold text-emerald-900 cursor-pointer bg-white/80 px-2.5 py-1 rounded-lg border border-emerald-300">
+                              <label className="flex items-center gap-1.5 text-xs font-bold text-emerald-900 cursor-pointer bg-white/90 px-2 py-0.5 rounded-lg border border-emerald-300 shrink-0">
                                 <input
                                   type="checkbox"
                                   checked={aplicarDescuentoEfectivo}
                                   onChange={(e) => setAplicarDescuentoEfectivo(e.target.checked)}
-                                  className="w-4 h-4 text-emerald-600 rounded"
+                                  className="w-3.5 h-3.5 text-emerald-600 rounded"
                                 />
-                                Aplicar Descuento
+                                Aplicar
                               </label>
                             </div>
                           )}
 
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-slate-800">
-                              Calculadora de Cambio (Efectivo):
-                            </span>
-                            <span className="text-xs text-slate-500">
-                              Total a cobrar:{" "}
-                              <strong className="text-slate-900">${amountToPay.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</strong>
-                            </span>
-                          </div>
-
-                          {/* Quick cash pills */}
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-[11px] text-slate-400">Billetes comunes:</span>
+                          {/* Billetes rápidos */}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[11px] text-slate-400 font-semibold mr-1">Billetes:</span>
                             {QUICK_CASH_AMOUNTS.map((amt) => (
                               <button
                                 key={amt}
                                 type="button"
                                 onClick={() => setCashGiven(String(amt))}
-                                className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-xs font-bold hover:bg-slate-100 text-slate-700 transition-colors"
+                                className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-xs font-bold hover:bg-slate-100 text-slate-700 transition-colors cursor-pointer"
                               >
                                 +${amt}
                               </button>
@@ -1575,7 +1511,7 @@ export default function CajaPage() {
                             <button
                               type="button"
                               onClick={() => setCashGiven(String(amountToPay))}
-                              className="px-2.5 py-1 rounded-lg border border-emerald-300 bg-emerald-50 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition-colors"
+                              className="px-2.5 py-1 rounded-lg border border-emerald-300 bg-emerald-50 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition-colors cursor-pointer"
                             >
                               Pago Exacto
                             </button>
@@ -1584,7 +1520,7 @@ export default function CajaPage() {
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
                             <div>
                               <label className="text-[11px] font-bold text-slate-600 block mb-1">
-                                Efectivo recibido del cliente:
+                                Efectivo Recibido del Cliente:
                               </label>
                               <div className="relative">
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400">
@@ -1596,13 +1532,13 @@ export default function CajaPage() {
                                   value={cashGiven}
                                   onChange={(e) => setCashGiven(e.target.value)}
                                   placeholder="0.00"
-                                  className="w-full pl-7 pr-3 py-2 text-base font-bold border border-slate-300 rounded-lg bg-white focus:outline-none focus:border-emerald-600"
+                                  className="w-full pl-7 pr-3 py-2 text-base font-bold border border-slate-300 rounded-xl bg-white focus:outline-none focus:border-emerald-600"
                                 />
                               </div>
                             </div>
 
-                            {/* Change Due Indicator */}
-                            <div className="bg-white border border-slate-200 rounded-lg p-3 flex items-center justify-between">
+                            {/* Indicador de Cambio */}
+                            <div className="bg-white border border-slate-200 rounded-xl p-3 flex items-center justify-between">
                               <div>
                                 <span className="text-[10px] uppercase font-bold text-slate-400 block">
                                   Cambio a Devolver
@@ -1631,18 +1567,13 @@ export default function CajaPage() {
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                               <label className="text-[11px] font-bold text-slate-600 block mb-1">
-                                Terminal / Pasarela Configurada:
+                                Terminal TPV Utilizada:
                               </label>
-                              {tenantMetodos.filter((m) => ["TARJETA_CREDITO", "MSI", "DEBITO", "TPV"].includes(m.tipo?.toUpperCase() || "")).length > 0 ? (
+                              {tenantMetodos && tenantMetodos.length > 0 ? (
                                 <select
                                   value={selectedTenantMetodoId}
-                                  onChange={(e) => {
-                                    const mId = e.target.value;
-                                    setSelectedTenantMetodoId(mId);
-                                    const m = tenantMetodos.find((tm) => tm.id === mId);
-                                    if (m) setTpvType(m.nombre);
-                                  }}
-                                  className="w-full p-2 text-xs border border-slate-300 rounded-lg bg-white font-semibold text-slate-800"
+                                  onChange={(e) => setSelectedTenantMetodoId(e.target.value)}
+                                  className="w-full p-2 text-xs border border-slate-300 rounded-lg bg-white"
                                 >
                                   {tenantMetodos
                                     .filter((m) => ["TARJETA_CREDITO", "MSI", "DEBITO", "TPV"].includes(m.tipo?.toUpperCase() || ""))
@@ -1678,14 +1609,13 @@ export default function CajaPage() {
                               />
                             </div>
                           </div>
-                          {/* Nota de comisión absorbida */}
                           <div className="text-[10px] text-slate-500 bg-slate-100/70 p-2 rounded-lg flex items-center justify-between">
                             <span className="flex items-center gap-1 text-slate-600">
                               <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
-                              Comisión bancaria absorbida en back-office (no afecta precio al cliente)
+                              Comisión bancaria absorbida en back-office (no afecta al cliente)
                             </span>
                             <span className="font-mono text-slate-700 font-semibold">
-                              TPV Activa
+                              TPV Conectada
                             </span>
                           </div>
                         </div>
@@ -1697,7 +1627,7 @@ export default function CajaPage() {
                           {cuentasBancarias && cuentasBancarias.length > 0 ? (
                             <div className="flex flex-col gap-2">
                               <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
-                                Cuenta Receptora del Taller (Conciliación Espejo):
+                                Cuenta Receptora:
                               </label>
                               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                 {cuentasBancarias.map((cta) => {
@@ -1728,7 +1658,7 @@ export default function CajaPage() {
                                 })}
                               </div>
 
-                              {/* Active Account Details Banner */}
+                              {/* Banner de la cuenta activa con Copiar CLABE */}
                               {(() => {
                                 const activeCta =
                                   cuentasBancarias.find((c) => c.id === selectedCuentaBancariaId) ||
@@ -1755,7 +1685,7 @@ export default function CajaPage() {
                                           setTimeout(() => setCopiedClabe(false), 2000);
                                         }
                                       }}
-                                      className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs inline-flex items-center gap-1.5 shrink-0 transition-colors"
+                                      className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs inline-flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
                                     >
                                       {copiedClabe ? <Check size={14} /> : <Copy size={14} />}
                                       {copiedClabe ? "¡Copiada!" : "Copiar CLABE"}
@@ -1790,11 +1720,10 @@ export default function CajaPage() {
                         selectedMethod === "Atrato" ||
                         selectedMethod === "Stripe") && (
                         <div className="flex flex-col gap-3">
-                          {/* BNPL Simulation Table */}
                           {bnplCuotas.length > 0 && selectedMethod !== "Stripe" && (
                             <div>
                               <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-1.5">
-                                Planes de Financiamiento Disponibles para el Cliente:
+                                Planes de Financiamiento Disponibles:
                               </span>
                               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                 {bnplCuotas.map((c, idx) => (
@@ -1818,7 +1747,7 @@ export default function CajaPage() {
                             </div>
                           )}
 
-                          {/* QR Generator Box */}
+                          {/* Generador de QR */}
                           <div className="flex flex-col sm:flex-row items-center gap-4 bg-white border border-slate-200 rounded-xl p-3.5">
                             {qrCodeUrl ? (
                               <div className="shrink-0 bg-white p-1 rounded-lg border border-slate-200 shadow-sm">
@@ -1837,13 +1766,13 @@ export default function CajaPage() {
                             <div className="flex flex-col gap-1.5 text-xs flex-1">
                               <h4 className="font-bold text-slate-900">
                                 {selectedMethod === "KueskiPay"
-                                  ? "Kueski Pay: Compre Ahora, Pague Después"
+                                  ? "Kueski Pay: Compra Ahora, Paga Después"
                                   : selectedMethod === "Atrato"
                                   ? "Atrato Pago: Crédito en Mostrador"
                                   : "Stripe Checkout: Enlace Directo"}
                               </h4>
                               <p className="text-[11px] text-slate-500">
-                                Pídele al cliente que apunte su cámara al código QR para completar la solicitud en su celular, o envíaselo directamente por WhatsApp.
+                                El cliente escanea el código QR con su celular o recíbelo por WhatsApp.
                               </p>
 
                               <div className="flex items-center gap-2 mt-1">
@@ -1851,7 +1780,7 @@ export default function CajaPage() {
                                   <button
                                     type="button"
                                     onClick={() => handleGenerateQR(selectedMethod as any)}
-                                    className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs inline-flex items-center gap-1.5"
+                                    className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs inline-flex items-center gap-1.5 cursor-pointer"
                                   >
                                     <QrCode size={13} /> Generar Código QR
                                   </button>
@@ -1882,22 +1811,22 @@ export default function CajaPage() {
                       )}
                     </div>
 
-                    {/* SUBMIT BUTTON */}
+                    {/* BOTÓN PRIMARIO ÚNICO DE ACCIÓN */}
                     <div className="pt-2">
                       <button
                         type="button"
                         onClick={handleExecutePayment}
                         disabled={isProcessingPayment || (selectedMethod === "Efectivo" && cashShortage > 0.01)}
-                        className="w-full py-3.5 px-5 rounded-xl bg-slate-900 hover:bg-emerald-600 text-white font-black text-sm tracking-wide shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                        className="w-full py-4 px-6 rounded-xl bg-slate-900 hover:bg-emerald-600 text-white font-extrabold text-sm tracking-wide shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                       >
                         {isProcessingPayment ? (
                           <>
-                            <Loader2 size={18} className="animate-spin" /> Procesando Cobro...
+                            <Loader2 size={18} className="animate-spin" /> Registrando Cobro...
                           </>
                         ) : (
                           <>
                             <CheckCircle2 size={18} />
-                            REGISTRAR COBRO (${amountToPay.toLocaleString("es-MX", { minimumFractionDigits: 2 })}) Y EMITIR TICKET
+                            COBRAR ${amountToPay.toLocaleString("es-MX", { minimumFractionDigits: 2 })} E IMPRIMIR TICKET →
                           </>
                         )}
                       </button>
@@ -1905,11 +1834,13 @@ export default function CajaPage() {
                   </div>
                 </div>
               ) : (
-                <div className="bg-white border border-slate-200 rounded-xl p-12 text-center text-slate-400 flex flex-col items-center justify-center gap-3">
-                  <Receipt size={40} className="text-slate-300" />
-                  <p className="font-bold text-sm text-slate-700">Ninguna orden seleccionada en la Terminal</p>
+                <div className="bg-white border border-slate-200/90 rounded-2xl p-12 text-center text-slate-400 flex flex-col items-center justify-center gap-3 shadow-xs">
+                  <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
+                    <Receipt size={32} />
+                  </div>
+                  <p className="font-bold text-sm text-slate-800">Ninguna orden seleccionada en la Terminal</p>
                   <p className="text-xs text-slate-500 max-w-sm">
-                    Selecciona una orden de la lista izquierda para ingresar montos, calcular cambio en efectivo o generar links BNPL.
+                    Selecciona una orden de la lista izquierda para ingresar cobros en mostrador, calcular cambio o emitir tickets.
                   </p>
                 </div>
               )}
@@ -1917,9 +1848,6 @@ export default function CajaPage() {
           </div>
         )}
 
-        {/* ========================================================= */}
-        {/* TAB 2: CORTE DEL DÍA Y AUDITORÍA                          */}
-        {/* ========================================================= */}
         {activeTab === "Cobranza" && (
           <div className="flex flex-col gap-6">
             {/* 5 Financial KPIs */}
