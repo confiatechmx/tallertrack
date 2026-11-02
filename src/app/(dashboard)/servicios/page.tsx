@@ -1,39 +1,39 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Search, Plus, Wrench, Clock, Edit3, Sparkles } from "lucide-react";
+import { Search, Plus, Wrench, Clock, Edit3, Sparkles, Check, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { Modal } from "../../../components/ui/Modal";
+import { Modal } from "@/components/ui/Modal";
 import {
   ServiceForm,
   Service,
   SERVICE_CATEGORIES,
-} from "../../../components/servicios/ServiceForm";
+} from "@/components/servicios/ServiceForm";
 
 function SkeletonRow() {
   return (
     <tr className="border-b border-slate-100 last:border-0 animate-pulse">
-      <td className="px-4 py-3">
-        <div className="h-5 bg-slate-200 rounded w-24" />
+      <td className="px-5 py-3.5">
+        <div className="h-5 bg-slate-200 rounded-lg w-20" />
       </td>
-      <td className="px-4 py-3">
+      <td className="px-5 py-3.5">
         <div className="h-4 bg-slate-200 rounded w-48 mb-1" />
         <div className="h-3 bg-slate-100 rounded w-64" />
       </td>
-      <td className="px-4 py-3">
-        <div className="h-5 bg-slate-200 rounded w-28" />
+      <td className="px-5 py-3.5">
+        <div className="h-6 bg-slate-200 rounded-lg w-28" />
       </td>
-      <td className="px-4 py-3 text-right">
+      <td className="px-5 py-3.5 text-right">
         <div className="h-4 bg-slate-200 rounded w-16 ml-auto" />
       </td>
-      <td className="px-4 py-3 text-right">
+      <td className="px-5 py-3.5 text-right">
         <div className="h-4 bg-slate-200 rounded w-20 ml-auto" />
       </td>
-      <td className="px-4 py-3 text-right">
-        <div className="h-4 bg-slate-200 rounded w-20 ml-auto" />
+      <td className="px-5 py-3.5 text-right">
+        <div className="h-5 bg-slate-200 rounded w-20 ml-auto" />
       </td>
-      <td className="px-4 py-3 text-center">
-        <div className="h-5 bg-slate-200 rounded-full w-9 mx-auto" />
+      <td className="px-5 py-3.5 text-center">
+        <div className="h-6 bg-slate-200 rounded-full w-12 mx-auto" />
       </td>
     </tr>
   );
@@ -41,16 +41,16 @@ function SkeletonRow() {
 
 function getCategoryBadgeStyle(cat: string) {
   const c = (cat || "").toLowerCase();
-  if (c.includes("freno")) return "bg-red-50 text-red-700 border-red-200";
-  if (c.includes("suspensi")) return "bg-amber-50 text-amber-800 border-amber-200";
+  if (c.includes("freno")) return "bg-red-50 text-red-700 border-red-200/80";
+  if (c.includes("suspensi")) return "bg-amber-50 text-amber-800 border-amber-200/80";
   if (c.includes("llanta") || c.includes("alineaci"))
-    return "bg-blue-50 text-blue-700 border-blue-200";
+    return "bg-blue-50 text-blue-700 border-blue-200/80";
   if (c.includes("mantenimiento"))
-    return "bg-emerald-50 text-emerald-700 border-emerald-200";
+    return "bg-emerald-50 text-emerald-700 border-emerald-200/80";
   if (c.includes("diagn"))
-    return "bg-purple-50 text-purple-700 border-purple-200";
-  if (c.includes("clima")) return "bg-cyan-50 text-cyan-700 border-cyan-200";
-  return "bg-slate-100 text-slate-700 border-slate-200";
+    return "bg-purple-50 text-purple-700 border-purple-200/80";
+  if (c.includes("clima")) return "bg-cyan-50 text-cyan-700 border-cyan-200/80";
+  return "bg-slate-100 text-slate-700 border-slate-200/80";
 }
 
 export default function ServiciosPage() {
@@ -129,27 +129,23 @@ export default function ServiciosPage() {
       : 0;
 
   return (
-    <div className="h-full flex flex-col relative">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row justify-between lg:items-end mb-4 gap-3 shrink-0">
+    <div className="h-full flex flex-col space-y-4">
+      {/* Header & Metrics */}
+      <div className="bg-white p-4 lg:p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row justify-between sm:items-center gap-3 shrink-0">
         <div>
           <div className="flex items-center gap-2.5 flex-wrap">
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-              Catálogo de Mano de Obra y Paquetes (Flat-Rate)
+              Catálogo de Servicios & Mano de Obra
             </h1>
-            <span className="bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded text-xs font-mono font-bold">
+            <span className="bg-slate-100 text-slate-700 border border-slate-200/80 px-2.5 py-0.5 rounded-full text-xs font-mono font-bold">
               {activeCount} activos de {services.length}
             </span>
-            <span className="bg-blue-50 text-blue-800 border border-blue-200 px-2 py-0.5 rounded text-xs font-mono font-bold">
-              Tarifa Promedio: $
-              {avgHourlyRate.toLocaleString("es-MX", {
-                maximumFractionDigits: 0,
-              })}
-              /hr
+            <span className="bg-blue-50 text-blue-800 border border-blue-200 px-2.5 py-0.5 rounded-full text-xs font-mono font-bold">
+              Tarifa Promedio: $${avgHourlyRate.toLocaleString("es-MX", { maximumFractionDigits: 0 })}/hr
             </span>
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Tabulador estandarizado de tiempos de taller, precios base y tarifas por hora.
+          <p className="text-xs text-slate-500 mt-1">
+            Tabulador estandarizado de tiempos Flat-Rate, mano de obra y promociones de taller.
           </p>
         </div>
 
@@ -158,26 +154,26 @@ export default function ServiciosPage() {
             setSelectedService(null);
             setIsModalOpen(true);
           }}
-          className="flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-md text-xs font-bold transition-colors shadow-xs cursor-pointer"
+          className="flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
         >
-          <Plus size={15} strokeWidth={2.5} />
-          Nuevo Servicio / Mano de Obra
+          <Plus size={14} strokeWidth={2.5} />
+          + Nuevo Servicio
         </button>
       </div>
 
       {/* Filter Toolbar */}
-      <div className="panel-card p-3 mb-3 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3 shrink-0">
+      <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3 shrink-0">
         {/* Search */}
         <div className="relative w-full xl:w-80 shrink-0">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
             <Search size={14} className="text-slate-400" />
           </div>
           <input
             type="text"
-            placeholder="Buscar por código SKU, servicio o descripción..."
+            placeholder="Buscar por código SKU, servicio o alcance..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="block w-full pl-9 pr-3 py-1.5 border border-slate-200 rounded-md bg-slate-50/60 text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-600 text-xs transition-all"
+            className="block w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl bg-slate-50/70 text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white text-xs transition-all"
           />
         </div>
 
@@ -189,7 +185,7 @@ export default function ServiciosPage() {
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
                   active
                     ? "bg-slate-900 text-white shadow-xs"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -202,31 +198,31 @@ export default function ServiciosPage() {
         </div>
       </div>
 
-      {/* Data Table */}
-      <div className="panel-card overflow-hidden flex-1 flex flex-col bg-white">
+      {/* Modern Services Table */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex-1 flex flex-col">
         <div className="overflow-x-auto flex-1 dense-scrollbar">
           <table className="w-full text-left border-collapse">
             <thead className="sticky top-0 bg-slate-50/95 backdrop-blur-xs z-10 border-b border-slate-200">
               <tr>
-                <th className="px-4 py-2.5 text-[11px] tracking-wider text-slate-500 font-bold uppercase w-32">
+                <th className="px-5 py-3 text-[11px] tracking-wider text-slate-500 font-bold uppercase w-32">
                   Código SKU
                 </th>
-                <th className="px-4 py-2.5 text-[11px] tracking-wider text-slate-500 font-bold uppercase min-w-[260px]">
+                <th className="px-5 py-3 text-[11px] tracking-wider text-slate-500 font-bold uppercase min-w-[260px]">
                   Servicio y Alcance Técnico
                 </th>
-                <th className="px-4 py-2.5 text-[11px] tracking-wider text-slate-500 font-bold uppercase">
+                <th className="px-5 py-3 text-[11px] tracking-wider text-slate-500 font-bold uppercase">
                   Categoría
                 </th>
-                <th className="px-4 py-2.5 text-[11px] tracking-wider text-slate-500 font-bold uppercase text-right">
+                <th className="px-5 py-3 text-[11px] tracking-wider text-slate-500 font-bold uppercase text-right">
                   Tiempo Est.
                 </th>
-                <th className="px-4 py-2.5 text-[11px] tracking-wider text-slate-500 font-bold uppercase text-right">
+                <th className="px-5 py-3 text-[11px] tracking-wider text-slate-500 font-bold uppercase text-right">
                   Tarifa / Hora
                 </th>
-                <th className="px-4 py-2.5 text-[11px] tracking-wider text-slate-500 font-bold uppercase text-right">
+                <th className="px-5 py-3 text-[11px] tracking-wider text-slate-500 font-bold uppercase text-right">
                   Precio Base
                 </th>
-                <th className="px-4 py-2.5 text-[11px] tracking-wider text-slate-500 font-bold uppercase text-center w-28">
+                <th className="px-5 py-3 text-[11px] tracking-wider text-slate-500 font-bold uppercase text-center w-28">
                   Activo / Editar
                 </th>
               </tr>
@@ -257,14 +253,14 @@ export default function ServiciosPage() {
                       className="border-b border-slate-100 last:border-0 hover:bg-slate-50/80 transition-colors group"
                     >
                       {/* SKU */}
-                      <td className="px-4 py-3 align-middle">
-                        <span className="font-mono text-[11px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded">
+                      <td className="px-5 py-3.5 align-middle">
+                        <span className="font-mono text-xs font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-lg">
                           {sku}
                         </span>
                       </td>
 
                       {/* Nombre + Descripción */}
-                      <td className="px-4 py-3 align-middle">
+                      <td className="px-5 py-3.5 align-middle">
                         <div className="flex flex-col">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span
@@ -277,7 +273,7 @@ export default function ServiciosPage() {
                               {srv.nombre}
                             </span>
                             {srv.aplica_promo_llantas && (
-                              <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.2 rounded text-[10px] font-bold">
+                              <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-md text-[10px] font-bold">
                                 <Sparkles size={10} /> Promo Llantas
                               </span>
                             )}
@@ -291,9 +287,9 @@ export default function ServiciosPage() {
                       </td>
 
                       {/* Categoría */}
-                      <td className="px-4 py-3 align-middle">
+                      <td className="px-5 py-3.5 align-middle">
                         <span
-                          className={`px-2 py-0.5 rounded border text-[10px] font-bold uppercase tracking-wider ${getCategoryBadgeStyle(
+                          className={`px-2.5 py-1 rounded-xl border text-[10px] font-bold uppercase tracking-wider ${getCategoryBadgeStyle(
                             cat
                           )}`}
                         >
@@ -302,7 +298,7 @@ export default function ServiciosPage() {
                       </td>
 
                       {/* Horas Estimadas */}
-                      <td className="px-4 py-3 align-middle text-right">
+                      <td className="px-5 py-3.5 align-middle text-right">
                         <span className="inline-flex items-center gap-1 font-mono text-xs font-semibold text-slate-700">
                           <Clock size={11} className="text-slate-400" />
                           {hrs.toFixed(1)} hrs
@@ -310,28 +306,21 @@ export default function ServiciosPage() {
                       </td>
 
                       {/* Tarifa / Hora */}
-                      <td className="px-4 py-3 align-middle text-right">
+                      <td className="px-5 py-3.5 align-middle text-right">
                         <span className="font-mono text-xs text-slate-600">
-                          $
-                          {ratePerHour.toLocaleString("es-MX", {
-                            maximumFractionDigits: 0,
-                          })}
-                          /hr
+                          $${ratePerHour.toLocaleString("es-MX", { maximumFractionDigits: 0 })}/hr
                         </span>
                       </td>
 
                       {/* Precio Base */}
-                      <td className="px-4 py-3 align-middle text-right">
+                      <td className="px-5 py-3.5 align-middle text-right">
                         <span className="font-mono text-sm font-black text-slate-900">
-                          $
-                          {precio.toLocaleString("es-MX", {
-                            minimumFractionDigits: 2,
-                          })}
+                          $${precio.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                         </span>
                       </td>
 
                       {/* Activo + Edit */}
-                      <td className="px-4 py-3 align-middle text-center">
+                      <td className="px-5 py-3.5 align-middle text-center">
                         <div className="inline-flex items-center justify-center gap-2">
                           <label className="relative inline-flex items-center justify-center cursor-pointer select-none">
                             <input
@@ -348,7 +337,7 @@ export default function ServiciosPage() {
                               setSelectedService(srv);
                               setIsModalOpen(true);
                             }}
-                            className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
                             title="Editar servicio"
                           >
                             <Edit3 size={14} />
@@ -360,12 +349,10 @@ export default function ServiciosPage() {
                 })
               ) : (
                 <tr>
-                  <td colSpan={7} className="px-5 py-10 text-center text-slate-500 text-sm">
+                  <td colSpan={7} className="px-5 py-12 text-center text-slate-500 text-xs">
                     <div className="flex flex-col items-center gap-2">
                       <Wrench size={26} className="text-slate-300" />
-                      <span>
-                        No se encontraron servicios registrados en esta categoría.
-                      </span>
+                      <span>No se encontraron servicios registrados en esta categoría.</span>
                     </div>
                   </td>
                 </tr>
