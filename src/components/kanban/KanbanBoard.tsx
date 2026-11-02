@@ -416,7 +416,7 @@ export function KanbanBoard() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-                Tablero de Operaciones (Workflow)
+                Tablero de Operaciones
               </h1>
               {sucursalActiva ? (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-bold">
@@ -428,9 +428,7 @@ export function KanbanBoard() {
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Control de órdenes en piso, bahías de trabajo, inspecciones DVI y rentabilidad en tiempo real.
-            </p>
+            
           </div>
 
           {/* KPI Pills + New Order Button */}
@@ -480,7 +478,7 @@ export function KanbanBoard() {
               </div>
               <input
                 type="text"
-                placeholder="Buscar folio (#1001), placa, cliente..."
+                placeholder="Buscar auto, placa, cliente o folio..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="block w-full pl-8 pr-3 h-8 border border-slate-300 rounded-md bg-slate-50/60 text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-600 text-xs transition-all"
