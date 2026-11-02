@@ -15,11 +15,13 @@ import {
   Edit3,
   Crown,
   Users,
+  ChevronRight,
+  UserCheck
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { Modal } from "../../../components/ui/Modal";
-import { ClientForm, ClientFormData } from "../../../components/clientes/ClientForm";
-import { VehicleForm } from "../../../components/clientes/VehicleForm";
+import { Modal } from "@/components/ui/Modal";
+import { ClientForm, ClientFormData } from "@/components/clientes/ClientForm";
+import { VehicleForm } from "@/components/clientes/VehicleForm";
 
 interface Vehicle {
   id: string;
@@ -68,26 +70,46 @@ function cleanWhatsAppPhone(phone: string): string {
   return digits.startsWith("52") ? digits : `52${digits}`;
 }
 
+const AVATAR_COLORS = [
+  "from-blue-600 to-indigo-600",
+  "from-emerald-600 to-teal-600",
+  "from-violet-600 to-purple-600",
+  "from-amber-600 to-orange-600",
+  "from-cyan-600 to-blue-600",
+  "from-rose-600 to-pink-600"
+];
+
+function getAvatarColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
 function SkeletonRow() {
   return (
     <tr className="border-b border-slate-100 last:border-0 animate-pulse">
-      <td className="px-4 py-3 align-middle">
-        <div className="flex flex-col gap-1.5">
-          <div className="h-4 bg-slate-200 rounded w-36" />
-          <div className="h-3 bg-slate-100 rounded w-24" />
+      <td className="px-5 py-3.5 align-middle">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-slate-200 shrink-0" />
+          <div className="flex flex-col gap-1.5 flex-1">
+            <div className="h-4 bg-slate-200 rounded w-36" />
+            <div className="h-3 bg-slate-100 rounded w-24" />
+          </div>
         </div>
       </td>
-      <td className="px-4 py-3 align-middle">
+      <td className="px-5 py-3.5 align-middle">
         <div className="flex flex-col gap-1.5">
           <div className="h-3.5 bg-slate-200 rounded w-28" />
           <div className="h-3 bg-slate-100 rounded w-32" />
         </div>
       </td>
-      <td className="px-4 py-3 align-middle">
-        <div className="h-6 bg-slate-200 rounded-md w-56" />
+      <td className="px-5 py-3.5 align-middle">
+        <div className="h-7 bg-slate-200 rounded-xl w-48" />
       </td>
-      <td className="px-4 py-3 align-middle text-right">
-        <div className="h-7 bg-slate-200 rounded-md w-24 ml-auto" />
+      <td className="px-5 py-3.5 align-middle text-right">
+        <div className="h-8 bg-slate-200 rounded-xl w-24 ml-auto" />
       </td>
     </tr>
   );
@@ -232,38 +254,39 @@ export default function ClientesPage() {
   );
 
   return (
-    <div className="h-full flex flex-col relative">
-      {/* Header & KPIs */}
-      <div className="flex flex-col lg:flex-row justify-between lg:items-end mb-4 gap-3 shrink-0">
+    <div className="h-full flex flex-col space-y-4">
+      {/* Top Header & Metrics */}
+      <div className="bg-white p-4 lg:p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row justify-between sm:items-center gap-3 shrink-0">
         <div>
           <div className="flex items-center gap-2.5">
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-              CRM Clientes, Flotillas y Vehículos
+              Directorio de Clientes
             </h1>
-            <span className="bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded text-xs font-mono font-bold">
-              {clients.length} clientes · {totalVehicles} autos
+            <span className="bg-slate-100 text-slate-700 border border-slate-200/80 px-2.5 py-0.5 rounded-full text-xs font-mono font-bold">
+              {clients.length} clientes · {totalVehicles} unidades
             </span>
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Expedientes clínicos por unidad, control de flotillas empresariales y seguimiento de trabajos diferidos.
+          <p className="text-xs text-slate-500 mt-1">
+            Expedientes 360, historial clínico por auto y seguimiento de trabajos diferidos.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2">
           {totalDeferredCount > 0 && (
             <button
               onClick={() =>
                 setFilterMode(filterMode === "DEFERRED" ? "ALL" : "DEFERRED")
               }
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold border transition-colors cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
                 filterMode === "DEFERRED"
-                  ? "bg-amber-600 text-white border-amber-600"
-                  : "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
+                  ? "bg-amber-600 text-white border-amber-600 shadow-xs"
+                  : "bg-amber-50 text-amber-900 border-amber-200/80 hover:bg-amber-100"
               }`}
+              title="Filtrar clientes con trabajos diferidos pendientes"
             >
-              <AlertTriangle size={14} />
+              <AlertTriangle size={13} className="shrink-0" />
               <span>
-                {totalDeferredCount} Diferidos Pendientes ($
+                {totalDeferredCount} Diferidos ($
                 {totalDeferredValue.toLocaleString("es-MX", {
                   maximumFractionDigits: 0,
                 })}
@@ -277,19 +300,19 @@ export default function ClientesPage() {
               setEditingClient(null);
               setIsClientModalOpen(true);
             }}
-            className="flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-md text-xs font-bold transition-colors shadow-xs cursor-pointer"
+            className="flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
           >
-            <Plus size={15} strokeWidth={2.5} />
-            Nuevo Cliente / Flotilla
+            <Plus size={14} strokeWidth={2.5} />
+            + Nuevo Cliente
           </button>
         </div>
       </div>
 
       {/* Filter Toolbar */}
-      <div className="panel-card p-3 mb-3 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 shrink-0">
+      <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 shrink-0">
         {/* Search Input */}
         <div className="relative flex-1 max-w-xl">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
             <Search size={14} className="text-slate-400" />
           </div>
           <input
@@ -297,7 +320,7 @@ export default function ClientesPage() {
             placeholder="Buscar por cliente, empresa, RFC, teléfono, placas, VIN o medida OEM..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="block w-full pl-9 pr-3 py-1.5 border border-slate-200 rounded-md bg-slate-50/60 text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-600 text-xs transition-all"
+            className="block w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl bg-slate-50/70 text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-slate-400 text-xs transition-all"
           />
         </div>
 
@@ -308,10 +331,10 @@ export default function ClientesPage() {
             { id: "FLEET" as FilterMode, label: "Flotillas / Empresas", icon: Building2 },
             {
               id: "DEFERRED" as FilterMode,
-              label: "Con Trabajos Diferidos",
+              label: "Con Diferidos",
               icon: AlertTriangle,
             },
-            { id: "VIP" as FilterMode, label: "Clientes VIP", icon: Crown },
+            { id: "VIP" as FilterMode, label: "VIP", icon: Crown },
           ].map((pill) => {
             const Icon = pill.icon;
             const active = filterMode === pill.id;
@@ -319,7 +342,7 @@ export default function ClientesPage() {
               <button
                 key={pill.id}
                 onClick={() => setFilterMode(pill.id)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
                   active
                     ? "bg-slate-900 text-white shadow-xs"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -333,23 +356,23 @@ export default function ClientesPage() {
         </div>
       </div>
 
-      {/* Data Table Container */}
-      <div className="panel-card overflow-hidden flex-1 flex flex-col bg-white">
-        {/* Desktop High-Density Table */}
+      {/* Modern Data Container */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex-1 flex flex-col">
+        {/* Desktop Table View */}
         <div className="hidden md:block overflow-x-auto flex-1 dense-scrollbar">
           <table className="w-full text-left border-collapse">
             <thead className="sticky top-0 bg-slate-50/95 backdrop-blur-xs z-10 border-b border-slate-200">
               <tr>
-                <th className="px-4 py-2.5 text-[11px] tracking-wider text-slate-500 font-bold uppercase min-w-[230px]">
-                  Cliente / Empresa
+                <th className="px-5 py-3 text-[11px] tracking-wider text-slate-500 font-bold uppercase min-w-[260px]">
+                  Cliente / Razón Social
                 </th>
-                <th className="px-4 py-2.5 text-[11px] tracking-wider text-slate-500 font-bold uppercase min-w-[200px]">
+                <th className="px-5 py-3 text-[11px] tracking-wider text-slate-500 font-bold uppercase min-w-[200px]">
                   Contacto Directo
                 </th>
-                <th className="px-4 py-2.5 text-[11px] tracking-wider text-slate-500 font-bold uppercase min-w-[360px]">
-                  Flotilla / Vehículos (Clic para Expediente Clínico)
+                <th className="px-5 py-3 text-[11px] tracking-wider text-slate-500 font-bold uppercase min-w-[340px]">
+                  Garaje / Flotilla Asociada
                 </th>
-                <th className="px-4 py-2.5 text-[11px] tracking-wider text-slate-500 font-bold uppercase text-right min-w-[150px]">
+                <th className="px-5 py-3 text-[11px] tracking-wider text-slate-500 font-bold uppercase text-right min-w-[150px]">
                   Acciones Rápidas
                 </th>
               </tr>
@@ -369,87 +392,93 @@ export default function ClientesPage() {
                   const hasRedDeferred = client.diferidosPendientes.some(
                     (d) => d.severidad === "rojo"
                   );
+                  const avatarColor = getAvatarColor(client.nombre);
+                  const initial = client.nombre ? client.nombre.charAt(0).toUpperCase() : "C";
 
                   return (
                     <tr
                       key={client.id}
                       onClick={() => router.push(`/clientes/${client.id}`)}
-                      className="border-b border-slate-100 last:border-0 hover:bg-slate-50/80 transition-colors group cursor-pointer"
+                      className="border-b border-slate-100 last:border-0 hover:bg-slate-50/90 transition-colors group cursor-pointer"
                     >
                       {/* Cliente / Empresa */}
-                      <td className="px-4 py-3 align-top">
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-slate-900 text-sm tracking-tight group-hover:text-blue-600 transition-colors">
-                              {client.nombre}
-                            </span>
-                            {client.diferidosPendientes.length > 0 && (
-                              <span
-                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
-                                  hasRedDeferred
-                                    ? "bg-red-50 text-red-700 border-red-200"
-                                    : "bg-amber-50 text-amber-800 border-amber-200"
-                                }`}
-                                title="Trabajos diferidos pendientes de autorizar"
-                              >
-                                ⚠️ {client.diferidosPendientes.length} diferido
-                                {client.diferidosPendientes.length > 1 ? "s" : ""}
-                              </span>
-                            )}
+                      <td className="px-5 py-3.5 align-middle">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${avatarColor} text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0`}>
+                            {initial}
                           </div>
-
-                          {client.empresa && (
-                            <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-700">
-                              <Building2 size={12} className="text-blue-500 shrink-0" />
-                              <span>{client.empresa}</span>
-                              {client.rfc && (
-                                <span className="font-mono text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
-                                  {client.rfc}
+                          <div className="flex flex-col min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-slate-900 text-sm tracking-tight group-hover:text-blue-600 transition-colors">
+                                {client.nombre}
+                              </span>
+                              {client.diferidosPendientes.length > 0 && (
+                                <span
+                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${
+                                    hasRedDeferred
+                                      ? "bg-red-50 text-red-700 border-red-200"
+                                      : "bg-amber-50 text-amber-800 border-amber-200"
+                                  }`}
+                                  title="Trabajos diferidos pendientes de atender"
+                                >
+                                  ⚠️ {client.diferidosPendientes.length} diferido
+                                  {client.diferidosPendientes.length > 1 ? "s" : ""}
                                 </span>
                               )}
                             </div>
-                          )}
 
-                          <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-                            <span className="text-[11px] text-slate-400">
-                              Alta: {client.fechaRegistro}
-                            </span>
-                            {client.tags.map((tag, idx) => (
-                              <span
-                                key={idx}
-                                className="bg-slate-100 text-slate-700 border border-slate-200 px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider"
-                              >
-                                {tag}
-                              </span>
-                            ))}
+                            {client.empresa && (
+                              <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-700 mt-0.5">
+                                <Building2 size={12} className="text-blue-500 shrink-0" />
+                                <span className="truncate">{client.empresa}</span>
+                                {client.rfc && (
+                                  <span className="font-mono text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200">
+                                    {client.rfc}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {client.tags.length > 0 && (
+                              <div className="flex items-center gap-1 flex-wrap mt-1">
+                                {client.tags.map((tag, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="bg-slate-100 text-slate-600 border border-slate-200/80 px-1.5 py-0.2 rounded-md text-[9px] font-bold uppercase tracking-wider"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>
 
                       {/* Contacto Directo */}
-                      <td className="px-4 py-3 align-top">
+                      <td className="px-5 py-3.5 align-middle">
                         <div className="flex flex-col gap-1.5">
-                          <div className="flex items-center gap-1.5">
-                            <span className="inline-flex items-center gap-1.5 text-xs font-mono font-semibold text-slate-700">
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 text-xs font-mono font-semibold text-slate-800">
                               <Phone size={12} className="text-slate-400" />
                               {client.telefono}
                             </span>
                             {waPhone && (
                               <a
                                 href={`https://wa.me/${waPhone}?text=${encodeURIComponent(
-                                  `Hola ${client.nombre}, te contactamos de tu Centro Automotriz.`
+                                  `Hola ${client.nombre}, te contactamos de Cova Centro Automotriz.`
                                 )}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}
-                                className="inline-flex items-center justify-center p-1 rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors"
-                                title="Enviar WhatsApp directo"
+                                className="inline-flex items-center justify-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white border border-emerald-200 transition-colors text-[11px] font-bold"
+                                title="Enviar mensaje de WhatsApp directo"
                               >
-                                <MessageCircle size={12} />
+                                <MessageCircle size={11} /> WhatsApp
                               </a>
                             )}
                           </div>
-                          {client.correo !== "Sin correo" && (
+                          {client.correo && client.correo !== "Sin correo" && (
                             <div className="flex items-center gap-1.5 text-xs text-slate-500 truncate max-w-[200px]">
                               <Mail size={12} className="text-slate-400 shrink-0" />
                               <span className="truncate">{client.correo}</span>
@@ -459,7 +488,7 @@ export default function ClientesPage() {
                       </td>
 
                       {/* Vehículos Registrados */}
-                      <td className="px-4 py-3 align-top">
+                      <td className="px-5 py-3.5 align-middle">
                         <div className="flex flex-wrap gap-1.5 items-center">
                           {client.vehiculos.length > 0 ? (
                             client.vehiculos.map((v) => {
@@ -476,22 +505,16 @@ export default function ClientesPage() {
                                       `/clientes/${client.id}?vehiculoId=${v.id}`
                                     );
                                   }}
-                                  className="inline-flex items-center gap-1.5 bg-slate-50 hover:bg-blue-50 text-slate-800 hover:text-blue-800 px-2.5 py-1 rounded-md border border-slate-200 hover:border-blue-300 transition-colors cursor-pointer"
-                                  title="Abrir expediente clínico de este vehículo"
+                                  className="inline-flex items-center gap-1.5 bg-slate-50 hover:bg-blue-50 text-slate-800 hover:text-blue-800 px-2.5 py-1 rounded-xl border border-slate-200 hover:border-blue-300 transition-colors cursor-pointer"
+                                  title="Ver ficha de este vehículo"
                                 >
                                   <Car size={12} className="text-slate-400 shrink-0" />
-                                  <span className="text-[11px] font-bold tracking-tight">
-                                    {v.marca} {v.modelo} &apos;
-                                    {String(v.anio).slice(-2)}
+                                  <span className="text-xs font-bold tracking-tight">
+                                    {v.marca} {v.modelo}
                                   </span>
                                   {v.placas && (
                                     <span className="font-mono text-[10px] bg-white px-1.5 py-0.2 rounded border border-slate-200 font-bold text-slate-700">
                                       {v.placas}
-                                    </span>
-                                  )}
-                                  {v.medida_oem && (
-                                    <span className="font-mono text-[10px] text-slate-500 hidden xl:inline">
-                                      ({v.medida_oem})
                                     </span>
                                   )}
                                   {vehDeferredCount > 0 && (
@@ -499,25 +522,12 @@ export default function ClientesPage() {
                                       ⚠️{vehDeferredCount}
                                     </span>
                                   )}
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSelectedClientId(client.id);
-                                      setSelectedVehicle(v);
-                                      setIsVehicleModalOpen(true);
-                                    }}
-                                    className="text-slate-400 hover:text-slate-700 p-0.5 rounded hover:bg-slate-200/60 transition-colors"
-                                    title="Editar datos técnicos del vehículo"
-                                  >
-                                    <Edit3 size={11} />
-                                  </button>
                                 </div>
                               );
                             })
                           ) : (
                             <span className="text-xs text-slate-400 italic">
-                              Sin unidades registradas
+                              Sin vehículos registrados
                             </span>
                           )}
 
@@ -529,7 +539,7 @@ export default function ClientesPage() {
                               setSelectedVehicle(null);
                               setIsVehicleModalOpen(true);
                             }}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded border border-dashed border-slate-300 text-[11px] font-semibold text-slate-500 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50 transition-colors cursor-pointer"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl border border-dashed border-slate-300 text-xs font-semibold text-slate-500 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50 transition-colors cursor-pointer"
                             title="Añadir vehículo a este cliente"
                           >
                             <Plus size={12} /> Auto
@@ -538,7 +548,7 @@ export default function ClientesPage() {
                       </td>
 
                       {/* Acciones Rápidas */}
-                      <td className="px-4 py-3 align-top text-right">
+                      <td className="px-5 py-3.5 align-middle text-right">
                         <div className="inline-flex items-center justify-end gap-1.5">
                           <button
                             type="button"
@@ -550,8 +560,8 @@ export default function ClientesPage() {
                                 : `/tablero?nuevaOrden=1&clienteId=${client.id}`;
                               router.push(url);
                             }}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-200 hover:border-blue-600 text-xs font-bold transition-colors cursor-pointer"
-                            title="Crear nueva orden de servicio en Tablero"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-200 hover:border-blue-600 text-xs font-bold transition-all cursor-pointer shadow-2xs"
+                            title="Crear orden de servicio en Tablero"
                           >
                             <Wrench size={12} />+ Orden
                           </button>
@@ -577,11 +587,13 @@ export default function ClientesPage() {
                               });
                               setIsClientModalOpen(true);
                             }}
-                            className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 border border-transparent hover:border-slate-200 transition-colors cursor-pointer"
+                            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
                             title="Editar cliente"
                           >
                             <Edit3 size={14} />
                           </button>
+
+                          <ChevronRight size={15} className="text-slate-300 group-hover:text-slate-600 transition-colors" />
                         </div>
                       </td>
                     </tr>
@@ -589,8 +601,8 @@ export default function ClientesPage() {
                 })
               ) : (
                 <tr>
-                  <td colSpan={4} className="px-5 py-10 text-center text-slate-500 text-sm">
-                    No se encontraron clientes o vehículos con los filtros actuales.
+                  <td colSpan={4} className="px-5 py-12 text-center text-slate-500 text-xs">
+                    No se encontraron clientes con los filtros aplicados.
                   </td>
                 </tr>
               )}
@@ -598,70 +610,81 @@ export default function ClientesPage() {
           </table>
         </div>
 
-        {/* Mobile Cards */}
-        <div className="md:hidden flex-1 overflow-y-auto p-3 space-y-2.5 bg-slate-50">
+        {/* Mobile Scannable Cards View */}
+        <div className="md:hidden flex-1 overflow-y-auto p-3 space-y-3 bg-slate-50/70">
           {loading ? (
-            <div className="p-4 text-center text-slate-500 text-xs">
+            <div className="p-6 text-center text-slate-400 text-xs font-medium">
               Cargando directorio...
             </div>
           ) : filteredClients.length > 0 ? (
             filteredClients.map((client) => {
               const waPhone = cleanWhatsAppPhone(client.telefono);
+              const avatarColor = getAvatarColor(client.nombre);
+              const initial = client.nombre ? client.nombre.charAt(0).toUpperCase() : "C";
+
               return (
                 <div
                   key={client.id}
                   onClick={() => router.push(`/clientes/${client.id}`)}
-                  className="bg-white p-3.5 rounded-lg border border-slate-200 shadow-xs flex flex-col gap-2.5 cursor-pointer"
+                  className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col gap-3 cursor-pointer"
                 >
                   <div className="flex justify-between items-start gap-2">
-                    <div>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-bold text-slate-900 text-sm">
-                          {client.nombre}
-                        </span>
-                        {client.diferidosPendientes.length > 0 && (
-                          <span className="bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded text-[10px] font-bold">
-                            ⚠️ {client.diferidosPendientes.length} diferidos
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${avatarColor} text-white flex items-center justify-center font-bold text-sm shrink-0`}>
+                        {initial}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-bold text-slate-900 text-sm">
+                            {client.nombre}
+                          </span>
+                          {client.diferidosPendientes.length > 0 && (
+                            <span className="bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded-md text-[10px] font-bold">
+                              ⚠️ {client.diferidosPendientes.length}
+                            </span>
+                          )}
+                        </div>
+                        {client.empresa && (
+                          <span className="text-xs font-semibold text-blue-700 block">
+                            {client.empresa}
                           </span>
                         )}
-                      </div>
-                      {client.empresa && (
-                        <span className="text-xs font-semibold text-blue-700 block">
-                          {client.empresa}
-                        </span>
-                      )}
-                      <div className="flex items-center gap-2 text-xs text-slate-600 font-mono mt-1">
-                        <Phone size={12} className="text-slate-400" />
-                        {client.telefono}
-                        {waPhone && (
-                          <a
-                            href={`https://wa.me/${waPhone}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-emerald-600 font-sans font-bold underline"
-                          >
-                            WhatsApp
-                          </a>
-                        )}
+                        <div className="flex items-center gap-2 text-xs text-slate-600 font-mono mt-0.5">
+                          <Phone size={11} className="text-slate-400" />
+                          {client.telefono}
+                        </div>
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const firstVehId = client.vehiculos[0]?.id || "";
-                        router.push(
-                          `/tablero?nuevaOrden=1&clienteId=${client.id}${
-                            firstVehId ? `&vehiculoId=${firstVehId}` : ""
-                          }`
-                        );
-                      }}
-                      className="bg-blue-600 text-white font-bold text-[11px] px-2.5 py-1.5 rounded-md shrink-0"
-                    >
-                      + Orden
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      {waPhone && (
+                        <a
+                          href={`https://wa.me/${waPhone}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="p-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          title="WhatsApp"
+                        >
+                          <MessageCircle size={14} />
+                        </a>
+                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const firstVehId = client.vehiculos[0]?.id || "";
+                          router.push(
+                            `/tablero?nuevaOrden=1&clienteId=${client.id}${
+                              firstVehId ? `&vehiculoId=${firstVehId}` : ""
+                            }`
+                          );
+                        }}
+                        className="bg-slate-900 text-white font-bold text-xs px-3 py-1.5 rounded-xl shadow-xs shrink-0"
+                      >
+                        + Orden
+                      </button>
+                    </div>
                   </div>
 
                   {/* Vehiculos (Mobile) */}
@@ -673,7 +696,7 @@ export default function ClientesPage() {
                           e.stopPropagation();
                           router.push(`/clientes/${client.id}?vehiculoId=${v.id}`);
                         }}
-                        className="bg-slate-100 border border-slate-200 text-slate-800 text-[11px] font-bold px-2 py-1 rounded"
+                        className="bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold px-2 py-1 rounded-xl"
                       >
                         {v.marca} {v.modelo} {v.placas ? `• ${v.placas}` : ""}
                       </span>
@@ -686,7 +709,7 @@ export default function ClientesPage() {
                         setSelectedVehicle(null);
                         setIsVehicleModalOpen(true);
                       }}
-                      className="flex items-center gap-1 bg-slate-50 border border-dashed border-slate-300 text-slate-600 px-2 py-1 rounded text-[11px] font-semibold"
+                      className="flex items-center gap-1 bg-slate-50 border border-dashed border-slate-300 text-slate-600 px-2 py-1 rounded-xl text-xs font-semibold"
                     >
                       <Plus size={11} /> Auto
                     </button>
@@ -695,7 +718,7 @@ export default function ClientesPage() {
               );
             })
           ) : (
-            <div className="p-4 text-center text-slate-500 text-xs">
+            <div className="p-6 text-center text-slate-400 text-xs">
               No se encontraron clientes.
             </div>
           )}
