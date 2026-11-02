@@ -67,6 +67,9 @@ export function OrderForm({
     initialDiferidoId ? [initialDiferidoId] : []
   );
 
+  // Mode: Express vs Inspección Completa (DVI)
+  const [tipoRecepcion, setTipoRecepcion] = useState<"express" | "inspeccion">("express");
+
   // Mode: Express New Ingestion vs Registered Selection
   const [isExpressMode, setIsExpressMode] = useState(false);
   const [expressClientName, setExpressClientName] = useState("");
@@ -82,13 +85,21 @@ export function OrderForm({
   const [formData, setFormData] = useState({
     sucursal_id: sucursalActiva?.id || "",
     mecanico_id: "",
-    bahia_rampa: "Bahía Diagnóstico",
+    bahia_rampa: "Rampa 4 (Servicio Rápido)",
     prioridad: "normal",
     kilometraje_ingreso: "",
     nivel_gasolina: "1/2",
     problema_reportado: "",
     notas_recepcion: "",
   });
+
+  const handleSelectTipoRecepcion = (tipo: "express" | "inspeccion") => {
+    setTipoRecepcion(tipo);
+    setFormData((prev) => ({
+      ...prev,
+      bahia_rampa: tipo === "express" ? "Rampa 4 (Servicio Rápido)" : "Bahía Diagnóstico",
+    }));
+  };
 
   useEffect(() => {
     if (sucursalActiva?.id && !formData.sucursal_id) {
@@ -277,6 +288,13 @@ export function OrderForm({
     }
 
     // 3. Create Service Order
+    const initialEstado = tipoRecepcion === "express" ? "En Rampa" : "Citas del Día";
+    const initialChecklist = {
+      tipo_recepcion: tipoRecepcion,
+      dvi_omitido: tipoRecepcion === "express",
+      fecha_ingreso: new Date().toISOString(),
+    };
+
     const { data: createdOrder, error: dbError } = await supabase
       .from("ordenes_servicio")
       .insert({
@@ -289,7 +307,8 @@ export function OrderForm({
         kilometraje_ingreso: kmIngreso,
         problema_reportado: formData.problema_reportado || formData.notas_recepcion || null,
         notas_recepcion: formData.notas_recepcion || formData.problema_reportado || null,
-        estado: "Citas del Día",
+        checklist_recepcion: initialChecklist,
+        estado: initialEstado,
         sub_estado: "Activa",
       })
       .select("id")
@@ -367,27 +386,51 @@ export function OrderForm({
         </div>
       )}
 
-      {/* Mode Toggle: Express New Ingestion vs Registered Selection */}
-      <div className="flex items-center justify-between p-2.5 bg-slate-100 rounded-lg border border-slate-200">
-        <div className="flex items-center gap-2">
-          <Zap size={16} className={isExpressMode ? "text-amber-500" : "text-slate-400"} />
-          <span className="text-xs font-bold text-slate-800">
-            {isExpressMode ? "Modo: Recepción Express (Cliente y Auto Nuevo)" : "Modo: Cliente / Vehículo Existente"}
-          </span>
+      {/* Modalidad de Entrada: Express vs Inspección Completa */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-1.5 bg-slate-100/90 rounded-lg border border-slate-200">
+        <div className="inline-flex rounded-md p-0.5 bg-slate-200/80">
+          <button
+            type="button"
+            onClick={() => handleSelectTipoRecepcion("express")}
+            className={`px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+              tipoRecepcion === "express"
+                ? "bg-white text-slate-900 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            Servicio Express
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSelectTipoRecepcion("inspeccion")}
+            className={`px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+              tipoRecepcion === "inspeccion"
+                ? "bg-white text-slate-900 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            Inspección Completa
+          </button>
         </div>
+        <span className="text-[11px] text-slate-500 font-medium px-1">
+          {tipoRecepcion === "express" ? "Atención directa en rampa sin DVI" : "Recepción formal con DVI"}
+        </span>
+      </div>
+
+      {/* Selector de Cliente: Registrado vs Nuevo */}
+      <div className="flex items-center justify-between px-1 text-xs text-slate-600">
+        <span className="font-medium">
+          {isExpressMode ? "Registro de cliente nuevo en mostrador" : "Cliente registrado en sistema"}
+        </span>
         <button
           type="button"
           onClick={() => {
             setIsExpressMode(!isExpressMode);
             setError("");
           }}
-          className={`text-xs font-bold px-3 py-1 rounded-md transition-colors cursor-pointer ${
-            isExpressMode
-              ? "bg-amber-500 hover:bg-amber-600 text-white"
-              : "bg-white hover:bg-slate-200 text-slate-700 border border-slate-300"
-          }`}
+          className="text-slate-700 hover:text-slate-900 underline font-semibold cursor-pointer"
         >
-          {isExpressMode ? "Cambiar a Cliente Registrado" : "⚡ Alta Rápida de Auto en Patio"}
+          {isExpressMode ? "Buscar cliente registrado" : "Registrar cliente nuevo"}
         </button>
       </div>
 
@@ -412,10 +455,10 @@ export function OrderForm({
 
       {/* SECTION 1: Client & Vehicle Identification */}
       {isExpressMode ? (
-        <div className="bg-amber-50/60 border border-amber-200 rounded-lg p-3.5 space-y-3">
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3.5 space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-amber-950 flex items-center gap-1.5">
-              <Zap size={14} className="text-amber-600" /> Datos del Nuevo Cliente y Unidad en Patio
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+              <User size={14} className="text-slate-600" /> Datos del Nuevo Cliente y Unidad en Patio
             </h3>
             <button
               type="button"
@@ -690,8 +733,8 @@ export function OrderForm({
               className={inputClasses}
             >
               <option value="normal">Normal</option>
-              <option value="urgente">⚡ Urgente / Espera en Sala</option>
-              <option value="flotilla">🚚 Flotilla Comercial</option>
+              <option value="urgente">Urgente (Espera en Sala)</option>
+              <option value="flotilla">Flotilla Comercial</option>
             </select>
           </div>
         </div>

@@ -40,6 +40,7 @@ export interface Order {
   totalAmount: number;
   paidAmount: number;
   aprobadoClienteNombre?: string | null;
+  isExpress?: boolean;
   dviCounts: {
     rojo: number;
     amarillo: number;
@@ -117,6 +118,11 @@ export function KanbanCard({ order, onClick }: KanbanCardProps) {
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
+            {order.isExpress && (
+              <span className="text-[10px] font-semibold uppercase tracking-wider bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">
+                Express
+              </span>
+            )}
             <span className="text-[10px] font-mono font-bold uppercase tracking-wider bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded border border-slate-200/80">
               {order.plates || "S/P"}
             </span>

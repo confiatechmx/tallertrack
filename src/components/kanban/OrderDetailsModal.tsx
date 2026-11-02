@@ -1737,6 +1737,11 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
     );
   };
 
+  const isExpressOrder = Boolean(
+    order?.checklist_recepcion?.tipo_recepcion === "express" ||
+    order?.checklist_recepcion?.dvi_omitido === true
+  );
+
   const dviRedCount = dviItems.filter((i) => i.severidad === "rojo").length;
   const dviYellowCount = dviItems.filter((i) => i.severidad === "amarillo").length;
   const dviGreenCount = dviItems.filter((i) => i.severidad === "verde").length;
@@ -2194,8 +2199,12 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
             }`}>
               1
             </span>
-            <span>Recepción & DVI</span>
-            {dviRedCount > 0 ? (
+            <span>{isExpressOrder ? "Recepción Express" : "Recepción & DVI"}</span>
+            {isExpressOrder ? (
+              <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-slate-100 text-slate-500 border border-slate-200">
+                Sin DVI
+              </span>
+            ) : dviRedCount > 0 ? (
               <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-red-100 text-red-700 font-bold">
                 {dviRedCount} alertas
               </span>
@@ -3868,7 +3877,30 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
 
         {/* TAB 2: INSPECCIÓN DIGITAL (DVI) Y RECEPCIÓN */}
         {activeTab === "dvi" && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          <div className="space-y-4">
+            {isExpressOrder && dviItems.length === 0 && (
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">
+                      Express
+                    </span>
+                    <span className="text-xs font-bold text-slate-800">Atención Directa en Rampa</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Esta orden ingresó para servicio rápido sin inspección de patio inicial. Si detectas un hallazgo al desmontar la unidad, puedes registrarlo a continuación.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsAddingDvi(true)}
+                  className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold cursor-pointer shrink-0 transition-colors"
+                >
+                  + Registrar Hallazgo en Rampa
+                </button>
+              </div>
+            )}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
             {/* Left 7 Cols: Persistent DVI CRUD */}
             <div className="lg:col-span-7 space-y-4">
               <div className="bg-white border border-slate-200 rounded-lg shadow-2xs overflow-hidden">
@@ -4294,7 +4326,8 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
         {/* TAB 3: PAGOS Y COBRANZA */}
         {activeTab === "pagos" && (

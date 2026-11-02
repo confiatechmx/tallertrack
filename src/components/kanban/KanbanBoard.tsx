@@ -128,6 +128,7 @@ export function KanbanBoard() {
           bahia_rampa,
           mecanico_id,
           aprobado_cliente_nombre,
+          checklist_recepcion,
           vehiculos (
             id,
             marca,
@@ -255,6 +256,7 @@ export function KanbanBoard() {
           totalAmount,
           paidAmount,
           aprobadoClienteNombre: d.aprobado_cliente_nombre || null,
+          isExpress: d.checklist_recepcion?.tipo_recepcion === "express" || d.checklist_recepcion?.dvi_omitido === true,
           dviCounts,
         };
       });
