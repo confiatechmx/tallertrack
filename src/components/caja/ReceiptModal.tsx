@@ -118,21 +118,29 @@ export function ReceiptModal({
   const rawPhone = cli.telefono || "";
   const cleanPhone = rawPhone.replace(/\D/g, "");
   const waPhone = cleanPhone.startsWith("52") ? cleanPhone : `52${cleanPhone}`;
+  const originUrl = typeof window !== "undefined" ? window.location.origin : "https://cova.tallertrack.com";
+  const comprobanteDigitalUrl = `${originUrl}/orden/${order.id}/imprimir`;
+  const metodosStr = payments && payments.length > 1
+    ? payments.map((p: any) => `  • ${p.proveedor_pago || p.metodo_detalle}: ${Number(p.monto || p.monto_total || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}${p.referencia ? ` (Ref: ${p.referencia})` : ""}`).join("\n")
+    : `💳 Método: ${payment?.metodo_detalle || payment?.proveedor_pago || (payments?.[0]?.metodo_detalle || payments?.[0]?.proveedor_pago) || "Efectivo"}${payment?.referencia ? ` (Ref: ${payment.referencia})` : ""}`;
+
   const waMessage = encodeURIComponent(
     `🧾 *RECIBO OFICIAL DE PAGO Y COMPROBANTE DE CAJA*\n` +
-      `🏢 *${empresa?.nombre_comercial || "Cova - Taller & Llantera"}*\n` +
+      `🏢 *${empresa?.nombre_comercial || "Cova"}*\n` +
       `🔖 Recibo: ${ticketFolio} | Orden: ${folioDisplay}\n` +
       `🚗 ${veh.marca || ""} ${veh.modelo || ""} (${veh.placas || "Sin placas"})\n` +
       `👤 Cliente: ${cli.nombre || "Venta General"}\n` +
       `--------------------------------\n` +
-      `💳 Método: ${payment?.metodo_detalle || payment?.proveedor_pago || "Efectivo"}\n` +
-      `💰 Monto Pagado: $${montoCobrado.toLocaleString("es-MX", { minimumFractionDigits: 2 })}\n` +
-      (cashGiven ? `💵 Efectivo Recibido: $${cashGiven.toLocaleString("es-MX", { minimumFractionDigits: 2 })}\n` : "") +
+      `${metodosStr}\n` +
+      `💰 Monto Pagado: ${montoCobrado.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN\n` +
+      (cashGiven ? `💵 Efectivo Recibido: ${cashGiven.toLocaleString("es-MX", { minimumFractionDigits: 2 })}\n` : "") +
       (changeDue ? `🪙 Cambio Entregado: ${changeDue.toLocaleString("es-MX", { minimumFractionDigits: 2 })}\n` : "") +
       (Number(payment?.descuento_aplicado || order?.descuento_efectivo_monto || 0) > 0 ? `✨ Descuento Promoción Efectivo: -${Number(payment?.descuento_aplicado || order?.descuento_efectivo_monto).toLocaleString("es-MX", { minimumFractionDigits: 2 })}\n` : "") +
-      `🏁 Saldo Pendiente: $${saldo.toLocaleString("es-MX", { minimumFractionDigits: 2 })}\n` +
+      `🏁 Saldo Pendiente: ${saldo.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN\n` +
       `--------------------------------\n` +
-      `✅ ¡Gracias por tu preferencia! Póliza de garantía: 30 días o 1,000 km.`
+      `🔗 Ver comprobante digital:\n${comprobanteDigitalUrl}\n` +
+      `--------------------------------\n` +
+      `✅ ¡Gracias por tu preferencia! Póliza de garantía: 30 días o 1,000 km en mano de obra y garantía oficial de fabricante en neumáticos y refacciones.`
   );
   const whatsappUrl = `https://wa.me/${waPhone}?text=${waMessage}`;
 
@@ -158,7 +166,7 @@ export function ReceiptModal({
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-sm sm:text-base font-black text-slate-900 tracking-tight uppercase">
-                {empresa?.nombre_comercial || "Cova - Taller & Llantera"}
+                {empresa?.nombre_comercial || "Cova"}
               </h1>
               {empresa?.eslogan && (
                 <span className="hidden sm:inline-block text-[10px] font-medium text-slate-500 border-l border-slate-300 pl-2">
@@ -381,13 +389,43 @@ export function ReceiptModal({
               </span>
             </div>
 
-            <div className="text-[10px] space-y-0.5 text-slate-800">
-              <div className="flex justify-between">
-                <span className="text-slate-600">Forma de Pago:</span>
-                <strong className="text-slate-900">
-                  {payment?.metodo_detalle || payment?.proveedor_pago || "Efectivo en Ventanilla"}
-                </strong>
-              </div>
+            <div className="text-[10px] space-y-1 text-slate-800">
+              {payments && payments.length > 1 ? (
+                <div>
+                  <span className="text-[9px] font-bold text-slate-500 uppercase block mb-1">
+                    Métodos de Pago Aplicados ({payments.length}):
+                  </span>
+                  <div className="space-y-1">
+                    {payments.map((p: any, idx: number) => (
+                      <div
+                        key={idx}
+                        className="flex justify-between items-center bg-white border border-emerald-200/60 rounded px-2 py-0.5 text-[9.5px]"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <strong className="text-slate-900">{p.proveedor_pago || p.metodo_detalle}</strong>
+                          {p.metodo_detalle && p.metodo_detalle !== p.proveedor_pago && (
+                            <span className="text-slate-500 text-[9px]">({p.metodo_detalle})</span>
+                          )}
+                          {p.referencia && (
+                            <span className="text-[8.5px] font-mono text-slate-400">Ref: {p.referencia}</span>
+                          )}
+                        </div>
+                        <span className="font-bold tabular-nums text-slate-900">
+                          ${Number(p.monto || p.monto_total || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex justify-between">
+                  <span className="text-slate-600">Forma de Pago:</span>
+                  <strong className="text-slate-900">
+                    {payment?.metodo_detalle || payment?.proveedor_pago || (payments?.[0]?.metodo_detalle || payments?.[0]?.proveedor_pago) || "Efectivo en Ventanilla"}
+                    {(payment?.referencia || payments?.[0]?.referencia) ? ` (Ref: ${payment?.referencia || payments?.[0]?.referencia})` : ""}
+                  </strong>
+                </div>
+              )}
               {cashGiven != null && cashGiven > 0 && (
                 <>
                   <div className="flex justify-between text-slate-600">
@@ -441,7 +479,7 @@ export function ReceiptModal({
             Caja y Cobranza • {empresa?.nombre_comercial}
           </p>
           <p className="text-[8.5px] text-slate-500">
-            Sello de Pagado ({sucursal?.nombre || "Matriz Cova"})
+            Sello de Pagado ({sucursal?.nombre || "Cova"})
           </p>
         </div>
       </div>
@@ -456,7 +494,7 @@ export function ReceiptModal({
     >
       <div className="text-center border-b border-slate-200 pb-3">
         <h2 className="font-bold text-sm tracking-tight text-slate-900 uppercase">
-          {empresa?.nombre_comercial || "Cova - Taller & Llantera"}
+          {empresa?.nombre_comercial || "Cova"}
         </h2>
         {empresa?.eslogan && <p className="text-[10px] text-slate-500">{empresa.eslogan}</p>}
         <p className="text-[10px] text-slate-600 mt-0.5">RFC: {empresa?.rfc || "COV2201019A1"}</p>

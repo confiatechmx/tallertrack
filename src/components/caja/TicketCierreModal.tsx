@@ -1,4 +1,5 @@
 "use client";
+import TenantBrandLogo from "@/components/brand/TenantBrandLogo";
 
 import React, { useRef, useState } from "react";
 import {
@@ -20,6 +21,8 @@ interface TicketCierreModalProps {
   isOpen: boolean;
   onClose: () => void;
   cierreData: any;
+  empresa?: any;
+  sucursal?: any;
   empresaNombre?: string;
   sucursalNombre?: string;
   cajeroNombre?: string;
@@ -31,6 +34,8 @@ export function TicketCierreModal({
   isOpen,
   onClose,
   cierreData,
+  empresa,
+  sucursal,
   empresaNombre = "Cova",
   sucursalNombre = "Cova",
   cajeroNombre = "Cajero en Turno",
@@ -272,21 +277,38 @@ export function TicketCierreModal({
               <div className="flex flex-col gap-6 text-xs">
                 {/* 1. Encabezado Corporativo */}
                 <div className="flex items-start justify-between border-b-2 border-slate-900 pb-5">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-black text-sm">
-                        {empresaNombre.substring(0, 2).toUpperCase()}
-                      </div>
+                  <div className="flex items-center gap-3.5">
+                    <TenantBrandLogo
+                      empresa={empresa || { nombre_comercial: empresaNombre }}
+                      size="lg"
+                      variant="light"
+                      className="shrink-0"
+                    />
+                    <div>
                       <h1 className="text-xl font-black uppercase tracking-tight text-slate-900">
-                        {empresaNombre}
+                        {empresa?.nombre_comercial || empresaNombre}
                       </h1>
+                      <p className="text-slate-600 font-medium text-xs mt-0.5">
+                        {sucursal?.nombre || sucursalNombre} • Centro de Servicio Automotriz
+                      </p>
+                      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[10.5px] text-slate-500 mt-1">
+                        <span>RFC: {empresa?.rfc || "COV2201019A1"}</span>
+                        <span>•</span>
+                        <span>Turno #{cierreData.turno_id ? String(cierreData.turno_id).substring(0, 8).toUpperCase() : "Z-ACTIVO"}</span>
+                        {(sucursal?.direccion || empresa?.direccion) && (
+                          <>
+                            <span>•</span>
+                            <span>{sucursal?.direccion || empresa?.direccion}</span>
+                          </>
+                        )}
+                        {(sucursal?.telefono || empresa?.telefono) && (
+                          <>
+                            <span>•</span>
+                            <span>Tel: {sucursal?.telefono || empresa?.telefono}</span>
+                          </>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-slate-600 font-medium text-xs mt-1">
-                      {sucursalNombre} • Centro de Servicio Automotriz
-                    </p>
-                    <p className="text-[11px] text-slate-400">
-                      RFC: CTV-180422-9A1 • Folio Turno: #{cierreData.turno_id ? String(cierreData.turno_id).substring(0, 8).toUpperCase() : "Z-ACTIVO"}
-                    </p>
                   </div>
 
                   <div className="text-right">

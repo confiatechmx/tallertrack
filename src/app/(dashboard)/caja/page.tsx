@@ -2258,7 +2258,7 @@ export default function CajaPage() {
                                     className="text-[11px] font-bold text-primary hover:underline inline-flex items-center gap-1"
                                   >
                                     <Printer size={12} />
-                                    <span>Ticket Z</span>
+                                    <span>Imprimir Corte Z (Carta)</span>
                                   </button>
                                 )}
                                 <button
@@ -2608,6 +2608,8 @@ export default function CajaPage() {
         isOpen={ticketCierreOpen}
         onClose={() => setTicketCierreOpen(false)}
         cierreData={cierreTicketData}
+        empresa={empresa}
+        sucursal={sucursalActiva}
         empresaNombre={empresa?.nombre_comercial || "Cova"}
         sucursalNombre={sucursalActiva?.nombre || "Cova"}
         cajeroNombre={perfil?.nombre || "Cajero en Turno"}
