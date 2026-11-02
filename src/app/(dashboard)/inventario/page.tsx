@@ -264,16 +264,16 @@ function InventarioContent() {
         '',
         `• *Llanta:* ${singleTire.marca} ${singleTire.modelo_llanta} (${singleTire.dimensions} ${singleTire.indice_carga_velocidad})`,
         `• *Cantidad:* ${quoteQuantity} pieza(s)`,
-        `• *Precio unitario:* $${singleTire.precio_venta.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`,
-        `• *Subtotal llantas:* $${tiresSub.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`,
+        `• *Precio unitario:* ${singleTire.precio_venta.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`,
+        `• *Subtotal llantas:* ${tiresSub.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`,
       ];
 
       if (includeMountAlign) {
-        lines.push(`• *Paquete Llave en Mano:* Montaje, válvulas nuevas, balanceo y alineación 3D (+$$${MOUNTING_ALIGNMENT_PACK_PRICE.toLocaleString('es-MX')} MXN)`);
+        lines.push(`• *Paquete Llave en Mano:* Montaje, válvulas nuevas, balanceo y alineación 3D (+${MOUNTING_ALIGNMENT_PACK_PRICE.toLocaleString('es-MX')} MXN)`);
       }
 
       lines.push('');
-      lines.push(`👉 *Total: $${grandTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN*`);
+      lines.push(`👉 *Total: ${grandTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN*`);
       lines.push(`• *Existencia disponible:* ${singleTire.stock_actual} pzas (Ubicación: ${singleTire.ubicacion_rack})`);
       lines.push('');
       lines.push('¿Deseas apartar tus llantas y agendar cita de instalación para hoy?');
@@ -303,11 +303,11 @@ function InventarioContent() {
 
       lines.push(`*${t.label}*`);
       lines.push(`• *${tire.marca} ${tire.modelo_llanta}* (${tire.dimensions} ${tire.indice_carga_velocidad})`);
-      lines.push(`• Unitario: $${tire.precio_venta.toLocaleString('es-MX', { minimumFractionDigits: 2 })} x ${quoteQuantity} = $${tiresSub.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`);
+      lines.push(`• Unitario: ${tire.precio_venta.toLocaleString('es-MX', { minimumFractionDigits: 2 })} x ${quoteQuantity} = ${tiresSub.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`);
       if (includeMountAlign) {
-        lines.push(`• Incluye Montaje, Válvulas, Balanceo y Alineación (+$$${MOUNTING_ALIGNMENT_PACK_PRICE.toLocaleString('es-MX')})`);
+        lines.push(`• Incluye Montaje, Válvulas, Balanceo y Alineación (+${MOUNTING_ALIGNMENT_PACK_PRICE.toLocaleString('es-MX')})`);
       }
-      lines.push(`👉 *Total llave en mano: $${grandTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN* (Stock: ${tire.stock_actual} pzas)`);
+      lines.push(`👉 *Total llave en mano: ${grandTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN* (Stock: ${tire.stock_actual} pzas)`);
       lines.push('');
     });
 
@@ -500,7 +500,7 @@ function InventarioContent() {
                   className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 h-4 w-4"
                 />
                 <span className="text-xs font-semibold text-slate-700">
-                  Incluir Paquete Completo (Montaje, Válvulas, Balanceo y Alineación 3D +$$${MOUNTING_ALIGNMENT_PACK_PRICE.toLocaleString('es-MX')})
+                  Incluir Paquete Completo (Montaje, Válvulas, Balanceo y Alineación 3D +${MOUNTING_ALIGNMENT_PACK_PRICE.toLocaleString('es-MX')})
                 </span>
               </label>
 
@@ -577,25 +577,25 @@ function InventarioContent() {
                         <div className="flex justify-between text-xs text-slate-600">
                           <span>Unitario:</span>
                           <span className="font-bold text-slate-900">
-                            $$${tierBudget.precio_venta.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                            ${tierBudget.precio_venta.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                           </span>
                         </div>
                         <div className="flex justify-between text-xs text-slate-600">
                           <span>{quoteQuantity} llantas:</span>
                           <span className="font-bold text-slate-900">
-                            $$${(tierBudget.precio_venta * quoteQuantity).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                            ${(tierBudget.precio_venta * quoteQuantity).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                           </span>
                         </div>
                         {includeMountAlign && (
                           <div className="flex justify-between text-xs text-slate-500 pt-1 border-t border-slate-200">
                             <span>Instalación & Alineación:</span>
-                            <span className="font-medium text-slate-700">+$$${MOUNTING_ALIGNMENT_PACK_PRICE.toLocaleString('es-MX')}</span>
+                            <span className="font-medium text-slate-700">+${MOUNTING_ALIGNMENT_PACK_PRICE.toLocaleString('es-MX')}</span>
                           </div>
                         )}
                         <div className="flex justify-between text-sm font-black text-slate-900 pt-2 border-t border-slate-200">
                           <span>Total Llave en Mano:</span>
                           <span className="text-emerald-700">
-                            $$${((tierBudget.precio_venta * quoteQuantity) + (includeMountAlign ? MOUNTING_ALIGNMENT_PACK_PRICE : 0)).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                            ${((tierBudget.precio_venta * quoteQuantity) + (includeMountAlign ? MOUNTING_ALIGNMENT_PACK_PRICE : 0)).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                           </span>
                         </div>
                       </div>
@@ -663,25 +663,25 @@ function InventarioContent() {
                         <div className="flex justify-between text-xs text-slate-600">
                           <span>Unitario:</span>
                           <span className="font-bold text-slate-900">
-                            $$${tierMid.precio_venta.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                            ${tierMid.precio_venta.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                           </span>
                         </div>
                         <div className="flex justify-between text-xs text-slate-600">
                           <span>{quoteQuantity} llantas:</span>
                           <span className="font-bold text-slate-900">
-                            $$${(tierMid.precio_venta * quoteQuantity).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                            ${(tierMid.precio_venta * quoteQuantity).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                           </span>
                         </div>
                         {includeMountAlign && (
                           <div className="flex justify-between text-xs text-slate-500 pt-1 border-t border-slate-100">
                             <span>Instalación & Alineación:</span>
-                            <span className="font-medium text-slate-700">+$$${MOUNTING_ALIGNMENT_PACK_PRICE.toLocaleString('es-MX')}</span>
+                            <span className="font-medium text-slate-700">+${MOUNTING_ALIGNMENT_PACK_PRICE.toLocaleString('es-MX')}</span>
                           </div>
                         )}
                         <div className="flex justify-between text-sm font-black text-slate-900 pt-2 border-t border-slate-200">
                           <span>Total Llave en Mano:</span>
                           <span className="text-blue-700">
-                            $$${((tierMid.precio_venta * quoteQuantity) + (includeMountAlign ? MOUNTING_ALIGNMENT_PACK_PRICE : 0)).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                            ${((tierMid.precio_venta * quoteQuantity) + (includeMountAlign ? MOUNTING_ALIGNMENT_PACK_PRICE : 0)).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                           </span>
                         </div>
                       </div>
@@ -745,25 +745,25 @@ function InventarioContent() {
                         <div className="flex justify-between text-xs text-slate-600">
                           <span>Unitario:</span>
                           <span className="font-bold text-slate-900">
-                            $$${tierPremium.precio_venta.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                            ${tierPremium.precio_venta.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                           </span>
                         </div>
                         <div className="flex justify-between text-xs text-slate-600">
                           <span>{quoteQuantity} llantas:</span>
                           <span className="font-bold text-slate-900">
-                            $$${(tierPremium.precio_venta * quoteQuantity).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                            ${(tierPremium.precio_venta * quoteQuantity).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                           </span>
                         </div>
                         {includeMountAlign && (
                           <div className="flex justify-between text-xs text-slate-500 pt-1 border-t border-slate-200">
                             <span>Instalación & Alineación:</span>
-                            <span className="font-medium text-slate-700">+$$${MOUNTING_ALIGNMENT_PACK_PRICE.toLocaleString('es-MX')}</span>
+                            <span className="font-medium text-slate-700">+${MOUNTING_ALIGNMENT_PACK_PRICE.toLocaleString('es-MX')}</span>
                           </div>
                         )}
                         <div className="flex justify-between text-sm font-black text-slate-900 pt-2 border-t border-slate-200">
                           <span>Total Llave en Mano:</span>
                           <span className="text-slate-900">
-                            $$${((tierPremium.precio_venta * quoteQuantity) + (includeMountAlign ? MOUNTING_ALIGNMENT_PACK_PRICE : 0)).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                            ${((tierPremium.precio_venta * quoteQuantity) + (includeMountAlign ? MOUNTING_ALIGNMENT_PACK_PRICE : 0)).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                           </span>
                         </div>
                       </div>
@@ -947,7 +947,7 @@ function InventarioContent() {
                                 {item.marca} {item.modelo_llanta}
                               </span>
                               <span className="text-xs text-slate-500">
-                                Juego de 4: $$${(precio * 4).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                                Juego de 4: ${(precio * 4).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                               </span>
                             </div>
                           </td>
@@ -976,7 +976,7 @@ function InventarioContent() {
                           {/* Precio Público */}
                           <td className="px-5 py-3.5 align-middle text-right">
                             <span className="font-mono text-sm font-black text-slate-900">
-                              $$${precio.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                              ${precio.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                             </span>
                           </td>
 

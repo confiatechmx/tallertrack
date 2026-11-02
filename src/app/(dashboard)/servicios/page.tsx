@@ -141,7 +141,7 @@ export default function ServiciosPage() {
               {activeCount} activos de {services.length}
             </span>
             <span className="bg-blue-50 text-blue-800 border border-blue-200 px-2.5 py-0.5 rounded-full text-xs font-mono font-bold">
-              Tarifa Promedio: $${avgHourlyRate.toLocaleString("es-MX", { maximumFractionDigits: 0 })}/hr
+              Tarifa Promedio: ${avgHourlyRate.toLocaleString("es-MX", { maximumFractionDigits: 0 })}/hr
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
@@ -308,14 +308,14 @@ export default function ServiciosPage() {
                       {/* Tarifa / Hora */}
                       <td className="px-5 py-3.5 align-middle text-right">
                         <span className="font-mono text-xs text-slate-600">
-                          $${ratePerHour.toLocaleString("es-MX", { maximumFractionDigits: 0 })}/hr
+                          ${ratePerHour.toLocaleString("es-MX", { maximumFractionDigits: 0 })}/hr
                         </span>
                       </td>
 
                       {/* Precio Base */}
                       <td className="px-5 py-3.5 align-middle text-right">
                         <span className="font-mono text-sm font-black text-slate-900">
-                          $${precio.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                          ${precio.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                         </span>
                       </td>
 
