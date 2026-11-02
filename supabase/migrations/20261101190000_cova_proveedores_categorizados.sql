@@ -25,7 +25,7 @@ BEGIN
     AND id NOT IN (SELECT proveedor_id FROM public.compras_proveedores WHERE empresa_id = v_cova_id);
 END $$;
 
--- 4. Insertar Catálogo Real de Cova Tires (Culiacán)
+-- 4. Insertar Catálogo Real de Cova (Culiacán) en Formato Limpio Title Case
 DO $$
 DECLARE
   v_cova_id uuid := 'b2ad09db-0a34-4876-9ca3-d584c40bd294';
@@ -35,36 +35,41 @@ BEGIN
   -- ─── PROVEEDORES DE LLANTAS (10) ───
   INSERT INTO public.proveedores (empresa_id, sucursal_id, nombre_comercial, categoria, dias_credito, limite_credito, saldo_deudor_actual, meses_garantia_default, activo)
   VALUES
-    (v_cova_id, v_suc_id, 'AYON', 'LLANTAS', 0, 0, 0, 12, true),
-    (v_cova_id, v_suc_id, 'TERSA', 'LLANTAS', 0, 0, 0, 12, true),
-    (v_cova_id, v_suc_id, 'HERRERA', 'LLANTAS', 0, 0, 0, 12, true),
-    (v_cova_id, v_suc_id, 'LLYASA', 'LLANTAS', 0, 0, 0, 12, true),
-    (v_cova_id, v_suc_id, 'SERVIMUNDO', 'LLANTAS', 0, 0, 0, 12, true),
-    (v_cova_id, v_suc_id, 'BLUE TYRE', 'LLANTAS', 0, 0, 0, 12, true),
-    (v_cova_id, v_suc_id, 'LLANTAS PLUS', 'LLANTAS', 0, 0, 0, 12, true),
-    (v_cova_id, v_suc_id, 'HUSA', 'LLANTAS', 0, 0, 0, 12, true),
-    (v_cova_id, v_suc_id, 'GUZMAN', 'LLANTAS', 0, 0, 0, 12, true),
-    (v_cova_id, v_suc_id, 'RADIAL LLANTAS', 'LLANTAS', 0, 0, 0, 12, true);
+    (v_cova_id, v_suc_id, 'Ayon', 'LLANTAS', 0, 0, 0, 12, true),
+    (v_cova_id, v_suc_id, 'Tersa', 'LLANTAS', 0, 0, 0, 12, true),
+    (v_cova_id, v_suc_id, 'Herrera', 'LLANTAS', 0, 0, 0, 12, true),
+    (v_cova_id, v_suc_id, 'Llyasa', 'LLANTAS', 0, 0, 0, 12, true),
+    (v_cova_id, v_suc_id, 'Servimundo', 'LLANTAS', 0, 0, 0, 12, true),
+    (v_cova_id, v_suc_id, 'Blue Tyre', 'LLANTAS', 0, 0, 0, 12, true),
+    (v_cova_id, v_suc_id, 'Llantas Plus', 'LLANTAS', 0, 0, 0, 12, true),
+    (v_cova_id, v_suc_id, 'Husa', 'LLANTAS', 0, 0, 0, 12, true),
+    (v_cova_id, v_suc_id, 'Guzmán', 'LLANTAS', 0, 0, 0, 12, true),
+    (v_cova_id, v_suc_id, 'Radial Llantas', 'LLANTAS', 0, 0, 0, 12, true);
 
   -- ─── PROVEEDORES DE SUSPENSIÓN Y AMORTIGUADORES (17) ───
   INSERT INTO public.proveedores (empresa_id, sucursal_id, nombre_comercial, categoria, dias_credito, limite_credito, saldo_deudor_actual, meses_garantia_default, activo)
   VALUES
-    (v_cova_id, v_suc_id, 'DAR REFACCIONARIA', 'SUSPENSION', 0, 0, 0, 3, true),
-    (v_cova_id, v_suc_id, 'OBAL ZAPATA', 'SUSPENSION', 0, 0, 0, 3, true),
-    (v_cova_id, v_suc_id, 'OBAL REVOLUCION', 'SUSPENSION', 0, 0, 0, 3, true),
-    (v_cova_id, v_suc_id, 'ARREDONDO', 'SUSPENSION', 0, 0, 0, 3, true),
-    (v_cova_id, v_suc_id, 'RIOJA', 'SUSPENSION', 0, 0, 0, 3, true),
-    (v_cova_id, v_suc_id, 'OREALLY 6 ENERO', 'SUSPENSION', 0, 0, 0, 3, true),
-    (v_cova_id, v_suc_id, 'OREALLY OASIS', 'SUSPENSION', 0, 0, 0, 3, true),
-    (v_cova_id, v_suc_id, 'AUTOZONE', 'SUSPENSION', 0, 0, 0, 3, true),
-    (v_cova_id, v_suc_id, 'HOLLMAN', 'SUSPENSION', 0, 0, 0, 3, true),
-    (v_cova_id, v_suc_id, 'RYUK', 'SUSPENSION', 0, 0, 0, 3, true),
-    (v_cova_id, v_suc_id, 'SAN NAYARIT', 'SUSPENSION', 0, 0, 0, 3, true),
-    (v_cova_id, v_suc_id, 'PAT AUTOPARTES', 'SUSPENSION', 0, 0, 0, 3, true),
-    (v_cova_id, v_suc_id, 'VAZLO AUTODIS', 'SUSPENSION', 0, 0, 0, 3, true),
-    (v_cova_id, v_suc_id, 'TORNICENTER', 'SUSPENSION', 0, 0, 0, 3, true),
-    (v_cova_id, v_suc_id, 'HULES Y BANDAS', 'SUSPENSION', 0, 0, 0, 3, true),
-    (v_cova_id, v_suc_id, 'REFACCIONARIA MANNY', 'SUSPENSION', 0, 0, 0, 3, true),
-    (v_cova_id, v_suc_id, 'REFACCIONARIA ACOSTA', 'SUSPENSION', 0, 0, 0, 3, true);
+    (v_cova_id, v_suc_id, 'Dar Refaccionaria', 'SUSPENSION', 0, 0, 0, 3, true),
+    (v_cova_id, v_suc_id, 'Obal Zapata', 'SUSPENSION', 0, 0, 0, 3, true),
+    (v_cova_id, v_suc_id, 'Obal Revolución', 'SUSPENSION', 0, 0, 0, 3, true),
+    (v_cova_id, v_suc_id, 'Arredondo', 'SUSPENSION', 0, 0, 0, 3, true),
+    (v_cova_id, v_suc_id, 'Rioja', 'SUSPENSION', 0, 0, 0, 3, true),
+    (v_cova_id, v_suc_id, 'O''Reilly 6 de Enero', 'SUSPENSION', 0, 0, 0, 3, true),
+    (v_cova_id, v_suc_id, 'O''Reilly Oasis', 'SUSPENSION', 0, 0, 0, 3, true),
+    (v_cova_id, v_suc_id, 'AutoZone', 'SUSPENSION', 0, 0, 0, 3, true),
+    (v_cova_id, v_suc_id, 'Hollman', 'SUSPENSION', 0, 0, 0, 3, true),
+    (v_cova_id, v_suc_id, 'Ryuk', 'SUSPENSION', 0, 0, 0, 3, true),
+    (v_cova_id, v_suc_id, 'San Nayarit', 'SUSPENSION', 0, 0, 0, 3, true),
+    (v_cova_id, v_suc_id, 'Pat Autopartes', 'SUSPENSION', 0, 0, 0, 3, true),
+    (v_cova_id, v_suc_id, 'Vazlo Autodis', 'SUSPENSION', 0, 0, 0, 3, true),
+    (v_cova_id, v_suc_id, 'Tornicenter', 'SUSPENSION', 0, 0, 0, 3, true),
+    (v_cova_id, v_suc_id, 'Hules y Bandas', 'SUSPENSION', 0, 0, 0, 3, true),
+    (v_cova_id, v_suc_id, 'Refaccionaria Manny', 'SUSPENSION', 0, 0, 0, 3, true),
+    (v_cova_id, v_suc_id, 'Refaccionaria Acosta', 'SUSPENSION', 0, 0, 0, 3, true);
+
+  -- ─── PROVEEDORES DE TORNO Y MAQUILAS (1) ───
+  INSERT INTO public.proveedores (empresa_id, sucursal_id, nombre_comercial, categoria, dias_credito, limite_credito, saldo_deudor_actual, meses_garantia_default, activo)
+  VALUES
+    (v_cova_id, v_suc_id, 'Torno Chalio', 'TORNO_MAQUILA', 0, 0, 0, 1, true);
 
 END $$;
