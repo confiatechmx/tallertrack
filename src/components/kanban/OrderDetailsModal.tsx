@@ -10,6 +10,8 @@ import { calcularCuotasBNPL } from "@/lib/bnpl";
 import { ReceiptModal } from "@/components/caja/ReceiptModal";
 import { OrderPrintSheet } from "./OrderPrintSheet";
 import { AuditTimeline } from "@/components/audit/AuditTimeline";
+import { TicketEvidenceLightbox } from "@/components/proveedores/TicketEvidenceLightbox";
+import { ProveedorEvidenceModal } from "@/components/proveedores/ProveedorEvidenceModal";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -195,6 +197,19 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   const [partPackage, setPartPackage] = useState<string>("Suspensión y Dirección");
   const [addingPartLoading, setAddingPartLoading] = useState(false);
 
+  // Supplier Evidence & Warranty modal states
+  const [selectedTicketEvidence, setSelectedTicketEvidence] = useState<{
+    evidenciaUrl: string | null;
+    folio: string;
+    proveedorNombre?: string;
+    descripcion?: string;
+    monto?: number;
+    fechaCompra?: string;
+    fechaVencimientoGarantia?: string;
+    estatusGarantia?: string;
+  } | null>(null);
+  const [attachingPartForEvidence, setAttachingPartForEvidence] = useState<any | null>(null);
+
   // Tires state
   const [isAddingTire, setIsAddingTire] = useState(false);
   const [tireTab, setTireTab] = useState<"jit" | "catalogo">("jit");
@@ -294,7 +309,11 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
             servicios_taller ( id, nombre, codigo_sku, categoria, horas_estimadas, precio, garantia_meses, condicion_promo )
           ),
           orden_servicio_refacciones (
-            id, nombre, numero_parte, proveedor, cantidad, costo_unitario, margen_porcentaje, precio_unitario, subtotal, estatus_aprobacion, paquete_operacion, es_cortesia, garantia_especifica
+            id, nombre, numero_parte, proveedor, cantidad, costo_unitario, margen_porcentaje, precio_unitario, subtotal, estatus_aprobacion, paquete_operacion, es_cortesia, garantia_especifica, compra_proveedor_id,
+            compras_proveedores (
+              id, folio_ticket_nota, meses_garantia, fecha_compra, fecha_vencimiento_garantia, estatus_garantia, evidencia_url, evidencia_tipo, descripcion, monto_costo,
+              proveedores ( nombre_comercial )
+            )
           ),
           cotizaciones (
             id, total,
@@ -2565,7 +2584,44 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                         🔩 Refacción
                                       </td>
                                       <td className="py-2 px-3">
-                                        <div className="font-semibold text-slate-900">{r.nombre}</div>
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          <span className="font-semibold text-slate-900">{r.nombre}</span>
+                                          {r.compras_proveedores?.evidencia_url ? (
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                setSelectedTicketEvidence({
+                                                  evidenciaUrl: r.compras_proveedores.evidencia_url,
+                                                  folio: r.compras_proveedores.folio_ticket_nota,
+                                                  proveedorNombre:
+                                                    r.compras_proveedores.proveedores?.nombre_comercial ||
+                                                    r.proveedor ||
+                                                    "Proveedor",
+                                                  descripcion: r.nombre,
+                                                  monto: Number(r.compras_proveedores.monto_costo || 0),
+                                                  fechaCompra: r.compras_proveedores.fecha_compra,
+                                                  fechaVencimientoGarantia:
+                                                    r.compras_proveedores.fecha_vencimiento_garantia,
+                                                  estatusGarantia: r.compras_proveedores.estatus_garantia,
+                                                })
+                                              }
+                                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 cursor-pointer transition-colors"
+                                              title="Ver comprobante de garantía (Foto / PDF)"
+                                            >
+                                              <FileText size={10} className="text-emerald-600" />
+                                              Ticket #{r.compras_proveedores.folio_ticket_nota}
+                                            </button>
+                                          ) : (
+                                            <button
+                                              type="button"
+                                              onClick={() => setAttachingPartForEvidence(r)}
+                                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 border border-slate-200 cursor-pointer transition-colors"
+                                              title="Adjuntar comprobante o póliza de garantía"
+                                            >
+                                              + Garantía
+                                            </button>
+                                          )}
+                                        </div>
                                         {(r.numero_parte || r.proveedor) && (
                                           <div className="text-[11px] text-slate-500 font-mono">
                                             {r.numero_parte ? `P/N: ${r.numero_parte}` : ""} {r.proveedor ? `• Prov: ${r.proveedor}` : ""}
@@ -3022,6 +3078,41 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                     <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
                                       {part.paquete_operacion}
                                     </span>
+                                  )}
+                                  {part.compras_proveedores?.evidencia_url ? (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setSelectedTicketEvidence({
+                                          evidenciaUrl: part.compras_proveedores.evidencia_url,
+                                          folio: part.compras_proveedores.folio_ticket_nota,
+                                          proveedorNombre:
+                                            part.compras_proveedores.proveedores?.nombre_comercial ||
+                                            part.proveedor ||
+                                            "Proveedor",
+                                          descripcion: part.nombre,
+                                          monto: Number(part.compras_proveedores.monto_costo || 0),
+                                          fechaCompra: part.compras_proveedores.fecha_compra,
+                                          fechaVencimientoGarantia:
+                                            part.compras_proveedores.fecha_vencimiento_garantia,
+                                          estatusGarantia: part.compras_proveedores.estatus_garantia,
+                                        })
+                                      }
+                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 cursor-pointer transition-colors"
+                                      title="Ver comprobante de garantía (Foto / PDF)"
+                                    >
+                                      <FileText size={10} className="text-emerald-600" />
+                                      Ticket #{part.compras_proveedores.folio_ticket_nota}
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => setAttachingPartForEvidence(part)}
+                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 border border-slate-200 cursor-pointer transition-colors"
+                                      title="Adjuntar ticket o comprobante de garantía"
+                                    >
+                                      + Garantía
+                                    </button>
                                   )}
                                 </div>
                                 {part.numero_parte && (
@@ -4756,6 +4847,67 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
           empresa={empresa}
           sucursal={sucursalActiva}
         />
+
+        {/* Modal de Comprobante / Póliza de Garantía en Pantalla Completa */}
+        {selectedTicketEvidence && (
+          <TicketEvidenceLightbox
+            isOpen={!!selectedTicketEvidence}
+            onClose={() => setSelectedTicketEvidence(null)}
+            evidenciaUrl={selectedTicketEvidence.evidenciaUrl}
+            folio={selectedTicketEvidence.folio}
+            proveedorNombre={selectedTicketEvidence.proveedorNombre}
+            descripcion={selectedTicketEvidence.descripcion}
+            monto={selectedTicketEvidence.monto}
+            fechaCompra={selectedTicketEvidence.fechaCompra}
+            fechaVencimientoGarantia={selectedTicketEvidence.fechaVencimientoGarantia}
+            estatusGarantia={selectedTicketEvidence.estatusGarantia}
+          />
+        )}
+
+        {/* Modal para Vincular Comprobante de Compra y Garantía a la Refacción */}
+        {attachingPartForEvidence && (
+          <ProveedorEvidenceModal
+            isOpen={!!attachingPartForEvidence}
+            onClose={() => setAttachingPartForEvidence(null)}
+            empresaId={empresa?.id || ""}
+            sucursalId={sucursalActiva?.id}
+            ordenServicioId={orderId}
+            defaultDescripcion={`${attachingPartForEvidence.nombre}${
+              attachingPartForEvidence.numero_parte ? ` (P/N: ${attachingPartForEvidence.numero_parte})` : ""
+            }`}
+            defaultMonto={
+              Number(attachingPartForEvidence.costo_unitario || 0) *
+              Number(attachingPartForEvidence.cantidad || 1)
+            }
+            onCompraRegistrada={async (compra) => {
+              if (attachingPartForEvidence?.id) {
+                await supabase
+                  .from("orden_servicio_refacciones")
+                  .update({
+                    compra_proveedor_id: compra.id,
+                    garantia_especifica: `${compra.meses_garantia} meses - Nota #${compra.folio_ticket_nota}`,
+                  })
+                  .eq("id", attachingPartForEvidence.id);
+
+                setOrder((prev: any) => ({
+                  ...prev,
+                  orden_servicio_refacciones: (prev.orden_servicio_refacciones || []).map((p: any) =>
+                    p.id === attachingPartForEvidence.id
+                      ? {
+                          ...p,
+                          compra_proveedor_id: compra.id,
+                          garantia_especifica: `${compra.meses_garantia} meses - Nota #${compra.folio_ticket_nota}`,
+                          compras_proveedores: compra,
+                        }
+                      : p
+                  ),
+                }));
+              }
+              setAttachingPartForEvidence(null);
+              onUpdate();
+            }}
+          />
+        )}
 
         {/* TAB 4: HOJA DE RECEPCIÓN / IMPRESIÓN */}
         {activeTab === "impresion" && (

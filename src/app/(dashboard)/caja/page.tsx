@@ -17,6 +17,8 @@ import { CorteCiegoModal } from "@/components/caja/CorteCiegoModal";
 import { TicketCierreModal } from "@/components/caja/TicketCierreModal";
 import { CorteDiarioAuditoriaModal } from "@/components/caja/CorteDiarioAuditoriaModal";
 import { ProveedorEvidenceModal } from "@/components/proveedores/ProveedorEvidenceModal";
+import { TicketEvidenceLightbox } from "@/components/proveedores/TicketEvidenceLightbox";
+import { ProveedorService, Proveedor } from "@/services/proveedorService";
 import {
   CajaTurnoService,
   CajaTurno,
@@ -58,6 +60,7 @@ import {
   ExternalLink,
   Coins,
   Split,
+  FileText,
 } from "lucide-react";
 
 type TabType = "POS" | "Cobranza" | "CajaChica" | "Comisiones";
@@ -142,15 +145,43 @@ export default function CajaPage() {
   const [motivoCancelacion, setMotivoCancelacion] = useState("");
   const [savingCancel, setSavingCancel] = useState(false);
 
+  // Supplier & Warranty states in Caja
+  const [proveedoresList, setProveedoresList] = useState<Proveedor[]>([]);
+  const [selectedTicketEvidence, setSelectedTicketEvidence] = useState<{
+    evidenciaUrl: string | null;
+    folio: string;
+    proveedorNombre?: string;
+    descripcion?: string;
+    monto?: number;
+    fechaCompra?: string;
+    fechaVencimientoGarantia?: string;
+    estatusGarantia?: string;
+  } | null>(null);
+
   // Modal: Registrar Movimiento de Caja Chica
   const [isCajaModalOpen, setIsCajaModalOpen] = useState(false);
-  const [movForm, setMovForm] = useState({
+  const [movForm, setMovForm] = useState<{
+    tipo: string;
+    concepto: string;
+    monto: string;
+    metodo: string;
+    responsable: string;
+    cajaFondoId: string;
+    proveedorId?: string;
+    folioTicket?: string;
+    mesesGarantia?: number;
+    comprobanteFile?: File | null;
+  }>({
     tipo: "Gasto / Insumos",
     concepto: "",
     monto: "",
     metodo: "Efectivo",
     responsable: "Alejandro Villarreal",
     cajaFondoId: "",
+    proveedorId: "",
+    folioTicket: "",
+    mesesGarantia: 12,
+    comprobanteFile: null,
   });
   const [savingMov, setSavingMov] = useState(false);
 
@@ -251,7 +282,23 @@ export default function CajaPage() {
 
       let movQuery = supabase
         .from("caja_movimientos")
-        .select("*")
+        .select(`
+          *,
+          compras_proveedores (
+            id,
+            folio_ticket_nota,
+            meses_garantia,
+            fecha_compra,
+            fecha_vencimiento_garantia,
+            estatus_garantia,
+            evidencia_url,
+            evidencia_tipo,
+            monto_costo,
+            proveedores (
+              nombre_comercial
+            )
+          )
+        `)
         .order("created_at", { ascending: false });
 
       if (sucursalActiva) {
@@ -359,6 +406,11 @@ export default function CajaPage() {
       if (movRes.data) setMovimientosCaja(movRes.data);
       if (empRes.data) setMecanicos(empRes.data);
       if (cfgRes.data) setConfigPagos(cfgRes.data);
+
+      if (empresa?.id) {
+        const provRes = await ProveedorService.obtenerProveedores(empresa.id);
+        if (provRes.data) setProveedoresList(provRes.data);
+      }
     } catch (err) {
       console.error("Error loading Caja data:", err);
     } finally {
@@ -864,6 +916,63 @@ export default function CajaPage() {
         return;
       }
 
+      // Si es Pago a Proveedor y tiene datos de compra/evidencia, registrar en compras_proveedores
+      if (
+        movForm.tipo === "Pago Proveedor" &&
+        (movForm.comprobanteFile || movForm.folioTicket || movForm.proveedorId) &&
+        empresa?.id
+      ) {
+        try {
+          const targetProvId = movForm.proveedorId || proveedoresList[0]?.id;
+          let evidenciaUrl: string | null = null;
+          let storagePath: string | null = null;
+          let evidenciaTipo: "IMAGE" | "PDF" | "OTHER" | null = null;
+
+          if (movForm.comprobanteFile && targetProvId) {
+            const uploadRes = await ProveedorService.subirEvidenciaCompra(
+              movForm.comprobanteFile,
+              empresa.id,
+              targetProvId
+            );
+            evidenciaUrl = uploadRes.publicUrl;
+            storagePath = uploadRes.storagePath;
+            evidenciaTipo = movForm.comprobanteFile.type.includes("pdf") ? "PDF" : "IMAGE";
+          }
+
+          const today = new Date();
+          const fechaVencGarantia = new Date(today);
+          fechaVencGarantia.setMonth(today.getMonth() + (movForm.mesesGarantia || 1));
+
+          if (targetProvId) {
+            await supabase.from("compras_proveedores").insert({
+              empresa_id: empresa.id,
+              sucursal_id: targetSucursalId,
+              proveedor_id: targetProvId,
+              caja_movimiento_id: cajaRes.id || null,
+              caja_turno_id: turnoActivo?.id || null,
+              caja_fondo_id: targetFondoId || null,
+              folio_ticket_nota:
+                movForm.folioTicket?.trim() || `TICK-CAJA-${Date.now().toString().slice(-5)}`,
+              descripcion: movForm.concepto.trim(),
+              monto_costo: montoNum,
+              fuente_pago: "CAJA_CHICA",
+              estatus_pago: "PAGADO",
+              monto_pagado: montoNum,
+              monto_saldo_pendiente: 0,
+              fecha_compra: today.toISOString().split("T")[0],
+              meses_garantia: movForm.mesesGarantia || 1,
+              fecha_vencimiento_garantia: fechaVencGarantia.toISOString().split("T")[0],
+              estatus_garantia: "VIGENTE",
+              evidencia_url: evidenciaUrl,
+              evidencia_storage_path: storagePath,
+              evidencia_tipo: evidenciaTipo,
+            });
+          }
+        } catch (provErr) {
+          console.error("Error al registrar compra y garantía desde caja:", provErr);
+        }
+      }
+
       setIsCajaModalOpen(false);
       setMovForm({
         tipo: "Gasto / Insumos",
@@ -872,6 +981,10 @@ export default function CajaPage() {
         metodo: "Efectivo",
         responsable: perfil?.nombre || "Administrador",
         cajaFondoId: (fondos.find(f => f.tipo === "OPERATIVO") || fondos[0])?.id || "",
+        proveedorId: "",
+        folioTicket: "",
+        mesesGarantia: 12,
+        comprobanteFile: null,
       });
       await loadData();
     } catch (err) {
@@ -2303,7 +2416,34 @@ export default function CajaPage() {
                               </span>
                             )}
                           </td>
-                          <td className="py-2.5 px-4 text-slate-800 font-medium">{m.concepto}</td>
+                          <td className="py-2.5 px-4 text-slate-800 font-medium">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span>{m.concepto}</span>
+                              {m.compras_proveedores?.[0]?.evidencia_url && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const cp = m.compras_proveedores[0];
+                                    setSelectedTicketEvidence({
+                                      evidenciaUrl: cp.evidencia_url,
+                                      folio: cp.folio_ticket_nota,
+                                      proveedorNombre: cp.proveedores?.nombre_comercial || "Proveedor",
+                                      descripcion: m.concepto,
+                                      monto: Number(cp.monto_costo || m.monto),
+                                      fechaCompra: cp.fecha_compra,
+                                      fechaVencimientoGarantia: cp.fecha_vencimiento_garantia,
+                                      estatusGarantia: cp.estatus_garantia,
+                                    });
+                                  }}
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 cursor-pointer transition-colors"
+                                  title="Ver comprobante de compra / garantía (Foto / PDF)"
+                                >
+                                  <FileText size={10} className="text-emerald-600" />
+                                  Ticket #{m.compras_proveedores[0].folio_ticket_nota}
+                                </button>
+                              )}
+                            </div>
+                          </td>
                           <td className="py-2.5 px-4 text-slate-500">{m.metodo}</td>
                           <td className="py-2.5 px-4 text-slate-500">{m.responsable}</td>
                           <td className="py-2.5 px-4 text-right font-bold tabular-nums">
@@ -2504,6 +2644,75 @@ export default function CajaPage() {
                   className="w-full p-2 border border-slate-200 rounded-lg font-bold"
                 />
               </div>
+
+              {movForm.tipo === "Pago Proveedor" && (
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2.5">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 block">
+                    Respaldo de Garantía y Proveedor
+                  </span>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-600 block mb-0.5">Proveedor</label>
+                      <select
+                        value={movForm.proveedorId || ""}
+                        onChange={(e) => setMovForm({ ...movForm, proveedorId: e.target.value })}
+                        className="w-full p-1.5 text-xs border border-slate-300 rounded bg-white"
+                      >
+                        <option value="">Selecciona proveedor...</option>
+                        {proveedoresList.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.nombre_comercial}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-600 block mb-0.5">Folio Ticket / Nota</label>
+                      <input
+                        type="text"
+                        placeholder="Ej. #49201"
+                        value={movForm.folioTicket || ""}
+                        onChange={(e) => setMovForm({ ...movForm, folioTicket: e.target.value })}
+                        className="w-full p-1.5 text-xs border border-slate-300 rounded bg-white font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-600 block mb-0.5">Plazo de Garantía</label>
+                      <select
+                        value={movForm.mesesGarantia || 1}
+                        onChange={(e) => setMovForm({ ...movForm, mesesGarantia: parseInt(e.target.value) || 1 })}
+                        className="w-full p-1.5 text-xs border border-slate-300 rounded bg-white"
+                      >
+                        <option value={1}>1 mes (30 días)</option>
+                        <option value={3}>3 meses</option>
+                        <option value={6}>6 meses</option>
+                        <option value={12}>12 meses (1 año)</option>
+                        <option value={24}>24 meses (2 años)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-600 block mb-0.5">
+                        Comprobante (Foto / PDF)
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0] || null;
+                          setMovForm({ ...movForm, comprobanteFile: f });
+                        }}
+                        className="w-full text-[10px] text-slate-600 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-[10px] file:font-semibold file:bg-slate-200 file:text-slate-700 hover:file:bg-slate-300 cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-2 mt-2">
@@ -2525,6 +2734,22 @@ export default function CajaPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Visor Lightbox de Ticket / Factura PDF */}
+      {selectedTicketEvidence && (
+        <TicketEvidenceLightbox
+          isOpen={!!selectedTicketEvidence}
+          onClose={() => setSelectedTicketEvidence(null)}
+          evidenciaUrl={selectedTicketEvidence.evidenciaUrl}
+          folio={selectedTicketEvidence.folio}
+          proveedorNombre={selectedTicketEvidence.proveedorNombre}
+          descripcion={selectedTicketEvidence.descripcion}
+          monto={selectedTicketEvidence.monto}
+          fechaCompra={selectedTicketEvidence.fechaCompra}
+          fechaVencimientoGarantia={selectedTicketEvidence.fechaVencimientoGarantia}
+          estatusGarantia={selectedTicketEvidence.estatusGarantia}
+        />
       )}
       {/* Modal: Apertura de Turno */}
       <AbrirTurnoModal

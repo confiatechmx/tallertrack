@@ -246,7 +246,7 @@ export function ProveedorEvidenceModal({
                   <option>Cargando catálogo...</option>
                 ) : (
                   <>
-                    <optgroup label="🛞 Proveedores de Llantas">
+                    <optgroup label="Proveedores de Llantas">
                       {proveedores
                         .filter((p) => (p.categoria || "").toUpperCase() === "LLANTAS")
                         .map((p) => (
@@ -255,7 +255,7 @@ export function ProveedorEvidenceModal({
                           </option>
                         ))}
                     </optgroup>
-                    <optgroup label="🔩 Suspensión, Amortiguadores y Refacciones">
+                    <optgroup label="Suspensión, Amortiguadores y Refacciones">
                       {proveedores
                         .filter((p) => (p.categoria || "").toUpperCase() === "SUSPENSION")
                         .map((p) => (
@@ -265,7 +265,7 @@ export function ProveedorEvidenceModal({
                         ))}
                     </optgroup>
                     {proveedores.some((p) => !["LLANTAS", "SUSPENSION"].includes((p.categoria || "").toUpperCase())) && (
-                      <optgroup label="📦 Otros Insumos y Servicios">
+                      <optgroup label="Otros Insumos y Servicios">
                         {proveedores
                           .filter((p) => !["LLANTAS", "SUSPENSION"].includes((p.categoria || "").toUpperCase()))
                           .map((p) => (
