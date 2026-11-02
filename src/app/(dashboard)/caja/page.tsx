@@ -8,6 +8,7 @@ import Link from "next/link";
 import QRCode from "qrcode";
 import { ReceiptModal } from "@/components/caja/ReceiptModal";
 import { SplitPaymentManager } from "@/components/caja/SplitPaymentManager";
+import { TenantMetodosPagoService, TenantMetodoPago } from "@/services/tenantMetodosPagoService";
 import { MultiPaymentService, PaymentSplitItem } from "@/services/multiPaymentService";
 import { TurnoStatusBar } from "@/components/caja/TurnoStatusBar";
 import { AbrirTurnoModal } from "@/components/caja/AbrirTurnoModal";
@@ -97,6 +98,9 @@ export default function CajaPage() {
   const [posSelectedOrderId, setPosSelectedOrderId] = useState<string | null>(null);
   const [posSearchQuery, setPosSearchQuery] = useState("");
   const [posStatusFilter, setPosStatusFilter] = useState<"ALL" | "READY" | "PARTIAL">("ALL");
+  const [tenantMetodos, setTenantMetodos] = useState<TenantMetodoPago[]>([]);
+  const [selectedTenantMetodoId, setSelectedTenantMetodoId] = useState<string>("");
+  const [aplicarDescuentoEfectivo, setAplicarDescuentoEfectivo] = useState(true);
 
   // Active Payment Form in POS
   const [selectedMethod, setSelectedMethod] = useState<
@@ -258,7 +262,7 @@ export default function CajaPage() {
         sucursales[0]?.id ||
         "b0000000-0000-0000-0000-000000000001";
 
-      const [ordRes, pagRes, movRes, empRes, cfgRes, shiftRes, fondosRes, bankRes, histRes] = await Promise.all([
+      const [ordRes, pagRes, movRes, empRes, cfgRes, shiftRes, fondosRes, bankRes, histRes, metodosRes] = await Promise.all([
         ordQuery,
         pagosQuery,
         movQuery,
@@ -272,12 +276,19 @@ export default function CajaPage() {
         CajaTurnoService.obtenerFondos(targetSucId, empresa?.id),
         CajaTurnoService.obtenerCuentasBancarias(empresa?.id || "a0000000-0000-0000-0000-000000000001", targetSucId),
         CajaTurnoService.obtenerHistorialTurnos(targetSucId),
+        TenantMetodosPagoService.obtenerMetodos(empresa?.id, targetSucId),
       ]);
 
       setTurnoActivo(shiftRes);
       setFondos(fondosRes);
       setCuentasBancarias(bankRes);
       setHistorialTurnos(histRes);
+      const metodosList = metodosRes.data || [];
+      setTenantMetodos(metodosList);
+      if (metodosList.length > 0 && !selectedTenantMetodoId) {
+        const firstTpv = metodosList.find((m) => ["TARJETA_CREDITO", "MSI", "DEBITO", "TPV"].includes(m.tipo?.toUpperCase() || ""));
+        if (firstTpv) setSelectedTenantMetodoId(firstTpv.id);
+      }
       if (bankRes.length > 0 && !selectedCuentaBancariaId) {
         setSelectedCuentaBancariaId(bankRes[0].id);
       }
@@ -413,16 +424,30 @@ export default function CajaPage() {
     return ordenes.find((o) => o.id === posSelectedOrderId) || null;
   }, [ordenes, posSelectedOrderId]);
 
-  // Update default payment amount whenever active order changes
+  // Cálculos de Descuento en Efectivo (Cova Tires: 3%)
+  const pctDescEfectivo = Number(empresa?.descuento_efectivo_porcentaje || 0);
+  const tieneDescuentoEfectivoConfigurado = Boolean(empresa?.descuento_efectivo_habilitado && pctDescEfectivo > 0);
+  const ahorroEfectivo = (tieneDescuentoEfectivoConfigurado && aplicarDescuentoEfectivo && activeOrder && selectedMethod === "Efectivo")
+    ? Math.round(((activeOrder.saldo * pctDescEfectivo) / 100) * 100) / 100
+    : 0;
+  const saldoFinalEfectivo = activeOrder
+    ? Math.max(0, Number((activeOrder.saldo - ahorroEfectivo).toFixed(2)))
+    : 0;
+
+  // Actualizar monto a cobrar por defecto cuando cambia la orden, método o toggle de descuento
   useEffect(() => {
     if (activeOrder) {
-      setPaymentAmount(activeOrder.saldo > 0 ? activeOrder.saldo.toFixed(2) : "0.00");
+      if (selectedMethod === "Efectivo" && tieneDescuentoEfectivoConfigurado && aplicarDescuentoEfectivo) {
+        setPaymentAmount(saldoFinalEfectivo > 0 ? saldoFinalEfectivo.toFixed(2) : "0.00");
+      } else {
+        setPaymentAmount(activeOrder.saldo > 0 ? activeOrder.saldo.toFixed(2) : "0.00");
+      }
       setCashGiven("");
       setTpvReference("");
       setSpeiRastreo("");
       setQrCodeUrl(null);
     }
-  }, [activeOrder]);
+  }, [activeOrder, selectedMethod, aplicarDescuentoEfectivo, saldoFinalEfectivo, tieneDescuentoEfectivoConfigurado]);
 
   // Load BNPL Simulation whenever method or provider changes
   useEffect(() => {
@@ -446,11 +471,19 @@ export default function CajaPage() {
       if (posStatusFilter === "PARTIAL" && (o.pagado <= 0.01 || o.saldo <= 0.01)) return false;
 
       if (!posSearchQuery.trim()) return true;
-      const q = posSearchQuery.toLowerCase();
+      const q = posSearchQuery.toLowerCase().trim();
       const folioStr = `#${1000 + Number(o.folio || 1)}`.toLowerCase();
+      const rawFolio = String(1000 + Number(o.folio || 1));
+      const directFolio = String(o.folio || "");
       const vehStr = `${o.vehiculos?.marca || ""} ${o.vehiculos?.modelo || ""} ${o.vehiculos?.placas || ""}`.toLowerCase();
       const cliStr = `${o.vehiculos?.clientes?.nombre || ""}`.toLowerCase();
-      return folioStr.includes(q) || vehStr.includes(q) || cliStr.includes(q);
+      return (
+        folioStr.includes(q) ||
+        rawFolio.includes(q) ||
+        directFolio.includes(q) ||
+        vehStr.includes(q) ||
+        cliStr.includes(q)
+      );
     });
   }, [ordenes, posSearchQuery, posStatusFilter]);
 
@@ -602,16 +635,28 @@ export default function CajaPage() {
       let detalle = "Efectivo en Ventanilla";
       let ref = `AUT-${Math.floor(100000 + Math.random() * 900000)}`;
 
+      let finalAhorro = 0;
+      let metodoPagoConfigObj = tenantMetodos.find((m) => m.id === selectedTenantMetodoId);
+
       if (selectedMethod === "Efectivo") {
         dbProvider = "Efectivo";
-        detalle = `Efectivo (Entregó: $${cashGivenNum.toLocaleString("es-MX")} • Cambio: $${changeDue.toLocaleString("es-MX")})`;
+        finalAhorro = ahorroEfectivo;
+        detalle = finalAhorro > 0
+          ? `Efectivo en Mostrador (Descuento Promoción ${pctDescEfectivo}%: -${finalAhorro.toFixed(2)} • Entregó: ${cashGivenNum.toLocaleString("es-MX")} • Cambio: ${changeDue.toLocaleString("es-MX")})`
+          : `Efectivo en Mostrador (Entregó: ${cashGivenNum.toLocaleString("es-MX")} • Cambio: ${changeDue.toLocaleString("es-MX")})`;
       } else if (selectedMethod === "TPV") {
-        dbProvider = "Mercado Pago";
-        detalle = tpvType;
+        if (!metodoPagoConfigObj) {
+          metodoPagoConfigObj = tenantMetodos.find((m) => ["TARJETA_CREDITO", "MSI", "DEBITO", "TPV"].includes(m.tipo?.toUpperCase() || ""));
+        }
+        dbProvider = (metodoPagoConfigObj?.proveedor as any) || "Mercado Pago";
+        detalle = metodoPagoConfigObj ? metodoPagoConfigObj.nombre : tpvType;
         ref = tpvReference.trim() || `TPV-${Math.floor(100000 + Math.random() * 900000)}`;
       } else if (selectedMethod === "SPEI") {
         dbProvider = "Transferencia";
-        detalle = "Transferencia Bancaria SPEI (BBVA)";
+        const ctaSel = cuentasBancarias.find((c) => c.id === selectedCuentaBancariaId);
+        detalle = ctaSel
+          ? `Transferencia SPEI (${ctaSel.banco} • ${ctaSel.alias})`
+          : "Transferencia Bancaria SPEI";
         ref = speiRastreo.trim() || `SPEI-${Date.now().toString().slice(-8)}`;
       } else if (selectedMethod === "KueskiPay") {
         dbProvider = "KueskiPay";
@@ -627,9 +672,16 @@ export default function CajaPage() {
         ref = bnplReference || `STRIPE-${Date.now().toString().slice(-8)}`;
       }
 
-      const cfg = configPagos.find((c) => c.proveedor === dbProvider);
-      const pctComision = Number(cfg?.comision_porcentaje || 0);
-      const comisionMonto = Number(((amountNum * pctComision) / 100).toFixed(2));
+      // Cálculo de comisión con TenantMetodosPagoService
+      let comisionMonto = 0;
+      if (metodoPagoConfigObj) {
+        const comCalc = TenantMetodosPagoService.calcularComision(amountNum, metodoPagoConfigObj);
+        comisionMonto = comCalc.comisionMonto;
+      } else {
+        const cfg = configPagos.find((c) => c.proveedor === dbProvider);
+        const pctComision = Number(cfg?.comision_porcentaje || 0);
+        comisionMonto = Number(((amountNum * pctComision) / 100).toFixed(2));
+      }
 
       const targetSucursalId =
         activeOrder.sucursal_id ||
@@ -649,6 +701,11 @@ export default function CajaPage() {
           referencia: ref,
           estatus: "Aprobado",
           comision_pasarela: comisionMonto,
+          comision_monto: comisionMonto,
+          monto_neto: Number(Math.max(0, amountNum - comisionMonto).toFixed(2)),
+          plazo_msi: metodoPagoConfigObj?.plazo_msi || null,
+          tenant_metodo_pago_id: metodoPagoConfigObj?.id || null,
+          descuento_aplicado: finalAhorro > 0 ? finalAhorro : null,
           fecha_pago: new Date().toISOString(),
           cuenta_bancaria_id: selectedMethod === "SPEI" ? selectedCuentaBancariaId || null : null,
           caja_turno_id: turnoActivo?.id || null,
@@ -661,11 +718,17 @@ export default function CajaPage() {
 
       const nuevoPagado = activeOrder.pagado + amountNum;
       const nuevoEstatus =
-        nuevoPagado >= activeOrder.granTotal - 0.5 ? "Pagado" : "Parcial";
+        (nuevoPagado + finalAhorro) >= activeOrder.granTotal - 0.5 ? "Pagado" : "Parcial";
+
+      const ordUpdate: any = { estatus_pago: nuevoEstatus };
+      if (finalAhorro > 0) {
+        ordUpdate.descuento_efectivo_porcentaje = pctDescEfectivo;
+        ordUpdate.descuento_efectivo_monto = finalAhorro;
+      }
 
       await supabase
         .from("ordenes_servicio")
-        .update({ estatus_pago: nuevoEstatus })
+        .update(ordUpdate)
         .eq("id", activeOrder.id);
 
       // Open Thermal Receipt Modal
@@ -1415,6 +1478,37 @@ export default function CajaPage() {
                       {/* 1. EFECTIVO EN VENTANILLA */}
                       {selectedMethod === "Efectivo" && (
                         <div className="flex flex-col gap-3">
+                          {/* Banner de Precio Preferencial en Efectivo */}
+                          {tieneDescuentoEfectivoConfigurado && activeOrder && (
+                            <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl flex items-center justify-between gap-2 shadow-2xs">
+                              <div className="flex items-center gap-2">
+                                <Sparkles className="w-4 h-4 text-emerald-700 shrink-0" />
+                                <div>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-xs font-bold text-emerald-950">
+                                      Precio Preferencial en Efectivo (-{pctDescEfectivo}%)
+                                    </span>
+                                    <span className="text-[10px] font-bold bg-emerald-200/90 text-emerald-900 px-1.5 py-0.2 rounded">
+                                      PROMO COVA
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-emerald-800 mt-0.5">
+                                    Ahorro de <strong className="font-bold text-emerald-950">${ahorroEfectivo.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN</strong> para el cliente.
+                                  </p>
+                                </div>
+                              </div>
+                              <label className="flex items-center gap-1.5 text-xs font-bold text-emerald-900 cursor-pointer bg-white/80 px-2.5 py-1 rounded-lg border border-emerald-300">
+                                <input
+                                  type="checkbox"
+                                  checked={aplicarDescuentoEfectivo}
+                                  onChange={(e) => setAplicarDescuentoEfectivo(e.target.checked)}
+                                  className="w-4 h-4 text-emerald-600 rounded"
+                                />
+                                Aplicar Descuento
+                              </label>
+                            </div>
+                          )}
+
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-slate-800">
                               Calculadora de Cambio (Efectivo):
@@ -1497,22 +1591,38 @@ export default function CajaPage() {
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                               <label className="text-[11px] font-bold text-slate-600 block mb-1">
-                                Terminal / Pasarela:
+                                Terminal / Pasarela Configurada:
                               </label>
-                              <select
-                                value={tpvType}
-                                onChange={(e) => setTpvType(e.target.value)}
-                                className="w-full p-2 text-xs border border-slate-300 rounded-lg bg-white"
-                              >
-                                <option value="Terminal Point Smart (Mercado Pago)">
-                                  Terminal Point Smart (Mercado Pago TPV)
-                                </option>
-                                <option value="Terminal Bancaria BBVA / Banorte">
-                                  Terminal Bancaria BBVA / Banorte
-                                </option>
-                                <option value="Tarjeta de Débito">Tarjeta de Débito (Ventanilla)</option>
-                                <option value="Tarjeta de Crédito">Tarjeta de Crédito (Ventanilla)</option>
-                              </select>
+                              {tenantMetodos.filter((m) => ["TARJETA_CREDITO", "MSI", "DEBITO", "TPV"].includes(m.tipo?.toUpperCase() || "")).length > 0 ? (
+                                <select
+                                  value={selectedTenantMetodoId}
+                                  onChange={(e) => {
+                                    const mId = e.target.value;
+                                    setSelectedTenantMetodoId(mId);
+                                    const m = tenantMetodos.find((tm) => tm.id === mId);
+                                    if (m) setTpvType(m.nombre);
+                                  }}
+                                  className="w-full p-2 text-xs border border-slate-300 rounded-lg bg-white font-semibold text-slate-800"
+                                >
+                                  {tenantMetodos
+                                    .filter((m) => ["TARJETA_CREDITO", "MSI", "DEBITO", "TPV"].includes(m.tipo?.toUpperCase() || ""))
+                                    .map((m) => (
+                                      <option key={m.id} value={m.id}>
+                                        {m.nombre} ({Number(m.comision_porcentaje)}%{Number(m.comision_fija || 0) > 0 ? ` + ${m.comision_fija}` : ""})
+                                      </option>
+                                    ))}
+                                </select>
+                              ) : (
+                                <select
+                                  value={tpvType}
+                                  onChange={(e) => setTpvType(e.target.value)}
+                                  className="w-full p-2 text-xs border border-slate-300 rounded-lg bg-white"
+                                >
+                                  <option value="BanBajío Tarjeta (TPV)">BanBajío Tarjeta (TPV 2.0%)</option>
+                                  <option value="Mercado Pago Tarjeta (1 Exhibición)">Mercado Pago Tarjeta (1 Exhibición 3.5%)</option>
+                                  <option value="Terminal Point Smart (Mercado Pago)">Terminal Point Smart</option>
+                                </select>
+                              )}
                             </div>
 
                             <div>
@@ -1527,6 +1637,16 @@ export default function CajaPage() {
                                 className="w-full p-2 text-xs border border-slate-300 rounded-lg bg-white font-mono"
                               />
                             </div>
+                          </div>
+                          {/* Nota de comisión absorbida */}
+                          <div className="text-[10px] text-slate-500 bg-slate-100/70 p-2 rounded-lg flex items-center justify-between">
+                            <span className="flex items-center gap-1 text-slate-600">
+                              <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+                              Comisión bancaria absorbida en back-office (no afecta precio al cliente)
+                            </span>
+                            <span className="font-mono text-slate-700 font-semibold">
+                              TPV Activa
+                            </span>
                           </div>
                         </div>
                       )}
