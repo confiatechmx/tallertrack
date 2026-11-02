@@ -2176,92 +2176,116 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
         </div>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="bg-white px-5 border-b border-slate-200 flex items-center gap-1 overflow-x-auto no-scrollbar">
-        <button
-          type="button"
-          onClick={() => setActiveTab("cotizacion")}
-          className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
-            activeTab === "cotizacion"
-              ? "border-blue-600 text-blue-600"
-              : "border-transparent text-slate-500 hover:text-slate-800"
-          }`}
-        >
-          <Calculator size={14} />
-          1. Partidas y Cotización
-          <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-slate-100 text-slate-700 tabular-nums">
-            {activeServices.length + activeParts.length + activeTires.length}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("dvi")}
-          className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
-            activeTab === "dvi"
-              ? "border-blue-600 text-blue-600"
-              : "border-transparent text-slate-500 hover:text-slate-800"
-          }`}
-        >
-          <ClipboardCheck size={14} />
-          2. Inspección Digital (DVI) y Recepción
-          <span className="inline-flex items-center gap-1 ml-1">
-            {dviRedCount > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-red-100 text-red-700 font-bold tabular-nums">
-                {dviRedCount}R
-              </span>
-            )}
-            {dviYellowCount > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-100 text-amber-700 font-bold tabular-nums">
-                {dviYellowCount}A
-              </span>
-            )}
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-100 text-emerald-700 font-bold tabular-nums">
-              {dviGreenCount}V
+      {/* Guided Lifecycle Stepper Navigation */}
+      <div className="bg-slate-50/90 px-5 py-2.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
+          {/* Step 1: Recepción & DVI */}
+          <button
+            type="button"
+            onClick={() => setActiveTab("dvi")}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === "dvi"
+                ? "bg-white text-slate-900 shadow-xs border border-slate-200"
+                : "text-slate-500 hover:text-slate-900 hover:bg-white/60"
+            }`}
+          >
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+              activeTab === "dvi" ? "bg-slate-900 text-white" : "bg-slate-200 text-slate-600"
+            }`}>
+              1
             </span>
-          </span>
-        </button>
+            <span>Recepción & DVI</span>
+            {dviRedCount > 0 ? (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-red-100 text-red-700 font-bold">
+                {dviRedCount} alertas
+              </span>
+            ) : dviYellowCount + dviGreenCount > 0 ? (
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            ) : null}
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab("pagos")}
-          className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
-            activeTab === "pagos"
-              ? "border-blue-600 text-blue-600"
-              : "border-transparent text-slate-500 hover:text-slate-800"
-          }`}
-        >
-          <Banknote size={14} />
-          3. Pagos y Cobranza
-          <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-slate-100 text-slate-700 tabular-nums">
-            {pagosList.length}
-          </span>
-        </button>
+          <span className="text-slate-300 font-bold text-xs hidden sm:inline">➔</span>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab("impresion")}
-          className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
-            activeTab === "impresion"
-              ? "border-blue-600 text-blue-600"
-              : "border-transparent text-slate-500 hover:text-slate-800"
-          }`}
-        >
-          <Printer size={14} />
-          4. Hoja de Recepción / Impresión
-        </button>
+          {/* Step 2: Partidas & Cotización */}
+          <button
+            type="button"
+            onClick={() => setActiveTab("cotizacion")}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === "cotizacion"
+                ? "bg-white text-slate-900 shadow-xs border border-slate-200"
+                : "text-slate-500 hover:text-slate-900 hover:bg-white/60"
+            }`}
+          >
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+              activeTab === "cotizacion" ? "bg-slate-900 text-white" : "bg-slate-200 text-slate-600"
+            }`}>
+              2
+            </span>
+            <span>Cotización</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-100 text-slate-700 tabular-nums font-semibold">
+              {activeServices.length + activeParts.length + activeTires.length}
+            </span>
+          </button>
 
+          <span className="text-slate-300 font-bold text-xs hidden sm:inline">➔</span>
+
+          {/* Step 3: Cobro & Caja */}
+          <button
+            type="button"
+            onClick={() => setActiveTab("pagos")}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === "pagos"
+                ? "bg-white text-slate-900 shadow-xs border border-slate-200"
+                : "text-slate-500 hover:text-slate-900 hover:bg-white/60"
+            }`}
+          >
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+              activeTab === "pagos" ? "bg-slate-900 text-white" : "bg-slate-200 text-slate-600"
+            }`}>
+              3
+            </span>
+            <span>Cobro & Caja</span>
+            {order.estatus_pago === "Pagado" ? (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-100 text-emerald-700 font-bold">
+                ✓ Pagado
+              </span>
+            ) : (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-100 text-amber-800 font-bold tabular-nums">
+                ${saldoPendiente.toLocaleString("es-MX", { maximumFractionDigits: 0 })}
+              </span>
+            )}
+          </button>
+
+          <span className="text-slate-300 font-bold text-xs hidden sm:inline">➔</span>
+
+          {/* Step 4: Hoja de Impresión */}
+          <button
+            type="button"
+            onClick={() => setActiveTab("impresion")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === "impresion"
+                ? "bg-white text-slate-900 shadow-xs border border-slate-200"
+                : "text-slate-500 hover:text-slate-900 hover:bg-white/60"
+            }`}
+          >
+            <Printer size={13} />
+            <span>Imprimir</span>
+          </button>
+        </div>
+
+        {/* Acceso Secundario: Bitácora Forense */}
         <button
           type="button"
           onClick={() => setActiveTab("auditoria")}
-          className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === "auditoria"
-              ? "border-blue-600 text-blue-600"
-              : "border-transparent text-slate-500 hover:text-slate-800"
+              ? "bg-white text-slate-900 shadow-xs border border-slate-200"
+              : "text-slate-400 hover:text-slate-700 hover:bg-white/60"
           }`}
+          title="Ver bitácora de cambios y auditoría forense"
         >
-          <ShieldCheck size={14} />
-          5. Bitácora Forense
+          <ShieldCheck size={13} />
+          <span>Bitácora</span>
         </button>
       </div>
 
@@ -3825,14 +3849,14 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                   <button
                     type="button"
                     onClick={() => setActiveTab("pagos")}
-                    className="w-full py-2 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                    className="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-emerald-600 text-white text-xs font-black flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
                   >
-                    <Banknote size={14} /> Ir a Caja / Registrar Pago
+                    <Banknote size={15} /> Proceder al Cobro en Caja →
                   </button>
                   <button
                     type="button"
                     onClick={() => setActiveTab("impresion")}
-                    className="w-full py-2 px-3 rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                    className="w-full py-2.5 px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
                   >
                     <Printer size={14} /> Ver Hoja de Recepción Imprimible
                   </button>
