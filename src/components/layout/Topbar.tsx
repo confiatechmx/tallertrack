@@ -172,7 +172,7 @@ export function Topbar() {
         <div ref={branchRef} className="relative">
           <button
             onClick={() => setBranchMenuOpen(!branchMenuOpen)}
-            className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md hover:bg-slate-50 transition-colors border border-slate-200/80 cursor-pointer"
+            className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-slate-50 transition-colors border border-slate-200/80 cursor-pointer shadow-2xs"
           >
             <TenantBrandLogo
               empresa={empresa}
@@ -271,8 +271,8 @@ export function Topbar() {
                 setSearchQuery(e.target.value);
                 setSearchFocused(true);
               }}
-              placeholder="Buscar orden (#folio), placa, vehículo o cliente..."
-              className="block w-full pl-8 pr-12 py-1.5 border border-slate-200 rounded-md bg-slate-50/70 text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-1 focus:ring-primary focus:border-primary text-xs transition-all"
+              placeholder="Buscar auto, placa, cliente o folio..."
+              className="block w-full pl-8 pr-12 py-1.5 border border-slate-200 rounded-xl bg-slate-50/70 text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-1 focus:ring-primary focus:border-primary text-xs transition-all"
             />
             <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none">
               <kbd className="inline-flex items-center text-[10px] font-mono font-medium text-slate-400 border border-slate-200 rounded px-1.5 py-0.5 bg-white">
@@ -508,7 +508,7 @@ export function Topbar() {
         <div ref={alertsRef} className="relative">
           <button
             onClick={() => setAlertsOpen(!alertsOpen)}
-            className="relative p-2 text-slate-500 hover:text-slate-900 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
+            className="relative p-2 text-slate-500 hover:text-slate-900 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
             title="Alertas de Trabajos Diferidos y Stock"
           >
             <Bell size={18} strokeWidth={1.85} />
@@ -605,14 +605,14 @@ export function Topbar() {
           </div>
           <div
             style={{ backgroundColor: empresa?.color_primario || "#2563EB" }}
-            className="h-8 w-8 rounded-md flex items-center justify-center text-white text-xs font-bold shadow-2xs"
+            className="h-8 w-8 rounded-xl flex items-center justify-center text-white text-xs font-bold shadow-2xs"
           >
             {userInitials}
           </div>
           <button
             onClick={handleLogout}
             title="Cerrar sesión"
-            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors cursor-pointer"
+            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
           >
             <LogOut size={15} />
           </button>
