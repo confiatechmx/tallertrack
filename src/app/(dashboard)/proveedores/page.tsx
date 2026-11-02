@@ -59,6 +59,7 @@ export default function ProveedoresPage() {
   // Filters
   const [selectedProveedorId, setSelectedProveedorId] = useState<string>("TODOS");
   const [searchQuery, setSearchQuery] = useState("");
+  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<string>("TODAS");
   const [filtroGarantia, setFiltroGarantia] = useState<string>("TODAS");
   const [filtroEstatusPago, setFiltroEstatusPago] = useState<string>("TODOS");
 
@@ -89,6 +90,7 @@ export default function ProveedoresPage() {
   const [newProvData, setNewProvData] = useState<ProveedorInsert>({
     empresa_id: empresaId,
     nombre_comercial: "",
+    categoria: "SUSPENSION",
     razon_social: "",
     rfc: "",
     contacto_nombre: "",
@@ -97,7 +99,7 @@ export default function ProveedoresPage() {
     email: "",
     dias_credito: 0,
     limite_credito: 0,
-    meses_garantia_default: 1,
+    meses_garantia_default: 3,
     condiciones_garantia: "",
     activo: true,
   });
@@ -370,7 +372,54 @@ export default function ProveedoresPage() {
       {/* PESTAÑA 1: DIRECTORIO & ESTADOS DE CUENTA */}
       {/* ========================================================================= */}
       {activeTab === "directorio" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="space-y-4">
+          {/* Barra de Filtros por Categoría */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200/90 shadow-2xs">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+              {[
+                { id: "TODAS", label: "Todos", count: proveedores.length },
+                { id: "LLANTAS", label: "🛞 Llantas", count: proveedores.filter((p) => (p.categoria || "").toUpperCase() === "LLANTAS").length },
+                { id: "SUSPENSION", label: "🔩 Suspensión y Refacciones", count: proveedores.filter((p) => (p.categoria || "").toUpperCase() === "SUSPENSION").length },
+                { id: "TORNO_MAQUILA", label: "⚙️ Torno y Maquilas", count: proveedores.filter((p) => (p.categoria || "").toUpperCase() === "TORNO_MAQUILA").length },
+                { id: "OTROS", label: "📦 Otros", count: proveedores.filter((p) => !["LLANTAS", "SUSPENSION", "TORNO_MAQUILA"].includes((p.categoria || "").toUpperCase())).length },
+              ].map((cat) => {
+                const isSelected = categoriaSeleccionada === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setCategoriaSeleccionada(cat.id)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
+                      isSelected
+                        ? "bg-slate-900 text-white shadow-xs"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200/70"
+                    }`}
+                  >
+                    <span>{cat.label}</span>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                        isSelected ? "bg-slate-700 text-white" : "bg-white text-slate-500 border border-slate-200"
+                      }`}
+                    >
+                      {cat.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="relative w-full sm:w-64">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Buscar por nombre o teléfono..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-8.5 pl-8 pr-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary focus:bg-white"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {loading ? (
             <div className="col-span-full py-16 flex justify-center text-slate-400">
               <Loader2 className="w-8 h-8 animate-spin" />
@@ -380,7 +429,24 @@ export default function ProveedoresPage() {
               No hay proveedores registrados. Da de alta al primero usando el botón "+ Nuevo Proveedor".
             </div>
           ) : (
-            proveedores.map((prov) => {
+            proveedores
+              .filter((prov) => {
+                const matchCat =
+                  categoriaSeleccionada === "TODAS" ||
+                  (prov.categoria || "SUSPENSION").toUpperCase() === categoriaSeleccionada.toUpperCase();
+                const q = searchQuery.toLowerCase().trim();
+                const matchQuery =
+                  !q ||
+                  prov.nombre_comercial.toLowerCase().includes(q) ||
+                  (prov.contacto_nombre && prov.contacto_nombre.toLowerCase().includes(q)) ||
+                  (prov.telefono && prov.telefono.includes(q));
+                return matchCat && matchQuery;
+              })
+              .map((prov) => {
+                const cat = (prov.categoria || "SUSPENSION").toUpperCase();
+                const isLlanta = cat === "LLANTAS";
+                const isSuspension = cat === "SUSPENSION";
+                const isTorno = cat === "TORNO_MAQUILA";
               const tieneDeuda = (prov.saldo_deudor_actual || 0) > 0;
               const porcentajeCreditoUsado =
                 prov.limite_credito > 0
@@ -396,6 +462,21 @@ export default function ProveedoresPage() {
                     {/* Header Card */}
                     <div className="flex items-start justify-between gap-2">
                       <div>
+                        <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                          <span
+                            className={`px-2 py-0.2 rounded-full text-[9px] font-bold border ${
+                              isLlanta
+                                ? "bg-blue-50 text-blue-700 border-blue-200"
+                                : isSuspension
+                                ? "bg-amber-50 text-amber-700 border-amber-200"
+                                : isTorno
+                                ? "bg-purple-50 text-purple-700 border-purple-200"
+                                : "bg-slate-100 text-slate-700 border-slate-200"
+                            }`}
+                          >
+                            {isLlanta ? "🛞 Llantas" : isSuspension ? "🔩 Suspensión" : isTorno ? "⚙️ Torno" : "📦 Insumos"}
+                          </span>
+                        </div>
                         <h3 className="font-bold text-slate-900 text-base">{prov.nombre_comercial}</h3>
                         {prov.razon_social && (
                           <p className="text-[11px] text-slate-500 line-clamp-1">{prov.razon_social}</p>
@@ -504,6 +585,7 @@ export default function ProveedoresPage() {
               );
             })
           )}
+          </div>
         </div>
       )}
 
@@ -907,11 +989,32 @@ export default function ProveedoresPage() {
                   <input
                     type="text"
                     required
-                    placeholder="ej. AutoZone Comercial o Llantas del Pacífico"
+                    placeholder="ej. AYON, TERSA, AUTOZONE, OBAL ZAPATA"
                     value={newProvData.nombre_comercial}
                     onChange={(e) => setNewProvData({ ...newProvData, nombre_comercial: e.target.value })}
-                    className="w-full h-9 px-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-1 focus:ring-primary font-medium"
+                    className="w-full h-9 px-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-1 focus:ring-primary font-bold"
                   />
+                </div>
+
+                <div className="col-span-2">
+                  <label className="font-semibold text-slate-700 block mb-1">Giro / Categoría Comercial</label>
+                  <select
+                    value={newProvData.categoria || "SUSPENSION"}
+                    onChange={(e) => {
+                      const newCat = e.target.value;
+                      setNewProvData({
+                        ...newProvData,
+                        categoria: newCat,
+                        meses_garantia_default: newCat === "LLANTAS" ? 12 : 3,
+                      });
+                    }}
+                    className="w-full h-9 px-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-1 focus:ring-primary font-bold text-slate-800"
+                  >
+                    <option value="LLANTAS">🛞 Proveedor de Llantas y Neumáticos</option>
+                    <option value="SUSPENSION">🔩 Suspensión, Amortiguadores y Refacciones</option>
+                    <option value="TORNO_MAQUILA">⚙️ Torno, Maquilas y Rectificación</option>
+                    <option value="OTROS">📦 Otros Insumos y Servicios</option>
+                  </select>
                 </div>
 
                 <div>

@@ -2088,6 +2088,7 @@ export type Database = {
       proveedores: {
         Row: {
           activo: boolean
+          categoria: string | null
           condiciones_garantia: string | null
           contacto_nombre: string | null
           created_at: string
@@ -2108,6 +2109,7 @@ export type Database = {
         }
         Insert: {
           activo?: boolean
+          categoria?: string | null
           condiciones_garantia?: string | null
           contacto_nombre?: string | null
           created_at?: string
@@ -2128,6 +2130,7 @@ export type Database = {
         }
         Update: {
           activo?: boolean
+          categoria?: string | null
           condiciones_garantia?: string | null
           contacto_nombre?: string | null
           created_at?: string
@@ -2848,6 +2851,10 @@ export type Database = {
         }
         Returns: Json
       }
+      fn_actualizar_estatus_usuario_tenant: {
+        Args: { p_activo: boolean; p_user_id: string }
+        Returns: Json
+      }
       fn_actualizar_orden_concurrente: {
         Args: {
           p_expected_version: number
@@ -2878,7 +2885,35 @@ export type Database = {
         }
         Returns: Json
       }
+      fn_crear_usuario_tenant: {
+        Args: {
+          p_email: string
+          p_empresa_id: string
+          p_nombre: string
+          p_password: string
+          p_puesto?: string
+          p_rol: string
+          p_sucursal_id: string
+          p_telefono?: string
+        }
+        Returns: Json
+      }
       fn_descontar_stock_orden: { Args: { p_items: Json }; Returns: Json }
+      fn_obtener_usuarios_tenant: {
+        Args: { p_empresa_id: string }
+        Returns: {
+          activo: boolean
+          created_at: string
+          email: string
+          empresa_id: string
+          id: string
+          last_sign_in_at: string
+          nombre: string
+          rol: string
+          sucursal_id: string
+          telefono: string
+        }[]
+      }
       fn_registrar_movimiento_caja:
         | {
             Args: {
@@ -2935,6 +2970,10 @@ export type Database = {
             }
             Returns: Json
           }
+      fn_reset_password_usuario_tenant: {
+        Args: { p_new_password: string; p_user_id: string }
+        Returns: Json
+      }
       fn_resumen_corte_diario_auditoria: {
         Args: { p_turno_id: string }
         Returns: Json

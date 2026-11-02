@@ -245,11 +245,37 @@ export function ProveedorEvidenceModal({
                 {loadingProveedores ? (
                   <option>Cargando catálogo...</option>
                 ) : (
-                  proveedores.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.nombre_comercial} {p.dias_credito > 0 ? `(${p.dias_credito}d crédito)` : "(Contado)"}
-                    </option>
-                  ))
+                  <>
+                    <optgroup label="🛞 Proveedores de Llantas">
+                      {proveedores
+                        .filter((p) => (p.categoria || "").toUpperCase() === "LLANTAS")
+                        .map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.nombre_comercial} {p.dias_credito > 0 ? `(${p.dias_credito}d crédito)` : "(Contado)"}
+                          </option>
+                        ))}
+                    </optgroup>
+                    <optgroup label="🔩 Suspensión, Amortiguadores y Refacciones">
+                      {proveedores
+                        .filter((p) => (p.categoria || "").toUpperCase() === "SUSPENSION")
+                        .map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.nombre_comercial} {p.dias_credito > 0 ? `(${p.dias_credito}d crédito)` : "(Contado)"}
+                          </option>
+                        ))}
+                    </optgroup>
+                    {proveedores.some((p) => !["LLANTAS", "SUSPENSION"].includes((p.categoria || "").toUpperCase())) && (
+                      <optgroup label="📦 Otros Insumos y Servicios">
+                        {proveedores
+                          .filter((p) => !["LLANTAS", "SUSPENSION"].includes((p.categoria || "").toUpperCase()))
+                          .map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.nombre_comercial} {p.dias_credito > 0 ? `(${p.dias_credito}d crédito)` : "(Contado)"}
+                            </option>
+                          ))}
+                      </optgroup>
+                    )}
+                  </>
                 )}
               </select>
             </div>

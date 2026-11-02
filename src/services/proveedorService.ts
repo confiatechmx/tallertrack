@@ -30,9 +30,12 @@ export interface ResumenCxP {
 
 export const ProveedorService = {
   /**
-   * Obtiene la lista de proveedores activos para la empresa
+   * Obtiene la lista de proveedores activos para la empresa, opcionalmente filtrados por categoría
    */
-  async obtenerProveedores(empresaId?: string): Promise<{ data: Proveedor[]; error: string | null }> {
+  async obtenerProveedores(
+    empresaId?: string,
+    categoria?: string
+  ): Promise<{ data: Proveedor[]; error: string | null }> {
     try {
       let query = supabase
         .from("proveedores")
@@ -42,6 +45,10 @@ export const ProveedorService = {
 
       if (empresaId) {
         query = query.eq("empresa_id", empresaId);
+      }
+
+      if (categoria && categoria !== "TODAS") {
+        query = query.eq("categoria", categoria);
       }
 
       const { data, error } = await query;
