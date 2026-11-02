@@ -441,7 +441,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   const totalDescuentosEnPagos = pagosList
     .filter((p: any) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO") && !p.deleted_at)
     .reduce((acc: number, p: any) => acc + Number(p.descuento_aplicado || 0), 0);
-  const totalDescuentoOrden = Math.max(Number(order.descuento_efectivo_monto || 0), totalDescuentosEnPagos);
+  const totalDescuentoOrden = Math.max(Number(order?.descuento_efectivo_monto || 0), totalDescuentosEnPagos);
   const saldoPendiente = Math.max(0, granTotal - totalPagado - totalDescuentoOrden);
 
   // Live Buyout Margin Calculator values

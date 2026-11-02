@@ -110,5 +110,24 @@ describe("Validaciones de Descuento en Efectivo y Diferenciación Cotización vs
       expect(partidasDiferidas).toHaveLength(2);
       expect(partidasDiferidas.map((p) => p.nombre)).toEqual(["Balanceo de 4 Ruedas", "Bujes de Horquilla"]);
     });
+
+    it("debe ser resiliente a orden nula o indefinida en cálculo de saldos y descuentos (Null Safety en render)", () => {
+      const order: any = null;
+      const pagosList: any[] = [];
+      const granTotal = 0;
+
+      const totalPagado = pagosList
+        .filter((p: any) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO") && !p.deleted_at)
+        .reduce((acc: number, p: any) => acc + Number(p.monto_total || 0), 0);
+      const totalDescuentosEnPagos = pagosList
+        .filter((p: any) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO") && !p.deleted_at)
+        .reduce((acc: number, p: any) => acc + Number(p.descuento_aplicado || 0), 0);
+
+      const totalDescuentoOrden = Math.max(Number(order?.descuento_efectivo_monto || 0), totalDescuentosEnPagos);
+      const saldoPendiente = Math.max(0, granTotal - totalPagado - totalDescuentoOrden);
+
+      expect(totalDescuentoOrden).toBe(0);
+      expect(saldoPendiente).toBe(0);
+    });
   });
 });

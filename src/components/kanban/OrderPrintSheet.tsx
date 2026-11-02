@@ -158,7 +158,7 @@ export function OrderPrintSheet({
     : rawDeferredWorks.reduce((acc: number, dw: any) => acc + Number(dw.costo_estimado || 0), 0);
 
   // Payments & Balance
-  const pagos = order.pagos || order.pagos_orden || [];
+  const pagos = order?.pagos || order?.pagos_orden || [];
   const pagosAprobados = pagos.filter(
     (p: any) => (p.estatus === "Aprobado" || !p.estatus || p.estatus.toLowerCase() !== "cancelado") && !p.deleted_at
   );
@@ -166,9 +166,9 @@ export function OrderPrintSheet({
   // Cash Discount Configuration & Calculation
   const descuentoEfectivoHabilitado = Boolean(activeEmpresa?.descuento_efectivo_habilitado);
   const descuentoEfectivoPct = Number(
-    order.descuento_efectivo_porcentaje || activeEmpresa?.descuento_efectivo_porcentaje || 0
+    order?.descuento_efectivo_porcentaje || activeEmpresa?.descuento_efectivo_porcentaje || 0
   );
-  const descuentoEfectivoMonto = Number(order.descuento_efectivo_monto || 0);
+  const descuentoEfectivoMonto = Number(order?.descuento_efectivo_monto || 0);
 
   // For Cotización: cash promotional price
   const precioEfectivoCotizado =
