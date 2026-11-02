@@ -332,6 +332,8 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
       const activePagos = (orderData.pagos_orden || []).filter((p: any) => !p.deleted_at);
       const enrichedOrder = {
         ...orderData,
+        orden_servicio_servicios: orderData.orden_servicio_servicios || [],
+        orden_servicio_refacciones: orderData.orden_servicio_refacciones || [],
         pagos_orden: activePagos,
         inspecciones_dvi: dviData || [],
       };
@@ -1017,7 +1019,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
     if (!error) {
       setOrder((prev: any) => ({
         ...prev,
-        orden_servicio_servicios: prev.orden_servicio_servicios.map((s: any) =>
+        orden_servicio_servicios: (prev.orden_servicio_servicios || []).map((s: any) =>
           s.id === row.id ? { ...s, estatus_aprobacion: nextStatus } : s
         ),
       }));
@@ -1058,7 +1060,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
 
       setOrder((prev: any) => ({
         ...prev,
-        orden_servicio_servicios: prev.orden_servicio_servicios.map((s: any) =>
+        orden_servicio_servicios: (prev.orden_servicio_servicios || []).map((s: any) =>
           s.id === row.id ? { ...s, estatus_aprobacion: "Diferido" } : s
         ),
       }));
@@ -1074,7 +1076,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
     if (!error) {
       setOrder((prev: any) => ({
         ...prev,
-        orden_servicio_servicios: prev.orden_servicio_servicios.filter(
+        orden_servicio_servicios: (prev.orden_servicio_servicios || []).filter(
           (s: any) => s.id !== relationId
         ),
       }));
@@ -1152,7 +1154,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
 
       setOrder((prev: any) => ({
         ...prev,
-        orden_servicio_refacciones: prev.orden_servicio_refacciones.map((r: any) =>
+        orden_servicio_refacciones: (prev.orden_servicio_refacciones || []).map((r: any) =>
           r.id === part.id ? { ...r, estatus_aprobacion: "Diferido" } : r
         ),
       }));
@@ -1168,7 +1170,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
     if (!error) {
       setOrder((prev: any) => ({
         ...prev,
-        orden_servicio_refacciones: prev.orden_servicio_refacciones.filter(
+        orden_servicio_refacciones: (prev.orden_servicio_refacciones || []).filter(
           (r: any) => r.id !== partId
         ),
       }));

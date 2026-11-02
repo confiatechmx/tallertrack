@@ -404,9 +404,44 @@ export default function CajaPage() {
       .on(
         "postgres_changes",
         {
-          event: "INSERT",
+          event: "*",
           schema: "public",
           table: "pagos_orden",
+          filter: `sucursal_id=eq.${targetSucId}`,
+        },
+        () => {
+          loadData();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "caja_movimientos",
+          filter: `sucursal_id=eq.${targetSucId}`,
+        },
+        () => {
+          loadData();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "caja_traspasos_fondos",
+        },
+        () => {
+          loadData();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "ordenes_servicio",
           filter: `sucursal_id=eq.${targetSucId}`,
         },
         () => {

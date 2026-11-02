@@ -36,6 +36,7 @@ import { useTenant } from "@/context/TenantContext";
 import { Modal } from "../ui/Modal";
 import { OrderForm } from "./OrderForm";
 import { OrderDetailsModal } from "./OrderDetailsModal";
+import { ErrorBoundary } from "../common/ErrorBoundary";
 
 const defaultColumns = [
   { id: "Citas del Día", title: "Citas del Día", color: "#64748B" },
@@ -758,11 +759,13 @@ export function KanbanBoard() {
         size="full"
       >
         {selectedOrderId && (
-          <OrderDetailsModal
-            orderId={selectedOrderId}
-            onClose={() => setSelectedOrderId(null)}
-            onUpdate={fetchOrders}
-          />
+          <ErrorBoundary fallbackTitle="Error al abrir el detalle de la orden">
+            <OrderDetailsModal
+              orderId={selectedOrderId}
+              onClose={() => setSelectedOrderId(null)}
+              onUpdate={fetchOrders}
+            />
+          </ErrorBoundary>
         )}
       </Modal>
     </div>
