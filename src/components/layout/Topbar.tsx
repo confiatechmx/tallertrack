@@ -24,7 +24,6 @@ import {
 } from "lucide-react";
 import { useTenant, WHITE_LABEL_PRESETS } from "@/context/TenantContext";
 import { createClient } from "@/lib/supabase/client";
-import TenantsManagementModal from "@/components/auth/TenantsManagementModal";
 
 export function Topbar() {
   const router = useRouter();
@@ -33,7 +32,6 @@ export function Topbar() {
   const [branchMenuOpen, setBranchMenuOpen] = useState(false);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
-  const [showTenantsModal, setShowTenantsModal] = useState(false);
 
   // Global search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -168,94 +166,81 @@ export function Topbar() {
   return (
     <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between px-4 md:px-6 bg-white border-b border-slate-200 w-full">
       <div className="flex items-center gap-3 md:gap-5 flex-1">
-        {/* Branch / Tenant Selector */}
-        <div ref={branchRef} className="relative">
-          <button
-            onClick={() => setBranchMenuOpen(!branchMenuOpen)}
-            className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-slate-50 transition-colors border border-slate-200/80 cursor-pointer shadow-2xs"
-          >
-            <TenantBrandLogo
-              empresa={empresa}
-              size="xs"
-              variant="light"
-              className="shrink-0"
-            />
-            <div className="flex flex-col text-left">
-              <span className="text-xs font-semibold text-slate-900 leading-none">
-                {sucursalActiva ? sucursalActiva.nombre : "Todas las Sucursales"}
-              </span>
-              <span className="text-[10px] text-slate-500 mt-0.5 leading-none">
-                {empresa?.nombre_comercial || "Torque & Ruta"}
-              </span>
-            </div>
-            <ChevronDown size={13} className="text-slate-400 ml-1" />
-          </button>
+        {/* Branch Selector: visible únicamente si el taller cuenta con más de 1 sucursal */}
+        {sucursales && sucursales.length > 1 && (
+          <div ref={branchRef} className="relative">
+            <button
+              onClick={() => setBranchMenuOpen(!branchMenuOpen)}
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-slate-50 transition-colors border border-slate-200/80 cursor-pointer shadow-2xs"
+            >
+              <Building2 size={15} className="text-slate-500 shrink-0" />
+              <div className="flex flex-col text-left">
+                <span className="text-xs font-semibold text-slate-900 leading-none">
+                  {sucursalActiva ? sucursalActiva.nombre : "Todas las Sucursales"}
+                </span>
+                <span className="text-[10px] text-slate-500 mt-0.5 leading-none">
+                  {sucursalActiva ? (sucursalActiva.codigo || "Sucursal activa") : "Vista consolidada"}
+                </span>
+              </div>
+              <ChevronDown size={13} className="text-slate-400 ml-1" />
+            </button>
 
-          {branchMenuOpen && (
-            <div className="absolute left-0 mt-1.5 w-72 bg-white rounded-lg shadow-xl border border-slate-200 py-1.5 z-50">
-              <div className="px-3 py-1.5 border-b border-slate-100">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                  Filtrar Operación por Sucursal
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  setSucursalActivaId(null);
-                  setBranchMenuOpen(false);
-                }}
-                className="w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-slate-50 transition-colors"
-              >
-                <div>
-                  <p className="font-semibold text-slate-900">Todas las Sucursales (Global)</p>
-                  <p className="text-[11px] text-slate-500">Vista consolidada de todas las bahías</p>
+            {branchMenuOpen && (
+              <div className="absolute left-0 mt-1.5 w-72 bg-white rounded-lg shadow-xl border border-slate-200 py-1.5 z-50">
+                <div className="px-3 py-1.5 border-b border-slate-100">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                    Filtrar Operación por Sucursal
+                  </p>
                 </div>
-                {!sucursalActiva && <Check size={14} className="text-blue-600 shrink-0" />}
-              </button>
-              {sucursales.map((suc) => (
                 <button
-                  key={suc.id}
                   onClick={() => {
-                    setSucursalActivaId(suc.id);
+                    setSucursalActivaId(null);
                     setBranchMenuOpen(false);
                   }}
-                  className="w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-slate-50 transition-colors border-t border-slate-50"
+                  className="w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-slate-50 transition-colors"
                 >
-                  <div className="min-w-0 pr-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-semibold text-slate-900 truncate">{suc.nombre}</span>
-                      <span className="text-[10px] font-mono bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded">
-                        {suc.codigo}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 truncate">{suc.direccion}</p>
+                  <div>
+                    <p className="font-semibold text-slate-900">Todas las Sucursales (Global)</p>
+                    <p className="text-[11px] text-slate-500">Vista consolidada de todas las bahías</p>
                   </div>
-                  {sucursalActiva?.id === suc.id && <Check size={14} className="text-blue-600 shrink-0" />}
+                  {!sucursalActiva && <Check size={14} className="text-blue-600 shrink-0" />}
                 </button>
-              ))}
-              <div className="border-t border-slate-100 mt-1 pt-1 px-2 space-y-0.5">
-                <button
-                  onClick={() => {
-                    setBranchMenuOpen(false);
-                    setShowTenantsModal(true);
-                  }}
-                  className="w-full text-left px-2 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-100 rounded transition-colors flex items-center justify-between"
-                >
-                  <span>Cambiar de Taller / Empresa...</span>
-                  <span className="text-[9px] bg-blue-100 text-blue-700 font-bold px-1.5 py-0.2 rounded">Multi-Taller</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setBranchMenuOpen(false);
-                    router.push("/configuracion?tab=Sucursales");
-                  }}
-                  className="w-full text-left px-2 py-1.5 text-[11px] font-medium text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                >
-                  + Administrar Sucursales...
-                </button>
+                {sucursales.map((suc) => (
+                  <button
+                    key={suc.id}
+                    onClick={() => {
+                      setSucursalActivaId(suc.id);
+                      setBranchMenuOpen(false);
+                    }}
+                    className="w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-slate-50 transition-colors border-t border-slate-50"
+                  >
+                    <div className="min-w-0 pr-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-semibold text-slate-900 truncate">{suc.nombre}</span>
+                        <span className="text-[10px] font-mono bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded">
+                          {suc.codigo}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 truncate">{suc.direccion}</p>
+                    </div>
+                    {sucursalActiva?.id === suc.id && <Check size={14} className="text-blue-600 shrink-0" />}
+                  </button>
+                ))}
+                <div className="border-t border-slate-100 mt-1 pt-1 px-2">
+                  <button
+                    onClick={() => {
+                      setBranchMenuOpen(false);
+                      router.push("/configuracion?tab=Sucursales");
+                    }}
+                    className="w-full text-left px-2 py-1.5 text-[11px] font-medium text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                  >
+                    + Administrar Sucursales...
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
         {/* Global Deep-Link Search Bar */}
         <div ref={searchRef} className="relative max-w-md w-full hidden sm:block">
@@ -517,12 +502,6 @@ export function Topbar() {
           </button>
         </div>
       </div>
-    {showTenantsModal && (
-      <TenantsManagementModal
-        isOpen={showTenantsModal}
-        onClose={() => setShowTenantsModal(false)}
-      />
-    )}
     </header>
   );
 }

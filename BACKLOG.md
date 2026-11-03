@@ -3,6 +3,7 @@
 # Backlog del Proyecto - TallerTrack
 
 ## Pendientes
+- [ ] Refinamiento y Maduración de Lógica Multi-Sucursal (Permisos por sucursal, traspaso de órdenes, aislamiento estricto de almacenes y filtros operativos granulares) #arquitectura #multisucursal @media ➔ [[El Concepto de Sucursal vs Organizacion]]
 - [ ] CI/CD y Separación de Entornos #devops @alta <!-- asana:1216816770799595 --> ➔ [[Pipeline CI-CD y Separacion de Entornos (Staging vs Prod)]]
 - [ ] Monitoreo de Errores #devops @alta <!-- asana:1216814440802834 --> ➔ [[Monitoreo de Errores y Trazabilidad en Produccion]]
 - [ ] Recuperación Ante Desastres (PITR) #devops @alta <!-- asana:1216816152285247 --> ➔ [[Politicas de Recuperacion ante Desastres (PITR)]]
@@ -12,6 +13,7 @@
 - [-] Cobertura de Pruebas Automatizadas #qa @alta <!-- asana:1216816770994447 --> ➔ [[Estrategia de Cobertura de Pruebas (Testing)]]
 
 ## Completado
+- [x] Rediseño de Identidad Visual del Sidebar (Logotipo Corporativo Nítido estilo Cargatek/Hack Trucking, Isotipo en Colapso, Purga de Conmutador SaaS para Tenants y Condicional Multi-Sucursal para Talleres Únicos) #frontend #ux @alta ➔ [[Design System Dirty Hands UX y Mobile PWA]] & [[Estrategia de White-labeling (Marca Blanca)]]
 - [x] Registro de Auditoría Forense y Operativa Universal (Audit Logs Enterprise) #seguridad #arquitectura @alta <!-- asana:1219960585234643 --> ➔ [[Auditoría de Cambios en Base de Datos]] & [[Auditoria Financiera y Logica de Cancelaciones]]
 - [x] Control de Concurrencia (Race Conditions: Bloqueos Pesimistas, Versiones Optimistas e Idempotencia) #backend #arquitectura @media <!-- asana:1216814441016048 --> ➔ [[Control de Concurrencia (Race Conditions)]]
 - [x] Módulo de Soporte Técnico Integrado (Control HQ, Impersonación, Kill-Switch, Suscripciones y Dominios White-Label) #frontend #arquitectura @alta <!-- asana:1216816152285021 --> ➔ [[Modulo de Soporte Tecnico Integrado en App]] & [[Control HQ, Impersonacion y Marca Blanca]]

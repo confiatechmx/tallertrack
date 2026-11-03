@@ -24,7 +24,6 @@ import {
   Building2,
 } from "lucide-react";
 import { useTenant } from "@/context/TenantContext";
-import TenantSwitcher from "@/components/auth/TenantSwitcher";
 import TenantBrandLogo from "@/components/brand/TenantBrandLogo";
 
 export function Sidebar() {
@@ -32,6 +31,8 @@ export function Sidebar() {
   const { empresa, isSuperAdmin } = useTenant();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [logoError, setLogoError] = useState(false);
+  const [iconError, setIconError] = useState(false);
   const iconProps = { strokeWidth: 1.85, size: 18 };
 
   // 1. Operación Diaria (Workflow Central)
@@ -60,6 +61,13 @@ export function Sidebar() {
   ];
 
   const brandName = empresa?.nombre_comercial || "TallerTrack";
+  const isCova = brandName.toLowerCase().includes("cova");
+  const brandLogoUrl = !logoError
+    ? (empresa?.logo_url_dark || empresa?.logo_url || (isCova ? "/branding/cova/cova-logo-dark-trimmed.png" : "/brand/tallertrack-logo-horizontal-dark.png"))
+    : "/brand/tallertrack-logo-horizontal-dark.png";
+  const brandIconUrl = !iconError
+    ? (empresa?.isotipo_url || (isCova ? "/branding/cova/cova-isotipo.png" : "/favicon.svg"))
+    : "/favicon.svg";
 
   return (
     <>
@@ -79,9 +87,33 @@ export function Sidebar() {
           {isCollapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
         </button>
 
-        {/* Brand Header & Tenant Switcher */}
-        <div className="flex items-center h-14 border-b border-white/10 px-2 shrink-0">
-          <TenantSwitcher collapsed={isCollapsed} />
+        {/* Brand Header: Identidad visible y limpia de la empresa (Estilo Cargatek / Hack Trucking) */}
+        <div
+          className={`border-b border-white/10 relative transition-all shrink-0 flex items-center justify-center ${
+            isCollapsed ? "h-16 px-2" : "min-h-[72px] py-3.5 px-4"
+          }`}
+        >
+          <Link
+            href="/tablero"
+            className="flex items-center justify-center w-full focus:outline-none group"
+            title={brandName}
+          >
+            {!isCollapsed ? (
+              <img
+                src={brandLogoUrl}
+                alt={brandName}
+                onError={() => setLogoError(true)}
+                className="h-12 sm:h-14 w-auto max-w-[195px] max-h-[56px] object-contain transition-transform group-hover:scale-102"
+              />
+            ) : (
+              <img
+                src={brandIconUrl}
+                alt={brandName}
+                onError={() => setIconError(true)}
+                className="w-8 h-8 rounded-lg object-contain transition-transform group-hover:scale-105"
+              />
+            )}
+          </Link>
         </div>
 
         {/* Botón de Acción Primaria Rápida (+ Nueva Orden) */}
