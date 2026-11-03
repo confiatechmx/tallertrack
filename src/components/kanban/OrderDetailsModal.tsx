@@ -84,7 +84,7 @@ type WorkspaceTab = "cotizacion" | "dvi" | "pagos" | "impresion" | "auditoria";
 const PROVEEDORES_REFACCIONES = [
   "AutoZone Comercial",
   "Rolcar",
-  "EuroPartes Monterrey",
+  "EuroPartes Culiacán",
   "Orma Autopartes",
   "Agencia OEM",
   "Brembo México",
@@ -1773,7 +1773,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
           Agregar Mano de Obra / Servicio de Taller
         </span>
         <span className="text-[10px] font-semibold text-blue-800 bg-blue-100 px-2 py-0.5 rounded">
-          Catálogo Cova Tires Monterrey
+          Catálogo Oficial de Servicios
         </span>
       </div>
 
