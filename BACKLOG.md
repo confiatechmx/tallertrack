@@ -38,3 +38,6 @@
 - [x] Buyouts & Refacciones sobre Pedido (AutoZone Comercial) #backend #inventario @media ➔ [[Catalogo de Servicios, Tiempos y Refacciones]]
 - [x] Trabajos Diferidos (Deferred Work / Próxima Visita) #crm #frontend @media ➔ [[El Expediente Clinico del Vehiculo (Historial)]]
 - [x] Integración Omnicanal y CRM Pipeline #crm #ventas @alta ➔ [[Pasarelas de Pago BNPL y Notificaciones Omnicanal]] & [[SOP - Sincronización Pipeline CRM a Kanban Taller]]
+
+## Ideas y Mejoras a Futuro
+- [ ] Toggle opcional para imprimir firmas físicas en Recibo de Pago (para Flotillas B2B y Crédito con altura real de firma) #finanzas #frontend @baja ➔ [[Control de Turnos y Cierre de Caja Chica]]

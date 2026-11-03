@@ -110,8 +110,8 @@ export function ReceiptModal({
   const saldo = Math.max(0, total - (totalPagadoHistorico > 0 ? totalPagadoHistorico : montoCobrado));
 
   const tasaIva = Number(empresa?.tasa_iva ?? 16);
-  const subtotalSinIva = total / (1 + tasaIva / 100);
-  const iva = total - subtotalSinIva;
+  const subtotalSinIva = Math.round((total / (1 + tasaIva / 100)) * 100) / 100;
+  const iva = Math.round((total - subtotalSinIva) * 100) / 100;
   const primaryColor = empresa?.color_primario || "#1C3EFF";
 
   // Build clean WhatsApp message
@@ -150,7 +150,7 @@ export function ReceiptModal({
 
   // ─── 1. DISEÑO EN HOJA TAMAÑO CARTA (LETTER 8.5" x 11") ──────────────────────
   const renderDocumentoCarta = (
-    <div className="bg-white text-slate-900 border border-slate-200 rounded-lg p-4 sm:p-5 max-w-4xl mx-auto text-xs leading-normal font-sans print:border-0 print:p-0 print:m-0 print:shadow-none">
+    <div className="bg-white text-slate-900 border border-slate-200 rounded-lg p-4 sm:p-5 max-w-4xl mx-auto text-xs leading-normal font-sans print:border-0 print:py-[10mm] print:px-[14mm] print:m-0 print:shadow-none print:max-w-none">
       {/* ─── Top Banner / Brand Header (Compacto) ─── */}
       <div
         className="flex justify-between items-start pb-2.5 mb-2.5 border-b-2"
@@ -344,13 +344,13 @@ export function ReceiptModal({
           <div className="flex justify-between text-slate-600">
             <span>Subtotal de la Orden (sin IVA):</span>
             <span className="tabular-nums font-medium">
-              ${subtotalSinIva.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+              ${subtotalSinIva.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
           <div className="flex justify-between text-slate-600">
             <span>IVA ({tasaIva}% incluido):</span>
             <span className="tabular-nums font-medium">
-              ${iva.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+              ${iva.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
           <div className="flex justify-between font-black text-slate-900 text-xs border-t border-slate-300 pt-0.5">
@@ -466,23 +466,6 @@ export function ReceiptModal({
           "Garantía de 30 días o 1,000 km en mano de obra. Refacciones y neumáticos con garantía oficial del fabricante. En caso de requerir CFDI 4.0, favor de solicitarlo durante el mes corriente presentando su constancia fiscal."}
       </div>
 
-      {/* ─── Bloque de Firmas y Sello (Compactas) ─── */}
-      <div className="grid grid-cols-2 gap-6 pt-2 text-[9.5px]">
-        <div className="border-t border-slate-400 pt-1 text-center">
-          <p className="font-bold text-slate-800">
-            {cli.nombre || "Nombre y Firma del Cliente"}
-          </p>
-          <p className="text-[8.5px] text-slate-500">Recibí comprobante de pago de conformidad</p>
-        </div>
-        <div className="border-t border-slate-400 pt-1 text-center">
-          <p className="font-bold text-slate-800">
-            Caja y Cobranza • {empresa?.nombre_comercial}
-          </p>
-          <p className="text-[8.5px] text-slate-500">
-            Sello de Pagado ({sucursal?.nombre || "Cova"})
-          </p>
-        </div>
-      </div>
     </div>
   );
 
@@ -567,11 +550,11 @@ export function ReceiptModal({
       <div className="flex flex-col gap-1 text-[11px]">
         <div className="flex justify-between text-slate-600">
           <span>Subtotal (sin IVA):</span>
-          <span>${subtotalSinIva.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+          <span>${subtotalSinIva.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
         <div className="flex justify-between text-slate-600">
           <span>IVA ({tasaIva}%):</span>
-          <span>${iva.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+          <span>${iva.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
         <div className="flex justify-between font-bold text-sm text-slate-900 border-t border-slate-200 pt-1 mt-1">
           <span>TOTAL ORDEN:</span>
@@ -702,14 +685,19 @@ export function ReceiptModal({
                 <style jsx global>{`
                   @page {
                     size: letter portrait;
-                    margin: 10mm;
+                    margin: 0;
                   }
                   @media print {
+                    @page {
+                      margin: 0;
+                    }
                     html, body {
                       background-color: #ffffff !important;
                       color: #0f172a !important;
                       -webkit-print-color-adjust: exact !important;
                       print-color-adjust: exact !important;
+                      margin: 0 !important;
+                      padding: 0 !important;
                     }
                     .no-print, header, nav, footer, .modal-backdrop {
                       display: none !important;
