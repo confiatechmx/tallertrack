@@ -55,7 +55,19 @@ import {
   Tag,
   FolderTree,
   Percent,
+  Unlock,
+  Coins,
+  Split,
 } from "lucide-react";
+
+import {
+  CajaTurnoService,
+  type CajaTurno,
+  type CajaFondo,
+} from "@/services/cajaTurnoService";
+import { AbrirTurnoModal } from "@/components/caja/AbrirTurnoModal";
+import { SplitPaymentManager } from "@/components/caja/SplitPaymentManager";
+import { MultiPaymentService, type PaymentSplitItem } from "@/services/multiPaymentService";
 
 import {
   TOP_TIRE_BRANDS,
@@ -159,7 +171,7 @@ const DEFAULT_DVI_TEMPLATE = [
 ];
 
 export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsModalProps) {
-  const { empresa, sucursalActiva } = useTenant();
+  const { empresa, sucursalActiva, perfil } = useTenant();
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("cotizacion");
   const [loading, setLoading] = useState(true);
   const [order, setOrder] = useState<any>(null);
@@ -261,10 +273,24 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   const [savingReception, setSavingReception] = useState(false);
   const [receptionSavedToast, setReceptionSavedToast] = useState(false);
 
-  // Payments state
+  // Payments & Official POS state
   const [isAddingPayment, setIsAddingPayment] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [selectedReceiptPayment, setSelectedReceiptPayment] = useState<any>(null);
+  const [receiptPaymentsList, setReceiptPaymentsList] = useState<any[]>([]);
+  const [receiptCashGiven, setReceiptCashGiven] = useState<number | undefined>();
+  const [receiptChangeDue, setReceiptChangeDue] = useState<number | undefined>();
+  const [turnoActivo, setTurnoActivo] = useState<CajaTurno | null>(null);
+  const [fondos, setFondos] = useState<CajaFondo[]>([]);
+  const [isAbrirTurnoOpen, setIsAbrirTurnoOpen] = useState(false);
+  const [posPaymentMethod, setPosPaymentMethod] = useState<"Efectivo" | "TPV" | "SPEI" | "SPLIT" | "BNPL">("Efectivo");
+  const [cashGiven, setCashGiven] = useState<string>("");
+  const [tpvType, setTpvType] = useState("BanBajío TPV (Débito/Crédito)");
+  const [tpvAuth, setTpvAuth] = useState("");
+  const [speiRastreo, setSpeiRastreo] = useState("");
+  const [bnplProvider, setBnplProvider] = useState<"KueskiPay" | "Atrato" | "Stripe">("KueskiPay");
+  const [bnplReference, setBnplReference] = useState("");
+  const [splitPayments, setSplitPayments] = useState<PaymentSplitItem[]>([]);
   const [paymentAmount, setPaymentAmount] = useState<string>("");
   const [paymentProvider, setPaymentProvider] = useState("Efectivo");
   const [paymentMetodoDetalle, setPaymentMetodoDetalle] = useState("Efectivo en Caja");
@@ -464,6 +490,44 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
     .reduce((acc: number, p: any) => acc + Number(p.descuento_aplicado || 0), 0);
   const totalDescuentoOrden = Math.max(Number(order?.descuento_efectivo_monto || 0), totalDescuentosEnPagos);
   const saldoPendiente = Math.max(0, granTotal - totalPagado - totalDescuentoOrden);
+
+  // POS Cash Discount & Tender calculations
+  const hasCashDiscount = Boolean(
+    empresa?.descuento_efectivo_habilitado && Number(empresa?.descuento_efectivo_porcentaje || 0) > 0
+  );
+  const cashDiscountPct = hasCashDiscount ? Number(empresa?.descuento_efectivo_porcentaje) : 0;
+  const cashAhorro = (hasCashDiscount && applyCashDiscount && saldoPendiente > 0)
+    ? Math.round((saldoPendiente * (cashDiscountPct / 100)) * 100) / 100
+    : 0;
+  const cashTotalPorCobrar = Math.max(0, Number((saldoPendiente - cashAhorro).toFixed(2)));
+
+  const cashGivenVal = cashGiven === "" ? 0 : parseFloat(cashGiven) || 0;
+  const cashChangeVal = Math.max(0, cashGivenVal - cashTotalPorCobrar);
+  const cashFaltanteVal = Math.max(0, cashTotalPorCobrar - cashGivenVal);
+
+  useEffect(() => {
+    if (posPaymentMethod === "SPLIT" && splitPayments.length === 0 && saldoPendiente > 0) {
+      const mitad = Math.round((saldoPendiente / 2) * 100) / 100;
+      const f1 = fondos.find((f) => f.tipo === "OPERATIVO") || fondos[0];
+      setSplitPayments([
+        {
+          id: "sp-1",
+          metodo: "Efectivo",
+          monto: mitad,
+          montoRecibido: mitad,
+          cambio: 0,
+          cajaFondoId: f1?.id,
+          detalle: "Efectivo en Mostrador",
+        },
+        {
+          id: "sp-2",
+          metodo: "Tarjeta",
+          monto: Number((saldoPendiente - mitad).toFixed(2)),
+          detalle: "BanBajío Tarjeta (TPV)",
+        },
+      ]);
+    }
+  }, [posPaymentMethod, saldoPendiente, fondos]);
 
   // Live Buyout Margin Calculator values
   const numericCosto = parseFloat(partCostoUnitario) || 0;
@@ -1580,114 +1644,181 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
     setSavingReception(false);
   };
 
-  // Handlers for Payments
-  const handleAddPayment = async () => {
-    const monto = parseFloat(paymentAmount);
-    if (isNaN(monto) || monto <= 0) return;
-    setAddingPaymentLoading(true);
-
-    const providerConfig = activePaymentProviders.find((p) => p.proveedor === paymentProvider);
-    const comision =
-      paymentProvider === "Efectivo" || paymentProvider === "Transferencia"
-        ? 0
-        : providerConfig
-        ? monto * (Number(providerConfig.comision_porcentaje) / 100)
-        : monto * 0.035;
-
-    if (paymentMode === "link" && ["Mercado Pago", "KueskiPay", "Atrato"].includes(paymentProvider)) {
-      setPaymentStatusMessage(`Generando link de pago con ${paymentProvider}...`);
-      const mappedProvider =
-        paymentProvider === "Mercado Pago" ? "MercadoPago" : (paymentProvider as any);
-      const res = await generatePaymentLink(orderId, monto, mappedProvider);
-      if (res.success && res.payment_url) {
-        window.open(res.payment_url, "_blank");
-      }
-      await loadWorkspaceData();
-      setIsAddingPayment(false);
-      setPaymentAmount("");
-      setPaymentStatusMessage("");
-      setAddingPaymentLoading(false);
-      onUpdate();
+  // Handlers for Payments & Official POS Cobro
+  const handleConfirmCobro = async () => {
+    if (!turnoActivo) {
+      setIsAbrirTurnoOpen(true);
       return;
     }
+    if (saldoPendiente <= 0) return;
 
-    const isEfectivo = paymentProvider === "Efectivo";
-    const hasDiscountConfig = Boolean(
-      empresa?.descuento_efectivo_habilitado && Number(empresa?.descuento_efectivo_porcentaje || 0) > 0
-    );
-    const cashPct = hasDiscountConfig ? Number(empresa?.descuento_efectivo_porcentaje) : 0;
+    setAddingPaymentLoading(true);
+    try {
+      const targetSucursalId =
+        order?.sucursal_id ||
+        sucursalActiva?.id ||
+        "b0000000-0000-0000-0000-000000000001";
+      const targetEmpresaId =
+        order?.empresa_id ||
+        empresa?.id ||
+        "a0000000-0000-0000-0000-000000000001";
 
-    let descuentoAplicado = 0;
-    if (isEfectivo && hasDiscountConfig && applyCashDiscount) {
-      const netToClear = Math.round((saldoPendiente * (1 - cashPct / 100)) * 100) / 100;
-      if (Math.abs(monto - netToClear) < 0.1 || monto >= netToClear) {
-        descuentoAplicado = Math.round((saldoPendiente * (cashPct / 100)) * 100) / 100;
+      const f1Operativo = fondos.find((f) => f.tipo === "OPERATIVO") || fondos[0];
+
+      if (posPaymentMethod === "SPLIT") {
+        if (splitPayments.length === 0) {
+          toast.error("Agrega al menos un método de pago en el desglose.");
+          setAddingPaymentLoading(false);
+          return;
+        }
+        const totalCubierto = splitPayments.reduce((acc, p) => acc + Number(p.monto || 0), 0);
+        if (totalCubierto < saldoPendiente - 0.05) {
+          toast.error(`El monto cubierto ($${totalCubierto.toFixed(2)}) no cubre el saldo de $${saldoPendiente.toFixed(2)}.`);
+          setAddingPaymentLoading(false);
+          return;
+        }
+
+        const res = await MultiPaymentService.registrarPagosOrdenMulti({
+          ordenId: order.id,
+          sucursalId: targetSucursalId,
+          pagos: splitPayments,
+        });
+
+        if (!res.success) {
+          toast.error(res.message || "Error al registrar cobros divididos");
+          setAddingPaymentLoading(false);
+          return;
+        }
+
+        const totalCashChange = splitPayments
+          .filter((p) => p.metodo === "Efectivo")
+          .reduce((acc, p) => acc + Number(p.cambio || 0), 0);
+        const totalCashGiven = splitPayments
+          .filter((p) => p.metodo === "Efectivo")
+          .reduce((acc, p) => acc + Number(p.montoRecibido || p.monto || 0), 0);
+
+        setReceiptCashGiven(totalCashGiven > 0 ? totalCashGiven : undefined);
+        setReceiptChangeDue(totalCashChange > 0 ? totalCashChange : undefined);
       } else {
-        descuentoAplicado = Math.round((monto * (cashPct / (100 - cashPct))) * 100) / 100;
+        // Single payment
+        let dbProvider = "Efectivo";
+        let detalle = "Efectivo en Mostrador";
+        let ref = `AUT-${Math.floor(100000 + Math.random() * 900000)}`;
+        let amountNum = saldoPendiente;
+        let finalAhorro = 0;
+
+        if (posPaymentMethod === "Efectivo") {
+          dbProvider = "Efectivo";
+          if (hasCashDiscount && applyCashDiscount) {
+            finalAhorro = cashAhorro;
+            amountNum = cashTotalPorCobrar;
+          }
+          const cashGivenNum = cashGivenVal > 0 ? cashGivenVal : amountNum;
+          const changeDueNum = Math.max(0, cashGivenNum - amountNum);
+          setReceiptCashGiven(cashGivenNum);
+          setReceiptChangeDue(changeDueNum);
+
+          detalle = finalAhorro > 0
+            ? `Efectivo en Mostrador (Descuento Promoción ${cashDiscountPct}%: -$${finalAhorro.toFixed(2)} • Entregó: $${cashGivenNum.toLocaleString("es-MX")} • Cambio: $${changeDueNum.toLocaleString("es-MX")})`
+            : `Efectivo en Mostrador (Entregó: $${cashGivenNum.toLocaleString("es-MX")} • Cambio: $${changeDueNum.toLocaleString("es-MX")})`;
+        } else if (posPaymentMethod === "TPV") {
+          dbProvider = tpvType.includes("BanBajío") ? "BanBajío" : "Mercado Pago";
+          detalle = tpvType;
+          ref = tpvAuth.trim() || `TPV-${Math.floor(100000 + Math.random() * 900000)}`;
+          setReceiptCashGiven(undefined);
+          setReceiptChangeDue(undefined);
+        } else if (posPaymentMethod === "SPEI") {
+          dbProvider = "Transferencia";
+          const cta = cuentasBancarias.find((c) => c.id === selectedCuentaBancariaId) || cuentasBancarias[0];
+          detalle = cta ? `Transferencia SPEI (${cta.banco} • ${cta.alias})` : "Transferencia Bancaria SPEI";
+          ref = speiRastreo.trim() || `SPEI-${Date.now().toString().slice(-8)}`;
+          setReceiptCashGiven(undefined);
+          setReceiptChangeDue(undefined);
+        } else if (posPaymentMethod === "BNPL") {
+          if (paymentMode === "link") {
+            setPaymentStatusMessage(`Generando link de pago con ${bnplProvider}...`);
+            const mappedProvider = (bnplProvider as any) === "Mercado Pago" ? "MercadoPago" : (bnplProvider as any);
+            const linkRes = await generatePaymentLink(orderId, saldoPendiente, mappedProvider);
+            if (linkRes.success && linkRes.payment_url) {
+              window.open(linkRes.payment_url, "_blank");
+            }
+            await loadWorkspaceData();
+            setPaymentStatusMessage("");
+            setAddingPaymentLoading(false);
+            onUpdate();
+            return;
+          }
+          dbProvider = bnplProvider;
+          detalle = `${bnplProvider} (Financiamiento Automotriz)`;
+          ref = bnplReference.trim() || `BNPL-${Date.now().toString().slice(-8)}`;
+          setReceiptCashGiven(undefined);
+          setReceiptChangeDue(undefined);
+        }
+
+        const { data: newPago, error: pagoErr } = await supabase
+          .from("pagos_orden")
+          .insert({
+            orden_servicio_id: order.id,
+            empresa_id: targetEmpresaId,
+            sucursal_id: targetSucursalId,
+            monto_total: amountNum,
+            proveedor_pago: dbProvider,
+            metodo_detalle: detalle,
+            referencia: ref,
+            estatus: "Aprobado",
+            descuento_aplicado: finalAhorro > 0 ? finalAhorro : null,
+            fecha_pago: new Date().toISOString(),
+            cuenta_bancaria_id: posPaymentMethod === "SPEI" ? (selectedCuentaBancariaId || null) : null,
+            caja_turno_id: turnoActivo?.id || null,
+            caja_fondo_id: posPaymentMethod === "Efectivo" ? (f1Operativo?.id || null) : null,
+          })
+          .select()
+          .single();
+
+        if (pagoErr) throw pagoErr;
+
+        setSelectedReceiptPayment(newPago);
+
+        const nuevoPagado = totalPagado + amountNum;
+        const nuevoEstatus = (nuevoPagado + finalAhorro >= granTotal - 0.5) ? "Pagado" : "Parcial";
+        const ordUpdate: any = { estatus_pago: nuevoEstatus };
+        if (finalAhorro > 0) {
+          ordUpdate.descuento_efectivo_porcentaje = cashDiscountPct;
+          ordUpdate.descuento_efectivo_monto = finalAhorro;
+        }
+
+        await supabase
+          .from("ordenes_servicio")
+          .update(ordUpdate)
+          .eq("id", order.id);
       }
-    }
 
-    const selectedCuenta = cuentasBancarias.find((c) => c.id === selectedCuentaBancariaId);
-    let finalMetodoDetalle = paymentMetodoDetalle || paymentProvider;
-    if (paymentProvider === "Transferencia" && selectedCuenta) {
-      finalMetodoDetalle = `Transferencia SPEI (${selectedCuenta.alias} - ${selectedCuenta.banco})`;
-    }
+      // Audio Chime
+      try {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12);
+        gain.gain.setValueAtTime(0.08, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.22);
+      } catch {}
 
-    const payload = {
-      orden_servicio_id: orderId,
-      sucursal_id: order.sucursal_id || sucursalActiva?.id || null,
-      monto_total: monto,
-      proveedor_pago: paymentProvider,
-      metodo_detalle: finalMetodoDetalle,
-      referencia: paymentReferencia.trim() || `AUT-${Date.now().toString().slice(-6)}`,
-      estatus: "Aprobado",
-      comision_pasarela: Math.round(comision * 100) / 100,
-      descuento_aplicado: descuentoAplicado,
-      cuenta_bancaria_id: paymentProvider === "Transferencia" ? (selectedCuentaBancariaId || null) : null,
-    };
-
-    const { data: intent, error } = await supabase
-      .from("pagos_orden")
-      .insert(payload)
-      .select("*, cuenta_bancaria:cuentas_bancarias(id, banco, alias, clabe, es_fiscal)")
-      .single();
-
-    if (!error && intent) {
-      const newPagos = [...(order.pagos_orden || []), intent];
-      const newTotalPagado = newPagos
-        .filter((p: any) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO") && !p.deleted_at)
-        .reduce((acc: number, curr: any) => acc + Number(curr.monto_total), 0);
-      const newTotalDescuentos = newPagos
-        .filter((p: any) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO") && !p.deleted_at)
-        .reduce((acc: number, curr: any) => acc + Number(curr.descuento_aplicado || 0), 0);
-
-      const totalCovered = newTotalPagado + newTotalDescuentos;
-      let newEstatus = "Pendiente";
-      if (totalCovered > 0 && totalCovered < granTotal) newEstatus = "Parcial";
-      if (totalCovered >= granTotal - 0.05 && granTotal > 0) newEstatus = "Pagado";
-
-      await supabase
-        .from("ordenes_servicio")
-        .update({
-          estatus_pago: newEstatus,
-          descuento_efectivo_porcentaje: isEfectivo && descuentoAplicado > 0 ? cashPct : (order.descuento_efectivo_porcentaje || 0),
-          descuento_efectivo_monto: (order.descuento_efectivo_monto || 0) + descuentoAplicado,
-        })
-        .eq("id", orderId);
-
-      setOrder((prev: any) => ({
-        ...prev,
-        pagos_orden: newPagos,
-        estatus_pago: newEstatus,
-        descuento_efectivo_porcentaje: isEfectivo && descuentoAplicado > 0 ? cashPct : prev.descuento_efectivo_porcentaje,
-        descuento_efectivo_monto: (prev.descuento_efectivo_monto || 0) + descuentoAplicado,
-      }));
-      setIsAddingPayment(false);
-      setPaymentAmount("");
-      setPaymentReferencia("");
+      toast.success("Cobro registrado exitosamente en caja");
+      setShowReceiptModal(true);
+      await loadWorkspaceData();
       onUpdate();
+    } catch (err: any) {
+      console.error("Error al cobrar:", err);
+      toast.error(err.message || "Error al procesar el cobro");
+    } finally {
+      setAddingPaymentLoading(false);
     }
-    setAddingPaymentLoading(false);
   };
 
   const handleRemovePayment = async (pagoId: string) => {
@@ -4897,7 +5028,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                   {posPaymentMethod === "BNPL" && (
                     <div className="flex flex-col gap-3 bg-sky-50/50 p-3.5 rounded-xl border border-sky-200">
                       <div className="grid grid-cols-3 gap-2">
-                        {(["KueskiPay", "Atrato", "Stripe"]).map((prov) => (
+                        {(["KueskiPay", "Atrato", "Stripe"] as const).map((prov) => (
                           <button
                             key={prov}
                             type="button"
