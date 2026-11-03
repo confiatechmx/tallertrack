@@ -61,7 +61,9 @@ export function Sidebar() {
   ];
 
   const brandName = empresa?.nombre_comercial || "TallerTrack";
-  const isCova = brandName.toLowerCase().includes("cova");
+  const isCova =
+    brandName.toLowerCase().includes("cova") ||
+    (typeof window !== "undefined" && window.location.hostname.toLowerCase().includes("cova"));
   const brandLogoUrl = !logoError
     ? (empresa?.logo_url_dark || empresa?.logo_url || (isCova ? "/branding/cova/cova-logo-dark-trimmed.png" : "/brand/tallertrack-logo-horizontal-dark.png"))
     : "/brand/tallertrack-logo-horizontal-dark.png";

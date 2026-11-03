@@ -125,6 +125,38 @@ export const DEFAULT_EMPRESA: EmpresaConfig = {
   custom_metadata: {},
 };
 
+const CURRENT_EMPRESA_CACHE_KEY = "tallertrack_cached_empresa";
+
+function getInitialEmpresa(): EmpresaConfig {
+  if (typeof window !== "undefined") {
+    try {
+      const host = window.location.hostname.toLowerCase();
+      const raw = localStorage.getItem(CURRENT_EMPRESA_CACHE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (host.includes("cova") && (parsed.nombre_comercial || "").toLowerCase().includes("cova")) {
+          return parsed;
+        }
+        if (!host.includes("cova") && parsed.id) {
+          return parsed;
+        }
+      }
+      if (host.includes("cova")) {
+        return {
+          ...DEFAULT_EMPRESA,
+          nombre_comercial: "Cova - Taller & Llantera",
+          logo_url_dark: "/branding/cova/cova-logo-dark-trimmed.png",
+          logo_url: "/branding/cova/cova-logo-light-trimmed.png",
+          isotipo_url: "/branding/cova/cova-isotipo.png",
+        };
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return DEFAULT_EMPRESA;
+}
+
 const TenantContext = createContext<TenantContextValue>({
   empresa: DEFAULT_EMPRESA,
   sucursales: [],
@@ -149,7 +181,7 @@ export function applyThemeCssVariables(primaryColor: string, sidebarColor: strin
 }
 
 export function TenantProvider({ children }: { children: React.ReactNode }) {
-  const [empresa, setEmpresa] = useState<EmpresaConfig | null>(DEFAULT_EMPRESA);
+  const [empresa, setEmpresa] = useState<EmpresaConfig | null>(() => getInitialEmpresa());
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
   const [sucursalActivaId, setSucursalActivaIdState] = useState<string | null>(null);
   const [perfil, setPerfil] = useState<UserPerfil | null>(null);
@@ -236,6 +268,13 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
           custom_metadata: empData.custom_metadata || {},
         };
         setEmpresa(merged);
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem(CURRENT_EMPRESA_CACHE_KEY, JSON.stringify(merged));
+          } catch {
+            // ignore
+          }
+        }
         applyThemeCssVariables(merged.color_primario, merged.color_sidebar);
       }
 
@@ -327,6 +366,13 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
         custom_metadata: data.custom_metadata || {},
       };
       setEmpresa(merged);
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(CURRENT_EMPRESA_CACHE_KEY, JSON.stringify(merged));
+        } catch {
+          // ignore
+        }
+      }
       applyThemeCssVariables(merged.color_primario, merged.color_sidebar);
 
       // Cargar sucursales de esta empresa
