@@ -107,7 +107,22 @@ export function ReceiptModal({
       : payment?.monto_total || (totalPagadoHistorico > 0 ? totalPagadoHistorico : total)
   );
 
-  const saldo = Math.max(0, total - (totalPagadoHistorico > 0 ? totalPagadoHistorico : montoCobrado));
+  const totalPagadoConDescuento = pagosList
+    .filter((p: any) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO") && !p.deleted_at)
+    .reduce((acc: number, p: any) => acc + Number(p.monto_total || 0) + Number(p.descuento_aplicado || 0), 0);
+
+  const descuentoDirecto = Math.max(
+    Number(payment?.descuento_aplicado || 0),
+    Number(order?.descuento_efectivo_monto || 0)
+  );
+
+  const totalHistoricoCubierto = Math.max(totalPagadoConDescuento, totalPagadoHistorico + descuentoDirecto);
+  const totalCobradoMovimiento = montoCobrado + descuentoDirecto;
+  const montoCubiertoEvaluado = totalHistoricoCubierto > 0 ? totalHistoricoCubierto : totalCobradoMovimiento;
+
+  const saldo = (order?.estatus_pago === "Pagado" || montoCubiertoEvaluado >= total - 0.5)
+    ? 0
+    : Math.max(0, Number((total - montoCubiertoEvaluado).toFixed(2)));
 
   const tasaIva = Number(empresa?.tasa_iva ?? 16);
   const subtotalSinIva = Math.round((total / (1 + tasaIva / 100)) * 100) / 100;

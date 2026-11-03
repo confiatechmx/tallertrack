@@ -222,6 +222,8 @@ export default function CajaPage() {
           estado,
           sub_estado,
           estatus_pago,
+          descuento_efectivo_monto,
+          descuento_efectivo_porcentaje,
           mecanico_id,
           fecha_ingreso,
           bahia_rampa,
@@ -255,7 +257,8 @@ export default function CajaPage() {
             proveedor_pago,
             metodo_detalle,
             referencia,
-            fecha_pago
+            fecha_pago,
+            descuento_aplicado
           )
         `)
         .order("fecha_ingreso", { ascending: false });
@@ -381,7 +384,17 @@ export default function CajaPage() {
             .filter((p: any) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO") && !p.deleted_at)
             .reduce((acc: number, curr: any) => acc + Number(curr.monto_total || 0), 0);
 
-          const saldo = Math.max(0, granTotal - pagado);
+          const descuentosPagos = (order.pagos_orden || [])
+            .filter((p: any) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO") && !p.deleted_at)
+            .reduce((acc: number, curr: any) => acc + Number(curr.descuento_aplicado || 0), 0);
+
+          const descuentoOrden = Number(order.descuento_efectivo_monto || 0);
+          const totalDescuento = Math.max(descuentosPagos, descuentoOrden);
+          const totalCubierto = pagado + totalDescuento;
+
+          const saldo = (order.estatus_pago === "Pagado" || totalCubierto >= (granTotal - 0.5))
+            ? 0
+            : Math.max(0, Number((granTotal - totalCubierto).toFixed(2)));
 
           return {
             ...order,
@@ -397,7 +410,7 @@ export default function CajaPage() {
 
         // Pre-select first pending order if none selected
         setPosSelectedOrderId((prev) => {
-          if (prev && enriched.some((o: any) => o.id === prev)) return prev;
+          if (prev && enriched.some((o: any) => o.id === prev && o.saldo > 0.01)) return prev;
           const firstPending = enriched.find((o: any) => o.saldo > 0.01);
           if (firstPending) {
             setPaymentAmount(firstPending.saldo.toFixed(2));
@@ -831,7 +844,11 @@ export default function CajaPage() {
       setReceiptOrder({
         ...activeOrder,
         pagado: nuevoPagado,
-        saldo: Math.max(0, activeOrder.granTotal - nuevoPagado),
+        saldo: (nuevoEstatus === "Pagado" || (nuevoPagado + finalAhorro) >= activeOrder.granTotal - 0.5)
+          ? 0
+          : Math.max(0, activeOrder.granTotal - nuevoPagado - finalAhorro),
+        estatus_pago: nuevoEstatus,
+        descuento_efectivo_monto: finalAhorro,
       });
       setReceiptPayment(newPago);
       setReceiptPayments(undefined);
