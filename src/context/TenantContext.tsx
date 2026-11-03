@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { createClient } from "@/lib/supabase/client";
 import { saasHqService, ImpersonationSession } from "@/services/saasHqService";
 import { tenantDomainService, TenantDomainInfo } from "@/services/tenantDomainService";
+import { parseTenantFromHost } from "@/lib/tenantRouting";
 
 export interface EmpresaConfig {
   id: string;
@@ -131,23 +132,32 @@ function getInitialEmpresa(): EmpresaConfig {
   if (typeof window !== "undefined") {
     try {
       const host = window.location.hostname.toLowerCase();
+      const hostInfo = parseTenantFromHost(host);
       const raw = localStorage.getItem(CURRENT_EMPRESA_CACHE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (host.includes("cova") && (parsed.nombre_comercial || "").toLowerCase().includes("cova")) {
+        if (hostInfo.subdomain && (parsed.subdominio === hostInfo.subdomain || (parsed.nombre_comercial || "").toLowerCase().includes(hostInfo.subdomain))) {
           return parsed;
         }
-        if (!host.includes("cova") && parsed.id) {
+        if (!hostInfo.subdomain && parsed.id) {
           return parsed;
         }
       }
-      if (host.includes("cova")) {
+      if (hostInfo.subdomain === "cova" || host.includes("cova")) {
         return {
           ...DEFAULT_EMPRESA,
           nombre_comercial: "Cova - Taller & Llantera",
+          subdominio: "cova",
           logo_url_dark: "/branding/cova/cova-logo-dark-trimmed.png",
           logo_url: "/branding/cova/cova-logo-light-trimmed.png",
           isotipo_url: "/branding/cova/cova-isotipo.png",
+        };
+      }
+      if (hostInfo.isTenantHost && hostInfo.subdomain) {
+        return {
+          ...DEFAULT_EMPRESA,
+          subdominio: hostInfo.subdomain,
+          nombre_comercial: hostInfo.subdomain.toUpperCase(),
         };
       }
     } catch {

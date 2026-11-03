@@ -42,4 +42,5 @@
 - [x] Integración Omnicanal y CRM Pipeline #crm #ventas @alta ➔ [[Pasarelas de Pago BNPL y Notificaciones Omnicanal]] & [[SOP - Sincronización Pipeline CRM a Kanban Taller]]
 
 ## Ideas y Mejoras a Futuro
+- [ ] Aprovisionamiento Automatizado de Dominios Personalizados (Custom Domains con CNAME delegation y emisión SSL para clientes Enterprise) #infraestructura #whitelabel @baja ➔ [[Arquitectura de Subdominios y Modus Operandi Multi-Tenant]] & [[Estrategia de White-labeling (Marca Blanca)]]
 - [ ] Toggle opcional para imprimir firmas físicas en Recibo de Pago (para Flotillas B2B y Crédito con altura real de firma) #finanzas #frontend @baja ➔ [[Control de Turnos y Cierre de Caja Chica]]
