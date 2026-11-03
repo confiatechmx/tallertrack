@@ -420,14 +420,16 @@ export function KanbanBoard() {
               <h1 className="text-xl font-bold text-slate-900 tracking-tight">
                 Tablero de Operaciones
               </h1>
-              {sucursalActiva ? (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-bold">
-                  <Building2 size={11} /> {sucursalActiva.nombre} ({sucursalActiva.codigo})
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-semibold">
-                  Vista Consolidada Multi-Sucursal
-                </span>
+              {sucursales && sucursales.length > 1 && (
+                sucursalActiva ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-bold">
+                    <Building2 size={11} /> {sucursalActiva.nombre} ({sucursalActiva.codigo})
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-semibold">
+                    Vista Consolidada Multi-Sucursal
+                  </span>
+                )
               )}
             </div>
             

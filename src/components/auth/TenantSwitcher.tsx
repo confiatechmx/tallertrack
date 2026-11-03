@@ -31,7 +31,7 @@ export default function TenantSwitcher({ collapsed = false }: TenantSwitcherProp
   const [search, setSearch] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const canManageTenants = isSuperAdmin || perfil?.rol === "Administrador";
+  const canManageTenants = isSuperAdmin;
 
   const loadEmpresas = async () => {
     if (!canManageTenants) return;
