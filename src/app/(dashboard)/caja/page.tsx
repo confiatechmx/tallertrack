@@ -1612,7 +1612,12 @@ export default function CajaPage() {
                               <button
                                 key={amt}
                                 type="button"
-                                onClick={() => setCashGiven(String(amt))}
+                                onClick={() => {
+                                  setCashGiven((prev) => {
+                                    const actual = parseFloat(prev) || 0;
+                                    return String(actual + amt);
+                                  });
+                                }}
                                 className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-xs font-bold hover:bg-slate-100 text-slate-700 transition-colors cursor-pointer"
                               >
                                 +${amt}
@@ -1625,6 +1630,16 @@ export default function CajaPage() {
                             >
                               Pago Exacto
                             </button>
+                            {cashGivenNum > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setCashGiven("")}
+                                className="px-2 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                                title="Limpiar efectivo recibido"
+                              >
+                                Limpiar
+                              </button>
+                            )}
                           </div>
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
