@@ -6,6 +6,7 @@ import { useTenant } from "@/context/TenantContext";
 import { ConcurrencyService } from "@/services/concurrencyService";
 import Link from "next/link";
 import QRCode from "qrcode";
+import { toast } from "sonner";
 import { ReceiptModal } from "@/components/caja/ReceiptModal";
 import { SplitPaymentManager } from "@/components/caja/SplitPaymentManager";
 import { TenantMetodosPagoService, TenantMetodoPago } from "@/services/tenantMetodosPagoService";
@@ -737,6 +738,10 @@ export default function CajaPage() {
         setReceiptChangeDue(totalCashChange > 0 ? totalCashChange : undefined);
         setReceiptModalOpen(true);
 
+        toast.success(`¡Cobro múltiple registrado exitosamente!`, {
+          description: `Total: $${totalCubierto.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN • Orden #${1000 + Number(activeOrder.folio || 1)}`,
+        });
+
         await loadData();
         return;
       }
@@ -855,6 +860,11 @@ export default function CajaPage() {
       setReceiptCashGiven(selectedMethod === "Efectivo" ? cashGivenNum : undefined);
       setReceiptChangeDue(selectedMethod === "Efectivo" ? changeDue : undefined);
       setReceiptModalOpen(true);
+
+      const metodoTexto = selectedMethod === "Efectivo" ? "Efectivo en Ventanilla" : (metodoPagoConfigObj?.nombre || selectedMethod);
+      toast.success(`¡Cobro de $${amountNum.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN registrado con éxito!`, {
+        description: `Orden #${1000 + Number(activeOrder.folio || 1)} • Método: ${metodoTexto}`,
+      });
 
       await loadData();
     } catch (err) {
