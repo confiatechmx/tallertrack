@@ -100,24 +100,24 @@ interface TenantContextValue {
 }
 
 export const DEFAULT_EMPRESA: EmpresaConfig = {
-  id: "a0000000-0000-0000-0000-000000000001",
-  nombre_comercial: "Torque & Ruta - Centro Automotriz",
-  rfc: "TRC2105148A1",
-  direccion: "Av. José Vasconcelos 450 Pte, Col. Del Valle, San Pedro Garza García, N.L.",
+  id: "b2ad09db-0a34-4876-9ca3-d584c40bd294",
+  nombre_comercial: "Cova",
+  rfc: "COV2105148A1",
+  direccion: "Río Aguanaval 1595, Col. Pascual Orozco, C.P. 80170, Culiacán Rosales, Sin.",
   tasa_iva: 16,
-  logo_url: null,
-  logo_url_dark: null,
-  isotipo_url: null,
-  color_primario: "#2563EB",
+  logo_url: "/branding/cova/cova-logo-light-trimmed.png",
+  logo_url_dark: "/branding/cova/cova-logo-dark-trimmed.png",
+  isotipo_url: "/branding/cova/cova-isotipo.png",
+  color_primario: "#1C3EFF",
   color_sidebar: "#0F172A",
   eslogan: "Especialistas en Frenos, Suspensión, Mecánica y Llantas Multimarca",
-  telefono: "81 8356 4290",
-  email_contacto: "servicio@torqueyruta.mx",
-  sitio_web: "www.torqueyruta.mx",
-  subdominio: "torqueyruta",
+  telefono: "+526674125459",
+  email_contacto: "servicio@cova.mx",
+  sitio_web: "cova.tallertrack.com",
+  subdominio: "cova",
   margen_refacciones_default: 35,
-  descuento_efectivo_habilitado: false,
-  descuento_efectivo_porcentaje: 0.0,
+  descuento_efectivo_habilitado: true,
+  descuento_efectivo_porcentaje: 3.0,
   terminos_condiciones:
     "Garantía de 30 días o 1,000 km en mano de obra. Refacciones y neumáticos sujetos a garantía del fabricante.",
   plan_suscripcion: "ENTERPRISE",
@@ -133,28 +133,29 @@ function getInitialEmpresa(): EmpresaConfig {
     try {
       const host = window.location.hostname.toLowerCase();
       const hostInfo = parseTenantFromHost(host);
+      const isCovaDomain = hostInfo.subdomain === "cova" || host.includes("cova");
       const raw = localStorage.getItem(CURRENT_EMPRESA_CACHE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (hostInfo.subdomain && (parsed.subdominio === hostInfo.subdomain || (parsed.nombre_comercial || "").toLowerCase().includes(hostInfo.subdomain))) {
+        if (isCovaDomain) {
+          if (parsed.subdominio === "cova" || (parsed.nombre_comercial || "").toLowerCase().includes("cova")) {
+            return {
+              ...DEFAULT_EMPRESA,
+              ...parsed,
+              id: "b2ad09db-0a34-4876-9ca3-d584c40bd294",
+              logo_url_dark: parsed.logo_url_dark || "/branding/cova/cova-logo-dark-trimmed.png",
+              logo_url: parsed.logo_url || "/branding/cova/cova-logo-light-trimmed.png",
+              isotipo_url: parsed.isotipo_url || "/branding/cova/cova-isotipo.png",
+            };
+          }
+        } else if (hostInfo.subdomain && (parsed.subdominio === hostInfo.subdomain || (parsed.nombre_comercial || "").toLowerCase().includes(hostInfo.subdomain))) {
           return parsed;
-        }
-        if (!hostInfo.subdomain && parsed.id) {
+        } else if (!hostInfo.subdomain && parsed.id) {
           return parsed;
         }
       }
-      if (hostInfo.subdomain === "cova" || host.includes("cova")) {
-        return {
-          ...DEFAULT_EMPRESA,
-          id: "b2ad09db-0a34-4876-9ca3-d584c40bd294",
-          nombre_comercial: "Cova - Taller & Llantera",
-          direccion: "Río Aguanaval 1595, Col. Pascual Orozco, C.P. 80170, Culiacán Rosales, Sin.",
-          telefono: "+526674125459",
-          subdominio: "cova",
-          logo_url_dark: "/branding/cova/cova-logo-dark-trimmed.png",
-          logo_url: "/branding/cova/cova-logo-light-trimmed.png",
-          isotipo_url: "/branding/cova/cova-isotipo.png",
-        };
+      if (isCovaDomain) {
+        return DEFAULT_EMPRESA;
       }
       if (hostInfo.isTenantHost && hostInfo.subdomain) {
         return {
@@ -256,7 +257,7 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
 
       const hostCurrent = typeof window !== "undefined" ? window.location.hostname.toLowerCase() : "";
       const isCovaHost = hostCurrent.includes("cova") || (domainInfo?.empresa?.subdominio === "cova");
-      if (!targetEmpresaId && isCovaHost) {
+      if (isCovaHost && !currentImpersonation?.targetEmpresaId) {
         targetEmpresaId = "b2ad09db-0a34-4876-9ca3-d584c40bd294";
       }
 
@@ -274,10 +275,14 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
       const { data: sucData } = await querySucursales;
 
       if (empData) {
+        const isCovaEmp = empData.id === "b2ad09db-0a34-4876-9ca3-d584c40bd294" || empData.subdominio === "cova" || isCovaHost;
         const merged: EmpresaConfig = {
           ...DEFAULT_EMPRESA,
           ...empData,
-          color_primario: empData.color_primario || "#2563EB",
+          logo_url_dark: empData.logo_url_dark || (isCovaEmp ? "/branding/cova/cova-logo-dark-trimmed.png" : null),
+          logo_url: empData.logo_url || (isCovaEmp ? "/branding/cova/cova-logo-light-trimmed.png" : null),
+          isotipo_url: empData.isotipo_url || (isCovaEmp ? "/branding/cova/cova-isotipo.png" : null),
+          color_primario: empData.color_primario || (isCovaEmp ? "#1C3EFF" : "#2563EB"),
           color_sidebar: empData.color_sidebar || "#0F172A",
           margen_refacciones_default: Number(empData.margen_refacciones_default ?? 35),
           tasa_iva: Number(empData.tasa_iva ?? 16),

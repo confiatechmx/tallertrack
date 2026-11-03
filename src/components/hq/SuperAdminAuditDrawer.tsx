@@ -10,14 +10,16 @@ interface SuperAdminAuditDrawerProps {
 }
 
 export default function SuperAdminAuditDrawer({ isOpen, onClose }: SuperAdminAuditDrawerProps) {
-  if (!isOpen) return null;
-
   const [logs, setLogs] = useState<SuperAdminAuditLog[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadLogs();
-  }, []);
+    if (isOpen) {
+      loadLogs();
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
 
   const loadLogs = async () => {
     try {

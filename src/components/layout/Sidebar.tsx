@@ -60,16 +60,27 @@ export function Sidebar() {
     ...(isSuperAdmin ? [{ href: "/hq", label: "Control HQ", icon: ShieldCheck }] : []),
   ];
 
-  const brandName = empresa?.nombre_comercial || "TallerTrack";
+  const brandName = empresa?.nombre_comercial || "Cova";
   const isCova =
     brandName.toLowerCase().includes("cova") ||
+    empresa?.subdominio === "cova" ||
+    empresa?.id === "b2ad09db-0a34-4876-9ca3-d584c40bd294" ||
     (typeof window !== "undefined" && window.location.hostname.toLowerCase().includes("cova"));
+
+  useEffect(() => {
+    setLogoError(false);
+    setIconError(false);
+  }, [empresa?.id, empresa?.logo_url_dark, empresa?.logo_url, brandName]);
+
+  const covaFallbackLogo = "/branding/cova/cova-logo-dark-trimmed.png";
+  const covaFallbackIcon = "/branding/cova/cova-isotipo.png";
+
   const brandLogoUrl = !logoError
-    ? (empresa?.logo_url_dark || empresa?.logo_url || (isCova ? "/branding/cova/cova-logo-dark-trimmed.png" : "/brand/tallertrack-logo-horizontal-dark.png"))
-    : "/brand/tallertrack-logo-horizontal-dark.png";
+    ? (empresa?.logo_url_dark || empresa?.logo_url || (isCova ? covaFallbackLogo : "/brand/tallertrack-logo-horizontal-dark.png"))
+    : (isCova ? covaFallbackLogo : "/brand/tallertrack-logo-horizontal-dark.png");
   const brandIconUrl = !iconError
-    ? (empresa?.isotipo_url || (isCova ? "/branding/cova/cova-isotipo.png" : "/favicon.svg"))
-    : "/favicon.svg";
+    ? (empresa?.isotipo_url || (isCova ? covaFallbackIcon : "/favicon.svg"))
+    : (isCova ? covaFallbackIcon : "/favicon.svg");
 
   return (
     <>

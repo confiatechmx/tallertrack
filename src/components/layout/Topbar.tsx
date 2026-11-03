@@ -156,7 +156,7 @@ export function Topbar() {
     router.push("/login");
   };
 
-  const userInitials = (perfil?.nombre || "Eduardo Cova")
+  const userInitials = (perfil?.nombre || "Larissa Orozco")
     .split(" ")
     .filter(Boolean)
     .slice(0, 2)
@@ -483,7 +483,7 @@ export function Topbar() {
         <div className="flex items-center gap-2.5 pl-3 border-l border-slate-200">
           <div className="hidden sm:flex flex-col items-end">
             <span className="text-xs font-semibold text-slate-900 leading-none">
-              {perfil?.nombre || "Eduardo Cova"}
+              {perfil?.nombre || "Larissa Orozco"}
             </span>
             <span className="text-[10px] text-slate-500 mt-0.5">{perfil?.rol || "Administrador"}</span>
           </div>

@@ -204,7 +204,7 @@ export default function StandaloneOrderPrintPage() {
       </div>
 
       {/* Global Print Overrides */}
-      <style jsx global>{`
+      <style>{`
         @page {
           size: letter portrait;
           margin: 6mm 8mm;

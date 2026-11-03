@@ -19,10 +19,8 @@ const PLAN_PRICES: Record<string, number> = {
 };
 
 export default function ConciliarPagoModal({ empresa, isOpen, onClose, onSuccess }: ConciliarPagoModalProps) {
-  if (!isOpen || !empresa) return null;
-
   const initialPlan =
-    empresa.plan_suscripcion === "PRO" || empresa.plan_suscripcion === "ENTERPRISE"
+    empresa?.plan_suscripcion === "PRO" || empresa?.plan_suscripcion === "ENTERPRISE"
       ? empresa.plan_suscripcion
       : "STARTER";
 
@@ -33,6 +31,8 @@ export default function ConciliarPagoModal({ empresa, isOpen, onClose, onSuccess
   const [referencia, setReferencia] = useState<string>("");
   const [notas, setNotas] = useState<string>("");
   const [loading, setLoading] = useState(false);
+
+  if (!isOpen || !empresa) return null;
 
   const handlePlanChange = (newPlan: "STARTER" | "PRO" | "ENTERPRISE") => {
     setSelectedPlan(newPlan);
