@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 interface ModalProps {
@@ -9,6 +10,7 @@ interface ModalProps {
   title: string;
   description?: string;
   size?: "md" | "lg" | "xl" | "2xl" | "full";
+  zIndex?: string;
   children: React.ReactNode;
 }
 
@@ -26,9 +28,15 @@ export function Modal({
   title,
   description,
   size = "lg",
+  zIndex = "z-50",
   children,
 }: ModalProps) {
   const [isRendered, setIsRendered] = useState(isOpen);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (isOpen) setIsRendered(true);
@@ -43,20 +51,21 @@ export function Modal({
   }, [onClose]);
 
   if (!isRendered && !isOpen) return null;
+  if (!mounted || typeof document === "undefined") return null;
 
-  return (
+  const modalContent = (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 transition-opacity duration-200 ease-out no-print ${
+      className={`fixed inset-0 ${zIndex} flex items-center justify-center p-2 sm:p-4 transition-opacity duration-200 ease-out no-print ${
         isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
       }`}
     >
       <div
-        className="absolute inset-0 bg-slate-950/50 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px]"
         onClick={onClose}
       />
 
       <div
-        className={`relative w-full ${sizeClasses[size]} bg-white shadow-2xl border border-slate-200 rounded-lg flex flex-col max-h-[92vh] overflow-hidden transform transition-all duration-200 ease-out ${
+        className={`relative w-full ${sizeClasses[size]} bg-white shadow-2xl border border-slate-200 rounded-xl flex flex-col max-h-[92vh] overflow-hidden transform transition-all duration-200 ease-out ${
           isOpen ? "scale-100 translate-y-0" : "scale-95 translate-y-2"
         }`}
         onTransitionEnd={() => {
@@ -84,4 +93,6 @@ export function Modal({
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }

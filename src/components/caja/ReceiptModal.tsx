@@ -767,6 +767,7 @@ export function ReceiptModal({
       onClose={onClose}
       title="Recibo Oficial de Pago / Comprobante de Cobro"
       size={formato === "CARTA" ? "xl" : "md"}
+      zIndex="z-[60]"
     >
       <div className="flex flex-col min-h-full">
         {/* ─── 1. BARRA FIJA SUPERIOR DE ACCIONES (Sticky Toolbar) ─── */}
