@@ -140,11 +140,16 @@ $$\begin{aligned}
 
 ## 6. Bloque 3: Caja Chica y Pagos a Proveedores con Garantía
 
+> [!TIP]
+> **Dos flujos complementarios de registro:**
+> 1. **Flujo Nativo de Taller (Estación de la Orden):** Al agregar una refacción en la Orden de Servicio (`+ Refacción`), se puede activar `[ + Garantía y Factura ]` para capturar el folio, subir la evidencia y marcar `[✓] Registrar salida automática en Caja Chica`.
+> 2. **Flujo de Mostrador / Administrativo (Caja POS):** En la pantalla de Caja POS (`/caja` ➔ pestaña *Caja Chica*), el cajero puede registrar pagos directos a proveedores no ligados a una orden previa.
+
 | ID | Acción | Datos a Ingresar | Resultado Esperado | Criterio de Aceptación |
 | :--- | :--- | :--- | :--- | :--- |
 | **TC-3.1** | En **Terminal B**, cambiar a pestaña **Caja Chica** y dar clic en **[ Registrar Movimiento ]**. | — | Se abre el modal de movimientos de caja chica. | Permite registrar salidas operativas de mostrador. |
 | **TC-3.2** | Registrar un gasto operativo general. | • **Tipo:** *Egreso / Gasto Operativo*<br>• **Concepto:** Compra de garrafones de agua y artículos de limpieza.<br>• **Monto:** `$250.00`<br>• **Método:** Efectivo. | Se descuenta del Fondo 1 (Operativo). Saldo en pantalla baja de `$2,600.00` a `$2,350.00`. | Actualización inmediata de saldo. |
-| **TC-3.3** | En **Terminal B**, registrar compra de refacción con garantía. | • **Tipo:** *Pago Proveedor*<br>• **Proveedor:** Seleccionar **Obal Zapata**.<br>• **Concepto:** 1 Amortiguador Delantero Sentra.<br>• **Monto:** `$850.00`<br>• **Folio Ticket/Nota:** `FAC-7712`<br>• **Garantía:** `12 meses`<br>• **Archivo:** Subir imagen (JPG/PNG) o documento PDF de prueba. | 1. Se registra la salida de `$850.00`.<br>2. Se guarda la compra en `compras_proveedores`.<br>3. El archivo se sube a Supabase Storage (`proveedores-evidencias`).<br>4. En la tabla aparece la fila con la píldora discreta **`Ticket #FAC-7712`**. | Vinculación indestructible de la garantía con el egreso monetario. |
+| **TC-3.3** | En **Terminal B**, registrar compra de refacción con garantía.<br>*(Disponible tanto en Caja Chica como en la Orden de Servicio)*. | • **Tipo:** *Pago Proveedor*<br>• **Proveedor:** Seleccionar **Obal Zapata**.<br>• **Concepto:** 1 Amortiguador Delantero Sentra.<br>• **Monto:** `$850.00`<br>• **Folio Ticket/Nota:** `FAC-7712`<br>• **Garantía:** `12 meses`<br>• **Archivo:** Subir imagen (JPG/PNG) o documento PDF de prueba. | 1. Se registra la salida de `$850.00`.<br>2. Se guarda la compra en `compras_proveedores`.<br>3. El archivo se sube a Supabase Storage (`proveedores-evidencias`).<br>4. En la tabla aparece la fila con la píldora discreta **`Ticket #FAC-7712`**. | Vinculación indestructible de la garantía con el egreso monetario. |
 | **TC-3.4** | **Verificación en Terminal A (Concurrencia).** | Mirar la pestaña Caja Chica en Terminal A sin refrescar. | Aparece la fila recién registrada por Terminal B y el saldo del fondo operativo se actualiza automáticamente a **`$1,500.00`**. | Sincronización en tiempo real de egresos entre terminales. |
 | **TC-3.5** | Abrir comprobante desde Terminal A. | Clic sobre la píldora **`Ticket #FAC-7712`**. | Se abre el **Lightbox de Evidencia**, visualizando la foto o PDF con zoom, link externo y opción de descarga. | Acceso inmediato a la póliza en caso de reclamación por pieza defectuosa. |
 
