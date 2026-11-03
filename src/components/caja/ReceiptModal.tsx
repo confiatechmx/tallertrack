@@ -62,6 +62,10 @@ export function ReceiptModal({
   const [mounted, setMounted] = useState(false);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");
 
+  const orderId = order?.id;
+  const originUrl = typeof window !== "undefined" ? window.location.origin : "https://cova.tallertrack.com";
+  const comprobanteDigitalUrl = orderId ? `${originUrl}/orden/${orderId}/imprimir` : "";
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -84,6 +88,14 @@ export function ReceiptModal({
       } catch {}
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (orderId && comprobanteDigitalUrl) {
+      QRCode.toDataURL(comprobanteDigitalUrl, { width: 140, margin: 1 })
+        .then(setQrCodeDataUrl)
+        .catch(() => {});
+    }
+  }, [orderId, comprobanteDigitalUrl]);
 
   if (!isOpen || !order) return null;
 
@@ -167,16 +179,6 @@ export function ReceiptModal({
   const rawPhone = cli.telefono || "";
   const cleanPhone = rawPhone.replace(/\D/g, "");
   const waPhone = cleanPhone.startsWith("52") ? cleanPhone : `52${cleanPhone}`;
-  const originUrl = typeof window !== "undefined" ? window.location.origin : "https://cova.tallertrack.com";
-  const comprobanteDigitalUrl = `${originUrl}/orden/${order.id}/imprimir`;
-
-  useEffect(() => {
-    if (order?.id) {
-      QRCode.toDataURL(comprobanteDigitalUrl, { width: 140, margin: 1 })
-        .then(setQrCodeDataUrl)
-        .catch(() => {});
-    }
-  }, [order?.id, comprobanteDigitalUrl]);
   const metodosStr = payments && payments.length > 1
     ? payments.map((p: any) => `  • ${p.proveedor_pago || p.metodo_detalle}: ${Number(p.monto || p.monto_total || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}${p.referencia ? ` (Ref: ${p.referencia})` : ""}`).join("\n")
     : `💳 Método: ${payment?.metodo_detalle || payment?.proveedor_pago || (payments?.[0]?.metodo_detalle || payments?.[0]?.proveedor_pago) || "Efectivo"}${payment?.referencia ? ` (Ref: ${payment.referencia})` : ""}`;
