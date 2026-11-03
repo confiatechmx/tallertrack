@@ -444,10 +444,11 @@ export default function CajaPage() {
 
   // Sincronización en tiempo real multi-computadora para la misma sucursal (ej. COVA Mostrador 1 y 2)
   useEffect(() => {
+    const isCova = (empresa?.subdominio === "cova") || (empresa?.nombre_comercial || "").toLowerCase().includes("cova") || (typeof window !== "undefined" && window.location.hostname.includes("cova"));
     const targetSucId =
       sucursalActiva?.id ||
       sucursales[0]?.id ||
-      "b0000000-0000-0000-0000-000000000001";
+      (isCova ? "b2ad09db-0a34-4876-9ca3-d584c40bd295" : "b0000000-0000-0000-0000-000000000001");
 
     const channel = supabase
       .channel(`caja-sync-${targetSucId}`)

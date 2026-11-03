@@ -146,6 +146,7 @@ function getInitialEmpresa(): EmpresaConfig {
       if (hostInfo.subdomain === "cova" || host.includes("cova")) {
         return {
           ...DEFAULT_EMPRESA,
+          id: "b2ad09db-0a34-4876-9ca3-d584c40bd294",
           nombre_comercial: "Cova - Taller & Llantera",
           direccion: "Río Aguanaval 1595, Col. Pascual Orozco, C.P. 80170, Culiacán Rosales, Sin.",
           telefono: "+526674125459",
@@ -253,6 +254,12 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
         targetEmpresaId = domainInfo.empresa_id;
       }
 
+      const hostCurrent = typeof window !== "undefined" ? window.location.hostname.toLowerCase() : "";
+      const isCovaHost = hostCurrent.includes("cova") || (hostInfo.subdomain === "cova");
+      if (!targetEmpresaId && isCovaHost) {
+        targetEmpresaId = "b2ad09db-0a34-4876-9ca3-d584c40bd294";
+      }
+
       // Consultar empresa y sucursales
       let queryEmpresa = supabase.from("empresas").select("*");
       if (targetEmpresaId) {
@@ -290,16 +297,32 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
         applyThemeCssVariables(merged.color_primario, merged.color_sidebar);
       }
 
-      if (sucData) {
-        setSucursales(sucData as Sucursal[]);
-        const savedBranch = typeof window !== "undefined" ? (localStorage.getItem("tallertrack_sucursal_id") || localStorage.getItem("autolisto_sucursal_id")) : null;
-        if (savedBranch && savedBranch !== "ALL" && sucData.some((s: any) => s.id === savedBranch)) {
-          setSucursalActivaIdState(savedBranch);
-        } else if (savedBranch === "ALL") {
-          setSucursalActivaIdState(null);
-        } else {
-          setSucursalActivaIdState(null);
-        }
+      const covaDefaultSucursal: Sucursal = {
+        id: "b2ad09db-0a34-4876-9ca3-d584c40bd295",
+        empresa_id: "b2ad09db-0a34-4876-9ca3-d584c40bd294",
+        nombre: "Cova",
+        codigo: "COVA",
+        direccion: "Río Aguanaval 1595, Col. Pascual Orozco, C.P. 80170, Culiacán Rosales, Sin.",
+        telefono: "+526674125459",
+        gerente: "Larissa Orozco",
+        es_matriz: true,
+        activa: true,
+      };
+
+      const finalSucList = (sucData && sucData.length > 0)
+        ? (sucData as Sucursal[])
+        : (isCovaHost || targetEmpresaId === "b2ad09db-0a34-4876-9ca3-d584c40bd294" ? [covaDefaultSucursal] : []);
+
+      setSucursales(finalSucList);
+      const savedBranch = typeof window !== "undefined" ? (localStorage.getItem("tallertrack_sucursal_id") || localStorage.getItem("autolisto_sucursal_id")) : null;
+      if (savedBranch && savedBranch !== "ALL" && finalSucList.some((s: any) => s.id === savedBranch)) {
+        setSucursalActivaIdState(savedBranch);
+      } else if (savedBranch === "ALL") {
+        setSucursalActivaIdState(null);
+      } else if (finalSucList.length === 1) {
+        setSucursalActivaIdState(finalSucList[0].id);
+      } else {
+        setSucursalActivaIdState(null);
       }
     } catch (err) {
       console.error("Error loading tenant:", err);

@@ -889,62 +889,32 @@ export function ReceiptModal({
         </div>
       </div>
 
-      {/* Print Portal outside .no-print Modal Container */}
-      {mounted &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div data-print-portal="true" className="hidden print:block fixed inset-0 bg-white z-[9999] p-0 m-0">
-            {formato === "CARTA" ? (
-              <div className="p-0 m-0">
-                {renderDocumentoCarta}
-                <style jsx global>{`
-                  @page {
-                    size: letter portrait;
-                    margin: 0;
-                  }
-                  @media print {
-                    @page {
-                      margin: 0;
-                    }
-                    html, body {
-                      background-color: #ffffff !important;
-                      color: #0f172a !important;
-                      -webkit-print-color-adjust: exact !important;
-                      print-color-adjust: exact !important;
-                      margin: 0 !important;
-                      padding: 0 !important;
-                    }
-                    .no-print, header, nav, footer, .modal-backdrop {
-                      display: none !important;
-                    }
-                  }
-                `}</style>
-              </div>
-            ) : (
-              <div className="p-0 m-0">
-                {renderTicketTermico}
-                <style jsx global>{`
-                  @page {
-                    size: 80mm auto;
-                    margin: 3mm;
-                  }
-                  @media print {
-                    html, body {
-                      background-color: #ffffff !important;
-                      color: #0f172a !important;
-                      -webkit-print-color-adjust: exact !important;
-                      print-color-adjust: exact !important;
-                    }
-                    .no-print, header, nav, footer, .modal-backdrop {
-                      display: none !important;
-                    }
-                  }
-                `}</style>
-              </div>
-            )}
-          </div>,
-          document.body
-        )}
+      {/* Standard Print Stylesheet */}
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden !important;
+          }
+          #printable-receipt-document,
+          #printable-receipt-document * {
+            visibility: visible !important;
+          }
+          #printable-receipt-document {
+            position: fixed !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: ${formato === "CARTA" ? "10mm 14mm" : "2mm 4mm"} !important;
+            background: white !important;
+            z-index: 999999 !important;
+          }
+          @page {
+            size: ${formato === "CARTA" ? "letter portrait" : "80mm auto"};
+            margin: ${formato === "CARTA" ? "8mm" : "2mm"};
+          }
+        }
+      `}</style>
     </Modal>
   );
 }

@@ -426,6 +426,22 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
     if (tiresData) setAvailableTires(tiresData);
     if (providersData) setActivePaymentProviders(providersData);
 
+    // Cargar turno activo y fondos de caja oficiales
+    const isCova = (empresa?.subdominio === "cova") || (empresa?.nombre_comercial || "").toLowerCase().includes("cova") || (typeof window !== "undefined" && window.location.hostname.includes("cova"));
+    const targetSucId = (orderData && orderData.sucursal_id) || sucursalActiva?.id || (isCova ? "b2ad09db-0a34-4876-9ca3-d584c40bd295" : "b0000000-0000-0000-0000-000000000001");
+    const targetEmpId = (orderData && orderData.empresa_id) || empresa?.id || (isCova ? "b2ad09db-0a34-4876-9ca3-d584c40bd294" : "a0000000-0000-0000-0000-000000000001");
+
+    try {
+      const [shiftRes, fondosRes] = await Promise.all([
+        CajaTurnoService.obtenerTurnoActivo(targetSucId, targetEmpId),
+        CajaTurnoService.obtenerFondos(targetSucId, targetEmpId),
+      ]);
+      setTurnoActivo(shiftRes);
+      setFondos(fondosRes);
+    } catch (e) {
+      console.warn("Error cargando turno/fondos en workspace:", e);
+    }
+
     setLoading(false);
   };
 
@@ -5106,8 +5122,10 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
           onSuccess={async () => {
             setIsAbrirTurnoOpen(false);
             toast.success("Turno de caja abierto correctamente");
-            const targetSucId = order?.sucursal_id || sucursalActiva?.id || "b0000000-0000-0000-0000-000000000001";
-            const shiftRes = await CajaTurnoService.obtenerTurnoActivo(targetSucId);
+            const isCova = (empresa?.subdominio === "cova") || (empresa?.nombre_comercial || "").toLowerCase().includes("cova") || (typeof window !== "undefined" && window.location.hostname.includes("cova"));
+            const targetSucId = order?.sucursal_id || sucursalActiva?.id || (isCova ? "b2ad09db-0a34-4876-9ca3-d584c40bd295" : "b0000000-0000-0000-0000-000000000001");
+            const targetEmpId = order?.empresa_id || empresa?.id || (isCova ? "b2ad09db-0a34-4876-9ca3-d584c40bd294" : "a0000000-0000-0000-0000-000000000001");
+            const shiftRes = await CajaTurnoService.obtenerTurnoActivo(targetSucId, targetEmpId);
             setTurnoActivo(shiftRes);
           }}
           empresaId={order?.empresa_id || empresa?.id || "a0000000-0000-0000-0000-000000000001"}

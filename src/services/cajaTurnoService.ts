@@ -207,23 +207,43 @@ export const CajaTurnoService = {
   /**
    * Obtiene el turno actualmente ABIERTO para una sucursal
    */
-  async obtenerTurnoActivo(sucursalId: string): Promise<CajaTurno | null> {
+  async obtenerTurnoActivo(sucursalId?: string | null, empresaId?: string | null): Promise<CajaTurno | null> {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("caja_turnos")
         .select("*")
-        .eq("sucursal_id", sucursalId)
         .eq("estado", "ABIERTO")
-        .order("fecha_apertura", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .order("fecha_apertura", { ascending: false });
 
-      if (error) {
-        console.error("Error al obtener turno activo:", error);
-        return null;
+      if (sucursalId) {
+        query = query.eq("sucursal_id", sucursalId);
+      } else if (empresaId) {
+        query = query.eq("empresa_id", empresaId);
       }
 
-      return (data as CajaTurno) || null;
+      const { data, error } = await query.limit(1).maybeSingle();
+      if (!error && data) {
+        return data as CajaTurno;
+      }
+
+      // Fallback de resiliencia: si no se encontró con sucursalId pero viene empresaId,
+      // buscar cualquier turno abierto en la empresa para evitar falsos "Caja Cerrada"
+      if (empresaId) {
+        const { data: fallbackData } = await supabase
+          .from("caja_turnos")
+          .select("*")
+          .eq("empresa_id", empresaId)
+          .eq("estado", "ABIERTO")
+          .order("fecha_apertura", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (fallbackData) {
+          return fallbackData as CajaTurno;
+        }
+      }
+
+      return null;
     } catch (err) {
       console.error("Excepción al consultar turno activo:", err);
       return null;
