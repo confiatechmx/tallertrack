@@ -654,7 +654,9 @@ export function ReceiptModal({
         </div>
 
         {/* Preview en Pantalla según formato */}
-        {formato === "CARTA" ? renderDocumentoCarta : renderTicketTermico}
+        <div className="no-print">
+          {formato === "CARTA" ? renderDocumentoCarta : renderTicketTermico}
+        </div>
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 no-print border-t border-slate-200">
@@ -693,7 +695,7 @@ export function ReceiptModal({
       {mounted &&
         typeof document !== "undefined" &&
         createPortal(
-          <div className="hidden print:block fixed inset-0 bg-white z-[9999] p-0 m-0">
+          <div data-print-portal="true" className="hidden print:block fixed inset-0 bg-white z-[9999] p-0 m-0">
             {formato === "CARTA" ? (
               <div className="p-0 m-0">
                 {renderDocumentoCarta}

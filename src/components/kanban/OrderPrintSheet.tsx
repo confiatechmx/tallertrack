@@ -187,8 +187,8 @@ export function OrderPrintSheet({
   const estaLiquidado = order.estatus_pago === "Pagado" || saldoPendiente <= 0;
 
   const tasaIva = Number(activeEmpresa?.tasa_iva ?? 16);
-  const subtotalSinIva = granTotal / (1 + tasaIva / 100);
-  const ivaCalculado = granTotal - subtotalSinIva;
+  const subtotalSinIva = Math.round((granTotal / (1 + tasaIva / 100)) * 100) / 100;
+  const ivaCalculado = Math.round((granTotal - subtotalSinIva) * 100) / 100;
 
   const handlePrint = () => {
     window.print();
@@ -584,18 +584,48 @@ export function OrderPrintSheet({
           ))
         )}
 
-        {/* Totales Financieros Destacados */}
-        <div className="bg-slate-50 border border-slate-200 rounded-md px-3 py-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <div className="text-[9px] text-slate-500 max-w-sm leading-tight space-y-1">
+        {/* Totales Financieros y Comprobante de Pago Balanceado */}
+        <div className="bg-slate-50/70 border border-slate-200/90 rounded-xl p-3 flex flex-col sm:flex-row justify-between items-start gap-4">
+          {/* Columna Izquierda (60%): Garantías y Detalle de Pagos */}
+          <div className="flex-1 space-y-2 text-[9.5px]">
             <div>
-              <strong className="text-slate-700 uppercase block mb-0.5">Póliza General de Servicio:</strong>
-              {activeEmpresa?.terminos_condiciones ||
-                "Garantía de 30 días o 1,000 km en mano de obra. Neumáticos y refacciones con garantía oficial de fábrica."}
+              <strong className="text-slate-700 uppercase block text-[8.5px] font-bold tracking-wider mb-0.5">
+                Póliza Oficial de Garantía y Condiciones:
+              </strong>
+              <p className="text-slate-500 leading-tight">
+                {activeEmpresa?.terminos_condiciones ||
+                  "Garantía de 30 días o 1,000 km en mano de obra. Neumáticos y refacciones con garantía oficial según fabricante. Las partidas diferidas y no autorizadas por el cliente quedan bajo responsabilidad del usuario al retirar y operar el vehículo en dichas condiciones."}
+              </p>
             </div>
 
-            {/* In Cotización: Highlight Promotional Cash Price if enabled */}
+            {/* Pagos aplicados integrados en recuadro limpio */}
+            {docType === "nota_venta" && pagosAprobados.length > 0 && (
+              <div className="bg-white border border-slate-200/90 rounded-lg p-2 space-y-1">
+                <span className="font-bold text-slate-700 uppercase text-[8.5px] tracking-wider block">
+                  Comprobante de Pago Aplicado:
+                </span>
+                {pagosAprobados.map((p: any) => (
+                  <div key={p.id} className="flex justify-between items-center text-slate-700">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-slate-900">{p.proveedor_pago}</span>
+                      {p.metodo_detalle && p.metodo_detalle !== p.proveedor_pago && (
+                        <span className="text-slate-500 text-[8.5px]">({p.metodo_detalle})</span>
+                      )}
+                      {p.referencia && (
+                        <span className="text-[8px] font-mono text-slate-400">Ref: {p.referencia}</span>
+                      )}
+                    </div>
+                    <span className="tabular-nums font-bold text-slate-900">
+                      ${Number(p.monto_total).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* En Cotización: Destacar ahorro en efectivo */}
             {docType === "cotizacion" && descuentoEfectivoHabilitado && descuentoEfectivoPct > 0 && (
-              <div className="mt-1.5 p-2 bg-emerald-50 border border-emerald-300 rounded text-emerald-950">
+              <div className="p-2 bg-emerald-50 border border-emerald-300 rounded-lg text-emerald-950">
                 <div className="flex items-center gap-1 font-bold text-[9.5px] text-emerald-900">
                   <Sparkles size={11} className="text-emerald-700" />
                   <span>PRECIO PREFERENCIAL EN EFECTIVO (-{descuentoEfectivoPct}%):</span>
@@ -604,80 +634,64 @@ export function OrderPrintSheet({
                   ${precioEfectivoCotizado.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
                 </div>
                 <div className="text-[8.5px] text-emerald-700">
-                  Ahorro directo de ${ahorroEfectivoCotizado.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN pagando en efectivo en caja.
+                  Ahorro de ${ahorroEfectivoCotizado.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN pagando en efectivo en caja.
                 </div>
               </div>
             )}
           </div>
 
-          <div className="w-full sm:w-64 space-y-0.5 text-[10.5px]">
+          {/* Columna Derecha (40%): Resumen Financiero Estricto */}
+          <div className="w-full sm:w-64 space-y-1 text-[10.5px] bg-white border border-slate-200 rounded-lg p-2.5 shadow-2xs">
             <div className="flex justify-between text-slate-600">
               <span>Subtotal antes de IVA:</span>
-              <span className="tabular-nums font-medium">
+              <span className="tabular-nums font-semibold">
                 ${subtotalSinIva.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
             <div className="flex justify-between text-slate-600">
               <span>IVA ({tasaIva}% incluido):</span>
-              <span className="tabular-nums font-medium">
+              <span className="tabular-nums font-semibold">
                 ${ivaCalculado.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
-            <div className="flex justify-between text-xs sm:text-sm font-black text-slate-900 border-t border-slate-300 pt-0.5">
-              <span>{docType === "nota_venta" ? "TOTAL VENTA:" : "GRAN TOTAL COTIZADO:"}</span>
+            <div className="flex justify-between text-xs sm:text-sm font-black text-slate-900 border-t border-slate-200 pt-1">
+              <span>{docType === "nota_venta" ? "TOTAL VENTA:" : "GRAN TOTAL:"}</span>
               <span className="tabular-nums" style={{ color: primaryColor }}>
                 ${granTotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
               </span>
             </div>
 
-            {/* On Nota de Venta: Cash discount applied line */}
+            {/* Descuento promoción efectivo si aplica */}
             {docType === "nota_venta" && totalDescuentoEfectivo > 0 && (
-              <div className="flex justify-between text-[10px] text-emerald-800 font-bold bg-emerald-50 px-1 py-0.5 rounded">
-                <span>Descuento Promoción Efectivo ({descuentoEfectivoPct}%):</span>
+              <div className="flex justify-between text-[10px] text-emerald-800 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">
+                <span>Descuento Efectivo ({descuentoEfectivoPct}%):</span>
                 <span className="tabular-nums">-${totalDescuentoEfectivo.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
               </div>
             )}
 
-            {/* On Nota de Venta: Total Liquidado or Saldo */}
             {docType === "nota_venta" ? (
               <>
-                <div className="flex justify-between text-[10px] text-slate-700 font-bold border-t border-slate-200 pt-0.5">
-                  <span>Total Pagado / Liquidado:</span>
+                <div className="flex justify-between text-[10px] text-slate-700 font-bold border-t border-slate-200 pt-1">
+                  <span>Monto Liquidado:</span>
                   <span className="tabular-nums text-emerald-700 font-black">
                     ${(totalPagado).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                   </span>
                 </div>
-                {saldoPendiente > 0 ? (
-                  <div className="flex justify-between text-[10px] text-red-700 font-black border-t border-red-200 pt-0.5">
+                {saldoPendiente > 0.05 ? (
+                  <div className="flex justify-between text-[10px] text-rose-700 font-black border-t border-rose-200 pt-1">
                     <span>Saldo Pendiente:</span>
                     <span className="tabular-nums">
                       ${saldoPendiente.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                     </span>
                   </div>
                 ) : (
-                  <div className="text-right text-[9px] font-bold text-emerald-800">
-                    ✓ Comprobante completamente liquidado
-                  </div>
-                )}
-
-                {/* Formas de Pago Aplicadas */}
-                {pagosAprobados.length > 0 && (
-                  <div className="pt-1 mt-1 border-t border-slate-200 text-[9px]">
-                    <span className="font-bold text-slate-500 uppercase block mb-0.5">Pagos Aplicados:</span>
-                    {pagosAprobados.map((p: any) => (
-                      <div key={p.id} className="flex justify-between items-baseline text-slate-600">
-                        <span>
-                          {p.proveedor_pago}: <strong className="text-slate-800">{p.metodo_detalle || "Caja"}</strong>
-                          {p.referencia && <span className="text-[8px] font-mono text-slate-400 ml-1">[{p.referencia}]</span>}
-                        </span>
-                        <span className="tabular-nums font-semibold">${Number(p.monto_total).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
-                      </div>
-                    ))}
+                  <div className="bg-emerald-100/70 border border-emerald-300 text-emerald-900 rounded px-2 py-0.5 text-center font-bold text-[9px] uppercase tracking-wide mt-1">
+                    ✓ Cuenta Liquidada al 100%
                   </div>
                 )}
               </>
             ) : (
-              <div className="flex justify-between text-[10px] text-slate-700 font-bold border-t border-slate-200 pt-0.5">
+              <div className="flex justify-between text-[10px] text-slate-700 font-bold border-t border-slate-200 pt-1">
                 <span>Anticipo sugerido (50%):</span>
                 <span className="tabular-nums text-slate-900 font-black">
                   ${(granTotal * 0.5).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
@@ -914,15 +928,17 @@ export function OrderPrintSheet({
         </div>
       )}
 
-      {/* Screen Preview */}
-      {sheetDocument}
+      {/* Screen Preview (Hidden during print) */}
+      <div className="no-print">
+        {sheetDocument}
+      </div>
 
       {/* Print Portal outside .no-print Modal container */}
       {mounted &&
         !isStandalone &&
         typeof document !== "undefined" &&
         createPortal(
-          <div className="hidden print:block fixed inset-0 bg-white z-[9999] p-0 m-0">
+          <div data-print-portal="true" className="hidden print:block fixed inset-0 bg-white z-[9999] p-0 m-0">
             {sheetDocument}
             <style jsx global>{`
               @page {
@@ -949,6 +965,12 @@ export function OrderPrintSheet({
           </div>,
           document.body
         )}
+
+      {isStandalone && (
+        <div className="print-standalone-container">
+          {sheetDocument}
+        </div>
+      )}
 
       {isStandalone && (
         <style jsx global>{`
