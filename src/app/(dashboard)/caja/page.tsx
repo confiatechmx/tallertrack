@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/context/TenantContext";
 import { ConcurrencyService } from "@/services/concurrencyService";
@@ -207,8 +207,11 @@ export default function CajaPage() {
     }
   }, []);
 
+  const isInitialLoad = useRef(true);
   const loadData = useCallback(async () => {
-    setLoading(true);
+    if (isInitialLoad.current) {
+      setLoading(true);
+    }
     try {
       let ordQuery = supabase
         .from("ordenes_servicio")
@@ -319,7 +322,7 @@ export default function CajaPage() {
         supabase
           .from("empleados")
           .select("*")
-          .eq("rol", "Mecánico")
+          .eq("rol", "MecÃ¡nico")
           .order("nombre"),
         supabase.from("configuracion_pagos").select("*"),
         CajaTurnoService.obtenerTurnoActivo(targetSucId),
@@ -393,13 +396,15 @@ export default function CajaPage() {
         setOrdenes(enriched);
 
         // Pre-select first pending order if none selected
-        if (!posSelectedOrderId) {
-          const firstPending = enriched.find((o) => o.saldo > 0.01);
+        setPosSelectedOrderId((prev) => {
+          if (prev && enriched.some((o: any) => o.id === prev)) return prev;
+          const firstPending = enriched.find((o: any) => o.saldo > 0.01);
           if (firstPending) {
-            setPosSelectedOrderId(firstPending.id);
             setPaymentAmount(firstPending.saldo.toFixed(2));
+            return firstPending.id;
           }
-        }
+          return null;
+        });
       }
 
       if (pagRes.data) setPagos(pagRes.data);
@@ -415,14 +420,15 @@ export default function CajaPage() {
       console.error("Error loading Caja data:", err);
     } finally {
       setLoading(false);
+      isInitialLoad.current = false;
     }
-  }, [sucursalActiva, posSelectedOrderId]);
+  }, [sucursalActiva?.id, empresa?.id]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  // Sincronización en tiempo real multi-computadora para la misma sucursal (ej. COVA Mostrador 1 y 2)
+  // SincronizaciÃ³n en tiempo real multi-computadora para la misma sucursal (ej. COVA Mostrador 1 y 2)
   useEffect(() => {
     const targetSucId =
       sucursalActiva?.id ||
@@ -514,7 +520,7 @@ export default function CajaPage() {
     return ordenes.find((o) => o.id === posSelectedOrderId) || null;
   }, [ordenes, posSelectedOrderId]);
 
-  // Cálculos de Descuento en Efectivo (Cova Tires: 3%)
+  // CÃ¡lculos de Descuento en Efectivo (Cova Tires: 3%)
   const pctDescEfectivo = Number(empresa?.descuento_efectivo_porcentaje || 0);
   const tieneDescuentoEfectivoConfigurado = Boolean(empresa?.descuento_efectivo_habilitado && pctDescEfectivo > 0);
   const ahorroEfectivo = (tieneDescuentoEfectivoConfigurado && aplicarDescuentoEfectivo && activeOrder && selectedMethod === "Efectivo")
@@ -524,7 +530,7 @@ export default function CajaPage() {
     ? Math.max(0, Number((activeOrder.saldo - ahorroEfectivo).toFixed(2)))
     : 0;
 
-  // Actualizar monto a cobrar por defecto cuando cambia la orden, método o toggle de descuento
+  // Actualizar monto a cobrar por defecto cuando cambia la orden, mÃ©todo o toggle de descuento
   useEffect(() => {
     if (activeOrder) {
       if (selectedMethod === "Efectivo" && tieneDescuentoEfectivoConfigurado && aplicarDescuentoEfectivo) {
@@ -613,7 +619,7 @@ export default function CajaPage() {
   const entradasCajaEfectivo = movimientosCaja
     .filter(
       (m) =>
-        ["Fondo Inicial", "Ingreso Extra", "Reposición de Fondo", "Traspaso Entrada"].includes(m.tipo) &&
+        ["Fondo Inicial", "Ingreso Extra", "ReposiciÃ³n de Fondo", "Traspaso Entrada"].includes(m.tipo) &&
         m.metodo === "Efectivo"
     )
     .reduce((acc, m) => acc + Number(m.monto || 0), 0);
@@ -675,7 +681,7 @@ export default function CajaPage() {
       if (selectedMethod === "Split") {
         const totalCubierto = splitPayments.reduce((acc, p) => acc + Number(p.monto || 0), 0);
         if (totalCubierto < amountNum - 0.05) {
-          alert(`El total asignado en métodos (${totalCubierto.toFixed(2)}) no cubre el monto a cobrar (${amountNum.toFixed(2)})`);
+          alert(`El total asignado en mÃ©todos (${totalCubierto.toFixed(2)}) no cubre el monto a cobrar (${amountNum.toFixed(2)})`);
           setIsProcessingPayment(false);
           return;
         }
@@ -732,8 +738,8 @@ export default function CajaPage() {
         dbProvider = "Efectivo";
         finalAhorro = ahorroEfectivo;
         detalle = finalAhorro > 0
-          ? `Efectivo en Mostrador (Descuento Promoción ${pctDescEfectivo}%: -${finalAhorro.toFixed(2)} • Entregó: ${cashGivenNum.toLocaleString("es-MX")} • Cambio: ${changeDue.toLocaleString("es-MX")})`
-          : `Efectivo en Mostrador (Entregó: ${cashGivenNum.toLocaleString("es-MX")} • Cambio: ${changeDue.toLocaleString("es-MX")})`;
+          ? `Efectivo en Mostrador (Descuento PromociÃ³n ${pctDescEfectivo}%: -${finalAhorro.toFixed(2)} â€¢ EntregÃ³: ${cashGivenNum.toLocaleString("es-MX")} â€¢ Cambio: ${changeDue.toLocaleString("es-MX")})`
+          : `Efectivo en Mostrador (EntregÃ³: ${cashGivenNum.toLocaleString("es-MX")} â€¢ Cambio: ${changeDue.toLocaleString("es-MX")})`;
       } else if (selectedMethod === "TPV") {
         if (!metodoPagoConfigObj) {
           metodoPagoConfigObj = tenantMetodos.find((m) => ["TARJETA_CREDITO", "MSI", "DEBITO", "TPV"].includes(m.tipo?.toUpperCase() || ""));
@@ -745,12 +751,12 @@ export default function CajaPage() {
         dbProvider = "Transferencia";
         const ctaSel = cuentasBancarias.find((c) => c.id === selectedCuentaBancariaId);
         detalle = ctaSel
-          ? `Transferencia SPEI (${ctaSel.banco} • ${ctaSel.alias})`
+          ? `Transferencia SPEI (${ctaSel.banco} â€¢ ${ctaSel.alias})`
           : "Transferencia Bancaria SPEI";
         ref = speiRastreo.trim() || `SPEI-${Date.now().toString().slice(-8)}`;
       } else if (selectedMethod === "KueskiPay") {
         dbProvider = "KueskiPay";
-        detalle = "Kueski Pay (Compre Ahora, Pague Después)";
+        detalle = "Kueski Pay (Compre Ahora, Pague DespuÃ©s)";
         ref = bnplReference || `KUESKI-${Date.now().toString().slice(-8)}`;
       } else if (selectedMethod === "Atrato") {
         dbProvider = "Atrato";
@@ -762,7 +768,7 @@ export default function CajaPage() {
         ref = bnplReference || `STRIPE-${Date.now().toString().slice(-8)}`;
       }
 
-      // Cálculo de comisión con TenantMetodosPagoService
+      // CÃ¡lculo de comisiÃ³n con TenantMetodosPagoService
       let comisionMonto = 0;
       if (metodoPagoConfigObj) {
         const comCalc = TenantMetodosPagoService.calcularComision(amountNum, metodoPagoConfigObj);
@@ -969,7 +975,7 @@ export default function CajaPage() {
             });
           }
         } catch (provErr) {
-          console.error("Error al registrar compra y garantía desde caja:", provErr);
+          console.error("Error al registrar compra y garantÃ­a desde caja:", provErr);
         }
       }
 
@@ -994,7 +1000,7 @@ export default function CajaPage() {
     }
   };
 
-  // Tab 4: Comisiones de Técnicos
+  // Tab 4: Comisiones de TÃ©cnicos
   const desgloseServiciosMecanicos: any[] = [];
   ordenes.forEach((o) => {
     (o.orden_servicio_servicios || []).forEach((s: any) => {
@@ -1111,7 +1117,7 @@ export default function CajaPage() {
 
   return (
     <div className="flex flex-col gap-4 pb-12">
-      {/* 1. Header Unificado y Navegación Moderna */}
+      {/* 1. Header Unificado y NavegaciÃ³n Moderna */}
       <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden">
         <header className="px-5 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100">
           <div className="flex items-center gap-3">
@@ -1119,24 +1125,15 @@ export default function CajaPage() {
               <Receipt size={22} strokeWidth={2.2} />
             </div>
             <div>
-              <div className="flex items-center gap-2 flex-wrap">
+              <div>
                 <h1 className="text-lg font-bold text-slate-900 tracking-tight">
                   Terminal de Caja
                 </h1>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-900 text-white">
-                  <Building2 size={10} />
-                  {sucursalActiva ? sucursalActiva.nombre : "Todas las Sucursales"}
-                </span>
-                {cuentasPorCobrar.length > 0 && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200/60">
-                    {cuentasPorCobrar.length} pendientes
-                  </span>
-                )}
               </div>
             </div>
           </div>
 
-          {/* Switcher de Pestañas Tipo Pill */}
+          {/* Switcher de PestaÃ±as Tipo Pill */}
           <nav className="flex items-center gap-1 bg-slate-100/90 p-1 rounded-xl self-start md:self-auto overflow-x-auto max-w-full">
             <button
               onClick={() => setActiveTab("POS")}
@@ -1158,7 +1155,7 @@ export default function CajaPage() {
               }`}
             >
               <Landmark size={13} />
-              Corte & Auditoría
+              Corte & AuditorÃ­a
             </button>
             <button
               onClick={() => setActiveTab("CajaChica")}
@@ -1200,14 +1197,14 @@ export default function CajaPage() {
 
       <main className="flex-1 w-full">
         {/* ========================================================= */}
-        {/* TAB 1: TERMINAL DE COBRO RÁPIDO (SPLIT VIEW POS)          */}
+        {/* TAB 1: TERMINAL DE COBRO RÃPIDO (SPLIT VIEW POS)          */}
         {/* ========================================================= */}
         {activeTab === "POS" && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-            {/* Columna Izquierda (5 cols): Órdenes por Cobrar */}
+            {/* Columna Izquierda (5 cols): Ã“rdenes por Cobrar */}
             <div className="lg:col-span-5 flex flex-col gap-3">
               <div className="bg-white border border-slate-200/90 rounded-2xl p-3 shadow-xs flex flex-col gap-2.5">
-                {/* Buscador Rápido */}
+                {/* Buscador RÃ¡pido */}
                 <div className="relative">
                   <Search
                     size={14}
@@ -1257,7 +1254,7 @@ export default function CajaPage() {
                 </div>
               </div>
 
-              {/* Lista Escaneable de Órdenes */}
+              {/* Lista Escaneable de Ã“rdenes */}
               <div className="flex flex-col gap-2 max-h-[calc(100vh-270px)] overflow-y-auto pr-1">
                 {filteredPosOrders.map((ord) => {
                   const isSelected = ord.id === posSelectedOrderId;
@@ -1297,7 +1294,7 @@ export default function CajaPage() {
                         </span>
                       </div>
 
-                      {/* Nivel 2: Vehículo + Placa */}
+                      {/* Nivel 2: VehÃ­culo + Placa */}
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-xs font-bold text-slate-800 truncate">
                           {veh.marca} {veh.modelo}
@@ -1320,7 +1317,7 @@ export default function CajaPage() {
 
                 {filteredPosOrders.length === 0 && (
                   <div className="bg-white border border-slate-200 rounded-xl p-8 text-center text-slate-400 text-xs">
-                    No hay órdenes con saldo pendiente.
+                    No hay Ã³rdenes con saldo pendiente.
                   </div>
                 )}
               </div>
@@ -1343,7 +1340,7 @@ export default function CajaPage() {
                         {activeOrder.vehiculos?.placas || "Sin placas"}
                       </span>
                       <span className="text-xs text-slate-300">
-                        • {activeOrder.vehiculos?.clientes?.nombre}
+                        â€¢ {activeOrder.vehiculos?.clientes?.nombre}
                       </span>
                     </div>
 
@@ -1366,11 +1363,11 @@ export default function CajaPage() {
                         <span className="text-sm font-semibold text-slate-400">MXN</span>
                       </div>
                       <p className="text-[11px] text-slate-400 mt-0.5">
-                        Total de la orden: ${Number(activeOrder.granTotal || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })} • Anticipos: ${Number(activeOrder.pagado || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                        Total de la orden: ${Number(activeOrder.granTotal || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })} â€¢ Anticipos: ${Number(activeOrder.pagado || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                       </p>
                     </div>
 
-                    {/* Input y Botón de Ajuste de Monto */}
+                    {/* Input y BotÃ³n de Ajuste de Monto */}
                     <div className="flex items-center gap-2 self-start sm:self-auto">
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-sm">
@@ -1394,13 +1391,13 @@ export default function CajaPage() {
                     </div>
                   </div>
 
-                  {/* Selector Guiado de Métodos de Pago */}
+                  {/* Selector Guiado de MÃ©todos de Pago */}
                   <div className="p-5 flex flex-col gap-3">
                     <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                      ¿Cómo paga el cliente?
+                      Â¿CÃ³mo paga el cliente?
                     </label>
 
-                    {/* 3 Métodos Directos */}
+                    {/* 3 MÃ©todos Directos */}
                     <div className="grid grid-cols-3 gap-2.5">
                       {/* 1. Efectivo */}
                       <button
@@ -1415,7 +1412,7 @@ export default function CajaPage() {
                         <div className="flex items-center justify-between">
                           <Banknote size={18} className="text-emerald-600" />
                           <span className="text-[9px] font-bold uppercase text-emerald-700 bg-emerald-100 px-1 py-0.2 rounded">
-                            Sin comisión
+                            Sin comisiÃ³n
                           </span>
                         </div>
                         <span className="font-bold text-xs text-slate-900 mt-1">Efectivo</span>
@@ -1463,7 +1460,7 @@ export default function CajaPage() {
                       </button>
                     </div>
 
-                    {/* Revelación Progresiva: Otros Métodos */}
+                    {/* RevelaciÃ³n Progresiva: Otros MÃ©todos */}
                     {(() => {
                       const isOtherActive = ["KueskiPay", "Atrato", "Stripe", "Split"].includes(selectedMethod);
                       const isExpanded = showOtherMethods || isOtherActive;
@@ -1477,7 +1474,7 @@ export default function CajaPage() {
                           >
                             <span className="flex items-center gap-1.5">
                               <Split size={13} className="text-slate-400" />
-                              <span>Más opciones: Pago Dividido o Financiamiento (Kueski / Atrato / Stripe)</span>
+                              <span>MÃ¡s opciones: Pago Dividido o Financiamiento (Kueski / Atrato / Stripe)</span>
                             </span>
                             <ChevronDown
                               size={14}
@@ -1487,7 +1484,7 @@ export default function CajaPage() {
 
                           {isExpanded && (
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 animate-in fade-in duration-200">
-                              {/* Multi-Método Split */}
+                              {/* Multi-MÃ©todo Split */}
                               <button
                                 type="button"
                                 onClick={() => {
@@ -1509,7 +1506,7 @@ export default function CajaPage() {
                                     : "border-slate-200 hover:border-slate-300 bg-white"
                                 }`}
                               >
-                                <span className="font-bold text-xs text-slate-900">Multi-Método</span>
+                                <span className="font-bold text-xs text-slate-900">Multi-MÃ©todo</span>
                                 <span className="text-[10px] text-slate-500">Dividir pago</span>
                               </button>
 
@@ -1544,7 +1541,7 @@ export default function CajaPage() {
                                 }`}
                               >
                                 <span className="font-bold text-xs text-slate-900">Atrato Pago</span>
-                                <span className="text-[10px] text-slate-500">Crédito Llantas</span>
+                                <span className="text-[10px] text-slate-500">CrÃ©dito Llantas</span>
                               </button>
 
                               {/* Stripe */}
@@ -1561,7 +1558,7 @@ export default function CajaPage() {
                                 }`}
                               >
                                 <span className="font-bold text-xs text-slate-900">Stripe Link</span>
-                                <span className="text-[10px] text-slate-500">Pago en línea</span>
+                                <span className="text-[10px] text-slate-500">Pago en lÃ­nea</span>
                               </button>
                             </div>
                           )}
@@ -1569,7 +1566,7 @@ export default function CajaPage() {
                       );
                     })()}
 
-                    {/* DETALLES DEL MÉTODO SELECCIONADO */}
+                    {/* DETALLES DEL MÃ‰TODO SELECCIONADO */}
                     <div className="bg-slate-50/70 border border-slate-200/90 rounded-2xl p-4 mt-1">
                       {/* 0. MULTI-METODO SPLIT PAYMENT */}
                       {selectedMethod === "Split" && (
@@ -1608,7 +1605,7 @@ export default function CajaPage() {
                             </div>
                           )}
 
-                          {/* Billetes rápidos */}
+                          {/* Billetes rÃ¡pidos */}
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-[11px] text-slate-400 font-semibold mr-1">Billetes:</span>
                             {QUICK_CASH_AMOUNTS.map((amt) => (
@@ -1702,8 +1699,8 @@ export default function CajaPage() {
                                   onChange={(e) => setTpvType(e.target.value)}
                                   className="w-full p-2 text-xs border border-slate-300 rounded-lg bg-white"
                                 >
-                                  <option value="BanBajío Tarjeta (TPV)">BanBajío Tarjeta (TPV 2.0%)</option>
-                                  <option value="Mercado Pago Tarjeta (1 Exhibición)">Mercado Pago Tarjeta (1 Exhibición 3.5%)</option>
+                                  <option value="BanBajÃ­o Tarjeta (TPV)">BanBajÃ­o Tarjeta (TPV 2.0%)</option>
+                                  <option value="Mercado Pago Tarjeta (1 ExhibiciÃ³n)">Mercado Pago Tarjeta (1 ExhibiciÃ³n 3.5%)</option>
                                   <option value="Terminal Point Smart (Mercado Pago)">Terminal Point Smart</option>
                                 </select>
                               )}
@@ -1711,13 +1708,13 @@ export default function CajaPage() {
 
                             <div>
                               <label className="text-[11px] font-bold text-slate-600 block mb-1">
-                                Folio de Autorización / Voucher:
+                                Folio de AutorizaciÃ³n / Voucher:
                               </label>
                               <input
                                 type="text"
                                 value={tpvReference}
                                 onChange={(e) => setTpvReference(e.target.value)}
-                                placeholder="Ej: AUT-894120 o últimos 4 dígitos"
+                                placeholder="Ej: AUT-894120 o Ãºltimos 4 dÃ­gitos"
                                 className="w-full p-2 text-xs border border-slate-300 rounded-lg bg-white font-mono"
                               />
                             </div>
@@ -1725,7 +1722,7 @@ export default function CajaPage() {
                           <div className="text-[10px] text-slate-500 bg-slate-100/70 p-2 rounded-lg flex items-center justify-between">
                             <span className="flex items-center gap-1 text-slate-600">
                               <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
-                              Comisión bancaria absorbida en back-office (no afecta al cliente)
+                              ComisiÃ³n bancaria absorbida en back-office (no afecta al cliente)
                             </span>
                             <span className="font-mono text-slate-700 font-semibold">
                               TPV Conectada
@@ -1801,7 +1798,7 @@ export default function CajaPage() {
                                       className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs inline-flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
                                     >
                                       {copiedClabe ? <Check size={14} /> : <Copy size={14} />}
-                                      {copiedClabe ? "¡Copiada!" : "Copiar CLABE"}
+                                      {copiedClabe ? "Â¡Copiada!" : "Copiar CLABE"}
                                     </button>
                                   </div>
                                 );
@@ -1879,13 +1876,13 @@ export default function CajaPage() {
                             <div className="flex flex-col gap-1.5 text-xs flex-1">
                               <h4 className="font-bold text-slate-900">
                                 {selectedMethod === "KueskiPay"
-                                  ? "Kueski Pay: Compra Ahora, Paga Después"
+                                  ? "Kueski Pay: Compra Ahora, Paga DespuÃ©s"
                                   : selectedMethod === "Atrato"
-                                  ? "Atrato Pago: Crédito en Mostrador"
+                                  ? "Atrato Pago: CrÃ©dito en Mostrador"
                                   : "Stripe Checkout: Enlace Directo"}
                               </h4>
                               <p className="text-[11px] text-slate-500">
-                                El cliente escanea el código QR con su celular o recíbelo por WhatsApp.
+                                El cliente escanea el cÃ³digo QR con su celular o recÃ­belo por WhatsApp.
                               </p>
 
                               <div className="flex items-center gap-2 mt-1">
@@ -1895,13 +1892,13 @@ export default function CajaPage() {
                                     onClick={() => handleGenerateQR(selectedMethod as any)}
                                     className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs inline-flex items-center gap-1.5 cursor-pointer"
                                   >
-                                    <QrCode size={13} /> Generar Código QR
+                                    <QrCode size={13} /> Generar CÃ³digo QR
                                   </button>
                                 ) : (
                                   activeOrder.vehiculos?.clientes?.telefono && (
                                     <a
                                       href={`https://wa.me/52${activeOrder.vehiculos.clientes.telefono.replace(/\D/g, "")}?text=${encodeURIComponent(
-                                        `Hola ${activeOrder.vehiculos.clientes.nombre}, aquí tienes tu link de financiamiento para la Orden #${1000 + Number(activeOrder.folio || 1)} por $${amountToPay.toLocaleString("es-MX")}: ${
+                                        `Hola ${activeOrder.vehiculos.clientes.nombre}, aquÃ­ tienes tu link de financiamiento para la Orden #${1000 + Number(activeOrder.folio || 1)} por $${amountToPay.toLocaleString("es-MX")}: ${
                                           selectedMethod === "KueskiPay"
                                             ? "https://pay.kueskipay.com"
                                             : selectedMethod === "Atrato"
@@ -1924,7 +1921,7 @@ export default function CajaPage() {
                       )}
                     </div>
 
-                    {/* BOTÓN PRIMARIO ÚNICO DE ACCIÓN */}
+                    {/* BOTÃ“N PRIMARIO ÃšNICO DE ACCIÃ“N */}
                     <div className="pt-2">
                       <button
                         type="button"
@@ -1939,7 +1936,7 @@ export default function CajaPage() {
                         ) : (
                           <>
                             <CheckCircle2 size={18} />
-                            COBRAR ${amountToPay.toLocaleString("es-MX", { minimumFractionDigits: 2 })} E IMPRIMIR TICKET →
+                            COBRAR ${amountToPay.toLocaleString("es-MX", { minimumFractionDigits: 2 })} E IMPRIMIR TICKET â†’
                           </>
                         )}
                       </button>
@@ -1980,7 +1977,7 @@ export default function CajaPage() {
                     })}
                   </span>
                   <p className="text-[11px] text-slate-500 mt-1">
-                    Fondo: ${entradasCajaEfectivo.toLocaleString("es-MX")} • Gastos: -$
+                    Fondo: ${entradasCajaEfectivo.toLocaleString("es-MX")} â€¢ Gastos: -$
                     {salidasCajaEfectivo.toLocaleString("es-MX")}
                   </p>
                 </div>
@@ -2001,7 +1998,7 @@ export default function CajaPage() {
                     })}
                   </span>
                   <p className="text-[11px] text-slate-500 mt-1">
-                    Sin comisión bancaria (0%)
+                    Sin comisiÃ³n bancaria (0%)
                   </p>
                 </div>
               </div>
@@ -2021,7 +2018,7 @@ export default function CajaPage() {
                     })}
                   </span>
                   <p className="text-[11px] text-slate-500 mt-1">
-                    Comisión: -${comisionesPasarelaTotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                    ComisiÃ³n: -${comisionesPasarelaTotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                   </p>
                 </div>
               </div>
@@ -2061,7 +2058,7 @@ export default function CajaPage() {
                     })}
                   </span>
                   <p className="text-[11px] text-slate-500 mt-1">
-                    En {cuentasPorCobrar.length} órdenes abiertas
+                    En {cuentasPorCobrar.length} Ã³rdenes abiertas
                   </p>
                 </div>
               </div>
@@ -2079,10 +2076,10 @@ export default function CajaPage() {
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                        <th className="py-3 px-4">Orden / Vehículo</th>
+                        <th className="py-3 px-4">Orden / VehÃ­culo</th>
                         <th className="py-3 px-4">Estado</th>
                         <th className="py-3 px-4 text-right">Saldo Pendiente</th>
-                        <th className="py-3 px-4 text-right">Acción</th>
+                        <th className="py-3 px-4 text-right">AcciÃ³n</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-sm">
@@ -2090,10 +2087,10 @@ export default function CajaPage() {
                         <tr key={c.id} className="hover:bg-slate-50/80 transition-colors">
                           <td className="py-3 px-4">
                             <span className="font-bold text-slate-900 block">
-                              #{1000 + Number(c.folio || 1)} • {c.vehiculos?.marca} {c.vehiculos?.modelo}
+                              #{1000 + Number(c.folio || 1)} â€¢ {c.vehiculos?.marca} {c.vehiculos?.modelo}
                             </span>
                             <span className="text-xs text-slate-500">
-                              {c.vehiculos?.placas} • {c.vehiculos?.clientes?.nombre}
+                              {c.vehiculos?.placas} â€¢ {c.vehiculos?.clientes?.nombre}
                             </span>
                           </td>
                           <td className="py-3 px-4">
@@ -2122,7 +2119,7 @@ export default function CajaPage() {
                 </div>
               </div>
 
-              {/* Historial de Pagos con Auditoría */}
+              {/* Historial de Pagos con AuditorÃ­a */}
               <div className="xl:col-span-5 bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden flex flex-col">
                 <div className="p-4 border-b border-slate-200 flex items-center justify-between">
                   <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
@@ -2133,9 +2130,9 @@ export default function CajaPage() {
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                        <th className="py-2.5 px-3">Orden / Método</th>
+                        <th className="py-2.5 px-3">Orden / MÃ©todo</th>
                         <th className="py-2.5 px-3 text-right">Monto</th>
-                        <th className="py-2.5 px-3 text-right">Auditoría</th>
+                        <th className="py-2.5 px-3 text-right">AuditorÃ­a</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -2146,7 +2143,7 @@ export default function CajaPage() {
                           <tr key={p.id} className={isCancelled ? "opacity-50 bg-rose-50/20" : ""}>
                             <td className="py-2.5 px-3">
                               <span className="font-bold text-slate-900 block">
-                                #{1000 + Number(ord?.folio || 1)} • {ord?.vehiculos?.marca}
+                                #{1000 + Number(ord?.folio || 1)} â€¢ {ord?.vehiculos?.marca}
                               </span>
                               <span className="text-[10px] text-slate-500">
                                 {p.metodo_detalle || p.proveedor_pago}
@@ -2190,7 +2187,7 @@ export default function CajaPage() {
                     Historial de Turnos y Cortes de Caja (Cierre Z) ({historialTurnos.length})
                   </h2>
                   <p className="text-[11px] text-slate-500 mt-0.5">
-                    Auditoría inmutable de cierres, arqueos de gaveta, remesas y desviaciones
+                    AuditorÃ­a inmutable de cierres, arqueos de gaveta, remesas y desviaciones
                   </p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -2203,7 +2200,7 @@ export default function CajaPage() {
                       className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
                     >
                       <FileSpreadsheet size={14} />
-                      <span>Auditoría Turno Activo (Excel / PDF)</span>
+                      <span>AuditorÃ­a Turno Activo (Excel / PDF)</span>
                     </button>
                   )}
                   <button
@@ -2232,10 +2229,10 @@ export default function CajaPage() {
                       <th className="py-3 px-4">Fecha Apertura / Cierre</th>
                       <th className="py-3 px-4">Fondo 1 (Operativo)</th>
                       <th className="py-3 px-4">Fondo 2 (Reserva)</th>
-                      <th className="py-3 px-4 text-center">Variación</th>
+                      <th className="py-3 px-4 text-center">VariaciÃ³n</th>
                       <th className="py-3 px-4 text-right">Remesa Retirada</th>
                       <th className="py-3 px-4 text-center">Estado</th>
-                      <th className="py-3 px-4 text-right">Acción</th>
+                      <th className="py-3 px-4 text-right">AcciÃ³n</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -2292,7 +2289,7 @@ export default function CajaPage() {
                                 }`}
                               >
                                 {isCuadrado
-                                  ? "✓ Cuadrado"
+                                  ? "âœ“ Cuadrado"
                                   : dif1 > 0
                                   ? `+${dif1.toFixed(2)}`
                                   : `-${Math.abs(dif1).toFixed(2)}`}
@@ -2343,7 +2340,7 @@ export default function CajaPage() {
                                     setAuditoriaModalOpen(true);
                                   }}
                                   className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 hover:underline inline-flex items-center gap-1 cursor-pointer"
-                                  title="Auditoría y Reporte Excel"
+                                  title="AuditorÃ­a y Reporte Excel"
                                 >
                                   <FileSpreadsheet size={12} />
                                   <span>Auditar / Excel</span>
@@ -2393,14 +2390,14 @@ export default function CajaPage() {
                     <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                       <th className="py-3 px-4">Tipo</th>
                       <th className="py-3 px-4">Concepto</th>
-                      <th className="py-3 px-4">Método</th>
+                      <th className="py-3 px-4">MÃ©todo</th>
                       <th className="py-3 px-4">Responsable</th>
                       <th className="py-3 px-4 text-right">Monto</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {movimientosCaja.map((m) => {
-                      const isInflow = ["Fondo Inicial", "Ingreso Extra", "Reposición de Fondo", "Traspaso Entrada"].includes(m.tipo);
+                      const isInflow = ["Fondo Inicial", "Ingreso Extra", "ReposiciÃ³n de Fondo", "Traspaso Entrada"].includes(m.tipo);
                       const fObj = fondos.find((f) => f.id === m.caja_fondo_id);
                       return (
                         <tr key={m.id} className="hover:bg-slate-50/50 transition-colors">
@@ -2436,7 +2433,7 @@ export default function CajaPage() {
                                     });
                                   }}
                                   className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 cursor-pointer transition-colors"
-                                  title="Ver comprobante de compra / garantía (Foto / PDF)"
+                                  title="Ver comprobante de compra / garantÃ­a (Foto / PDF)"
                                 >
                                   <FileText size={10} className="text-emerald-600" />
                                   Ticket #{m.compras_proveedores[0].folio_ticket_nota}
@@ -2462,7 +2459,7 @@ export default function CajaPage() {
         )}
 
         {/* ========================================================= */}
-        {/* TAB 4: COMISIONES DE TÉCNICOS (NÓMINA OPERATIVA)          */}
+        {/* TAB 4: COMISIONES DE TÃ‰CNICOS (NÃ“MINA OPERATIVA)          */}
         {/* ========================================================= */}
         {activeTab === "Comisiones" && (
           <div className="flex flex-col gap-6">
@@ -2504,11 +2501,11 @@ export default function CajaPage() {
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                      <th className="py-2.5 px-4">Técnico</th>
+                      <th className="py-2.5 px-4">TÃ©cnico</th>
                       <th className="py-2.5 px-4">Orden</th>
                       <th className="py-2.5 px-4">Servicio</th>
                       <th className="py-2.5 px-4 text-center">Horas</th>
-                      <th className="py-2.5 px-4 text-right">Comisión</th>
+                      <th className="py-2.5 px-4 text-right">ComisiÃ³n</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -2550,12 +2547,12 @@ export default function CajaPage() {
           <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl flex flex-col gap-4">
             <h3 className="text-base font-bold text-slate-900">Cancelar Pago Registrado</h3>
             <p className="text-xs text-slate-500">
-              Esta acción anulará el pago de ${Number(cancelPago.monto_total).toLocaleString("es-MX")} y revertirá el estatus de la orden. Ingresa el motivo para el registro de auditoría.
+              Esta acciÃ³n anularÃ¡ el pago de ${Number(cancelPago.monto_total).toLocaleString("es-MX")} y revertirÃ¡ el estatus de la orden. Ingresa el motivo para el registro de auditorÃ­a.
             </p>
             <textarea
               value={motivoCancelacion}
               onChange={(e) => setMotivoCancelacion(e.target.value)}
-              placeholder="Ej: Error de digitación, pago duplicado en terminal, cheque devuelto..."
+              placeholder="Ej: Error de digitaciÃ³n, pago duplicado en terminal, cheque devuelto..."
               className="w-full border border-slate-200 rounded-lg p-2.5 text-xs h-24 focus:outline-none focus:border-rose-600"
             />
             <div className="flex justify-end gap-2">
@@ -2572,7 +2569,7 @@ export default function CajaPage() {
                 disabled={savingCancel || !motivoCancelacion.trim()}
                 className="px-4 py-2 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white disabled:opacity-50"
               >
-                {savingCancel ? "Anulando..." : "Confirmar Anulación"}
+                {savingCancel ? "Anulando..." : "Confirmar AnulaciÃ³n"}
               </button>
             </div>
           </div>
@@ -2595,10 +2592,10 @@ export default function CajaPage() {
                   <optgroup label="Salidas / Egresos de Efectivo">
                     <option value="Gasto / Insumos">Gasto / Insumos de Taller (Salida)</option>
                     <option value="Pago Proveedor">Pago a Repartidor / Proveedor (Salida)</option>
-                    <option value="Retiro Administrativo">Retiro Administrativo / Depósito Bancario (Salida)</option>
+                    <option value="Retiro Administrativo">Retiro Administrativo / DepÃ³sito Bancario (Salida)</option>
                   </optgroup>
                   <optgroup label="Entradas / Inyecciones de Efectivo">
-                    <option value="Reposición de Fondo">Reposición de Fondo (Entrada Externa / Admin)</option>
+                    <option value="ReposiciÃ³n de Fondo">ReposiciÃ³n de Fondo (Entrada Externa / Admin)</option>
                     <option value="Fondo Inicial">Fondo Inicial de Caja (Entrada)</option>
                     <option value="Ingreso Extra">Ingreso Extra (Entrada)</option>
                   </optgroup>
@@ -2648,7 +2645,7 @@ export default function CajaPage() {
               {movForm.tipo === "Pago Proveedor" && (
                 <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2.5">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 block">
-                    Respaldo de Garantía y Proveedor
+                    Respaldo de GarantÃ­a y Proveedor
                   </span>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -2682,17 +2679,17 @@ export default function CajaPage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div>
-                      <label className="text-[10px] font-semibold text-slate-600 block mb-0.5">Plazo de Garantía</label>
+                      <label className="text-[10px] font-semibold text-slate-600 block mb-0.5">Plazo de GarantÃ­a</label>
                       <select
                         value={movForm.mesesGarantia || 1}
                         onChange={(e) => setMovForm({ ...movForm, mesesGarantia: parseInt(e.target.value) || 1 })}
                         className="w-full p-1.5 text-xs border border-slate-300 rounded bg-white"
                       >
-                        <option value={1}>1 mes (30 días)</option>
+                        <option value={1}>1 mes (30 dÃ­as)</option>
                         <option value={3}>3 meses</option>
                         <option value={6}>6 meses</option>
-                        <option value={12}>12 meses (1 año)</option>
-                        <option value={24}>24 meses (2 años)</option>
+                        <option value={12}>12 meses (1 aÃ±o)</option>
+                        <option value={24}>24 meses (2 aÃ±os)</option>
                       </select>
                     </div>
 
@@ -2791,7 +2788,7 @@ export default function CajaPage() {
         />
       )}
 
-      {/* Modal: Ticket Térmico de Cierre Z */}
+      {/* Modal: Ticket TÃ©rmico de Cierre Z */}
       <TicketCierreModal
         isOpen={ticketCierreOpen}
         onClose={() => setTicketCierreOpen(false)}
@@ -2803,7 +2800,7 @@ export default function CajaPage() {
         cajeroNombre={perfil?.nombre || "Cajero en Turno"}
       />
 
-      {/* Modal: Auditoría y Corte Diario (Excel 3 Hojas, PDF, Comisiones y Bancos) */}
+      {/* Modal: AuditorÃ­a y Corte Diario (Excel 3 Hojas, PDF, Comisiones y Bancos) */}
       <CorteDiarioAuditoriaModal
         isOpen={auditoriaModalOpen}
         onClose={() => setAuditoriaModalOpen(false)}
@@ -2814,7 +2811,7 @@ export default function CajaPage() {
         }}
       />
 
-      {/* Modal: Registro de Refacción / Compra y Evidencia de Proveedor */}
+      {/* Modal: Registro de RefacciÃ³n / Compra y Evidencia de Proveedor */}
       <ProveedorEvidenceModal
         isOpen={proveedorEvidenceOpen}
         onClose={() => setProveedorEvidenceOpen(false)}

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import {
   Clock,
   ArrowRightLeft,
@@ -9,6 +9,8 @@ import {
   Receipt,
   Vault,
   Wallet,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { CajaTurno, CajaFondo } from "@/services/cajaTurnoService";
 
@@ -31,6 +33,7 @@ export function TurnoStatusBar({
 }: TurnoStatusBarProps) {
   const fondoOperativo = fondos.find((f) => f.tipo === "OPERATIVO") || fondos[0];
   const fondoReserva = fondos.find((f) => f.tipo === "RESERVA") || fondos[1];
+  const [showSaldos, setShowSaldos] = useState(false);
 
   if (loading) {
     return (
@@ -55,7 +58,7 @@ export function TurnoStatusBar({
                 Caja Cerrada
               </span>
               <span className="text-[11px] text-amber-800/80 hidden sm:inline">
-                • Se requiere abrir turno con arqueo para operar la ventanilla
+                Ã¢â‚¬Â¢ Se requiere abrir turno con arqueo para operar la ventanilla
               </span>
             </div>
           </div>
@@ -72,7 +75,7 @@ export function TurnoStatusBar({
     );
   }
 
-  // 2. Estado: TURNO ABIERTO ACTIVO (Diseño tipo franja de comando moderna)
+  // 2. Estado: TURNO ABIERTO ACTIVO (DiseÃƒÂ±o tipo franja de comando moderna)
   const fechaApertura = new Date(turnoActivo.fecha_apertura);
   const horaFormateada = fechaApertura.toLocaleTimeString("es-MX", {
     hour: "2-digit",
@@ -85,16 +88,17 @@ export function TurnoStatusBar({
   return (
     <div className="bg-white border border-slate-200/90 rounded-xl px-4 py-2.5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
       {/* Shift Info & Dual Funds Chips */}
-      <div className="flex flex-wrap items-center gap-2.5 sm:gap-4">
+      <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
         {/* Status Pill */}
-        <div className="flex items-center gap-2">
+        <div className="inline-flex items-center gap-2">
           <span className="relative flex h-2.5 w-2.5">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
           </span>
           <span className="text-xs font-bold text-slate-800">Turno en Curso</span>
-          <span className="text-[11px] text-slate-400 font-medium hidden sm:inline flex items-center gap-1">
-            <Clock size={11} /> {horaFormateada}
+          <span className="text-[11px] text-slate-500 font-medium inline-flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded-md">
+            <Clock size={11} className="text-slate-400" />
+            <span>{horaFormateada}</span>
           </span>
         </div>
 
@@ -105,7 +109,9 @@ export function TurnoStatusBar({
           <Wallet size={13} className="text-slate-500" />
           <span className="text-[10px] uppercase font-bold text-slate-400">Gaveta:</span>
           <span className="font-bold text-slate-900 tabular-nums">
-            ${saldoFondo1.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+            {showSaldos
+              ? `$${saldoFondo1.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`
+              : "$ ••••••"}
           </span>
         </div>
 
@@ -114,9 +120,21 @@ export function TurnoStatusBar({
           <Vault size={13} className="text-purple-600" />
           <span className="text-[10px] uppercase font-bold text-purple-600">Reserva:</span>
           <span className="font-bold text-purple-900 tabular-nums">
-            ${saldoFondo2.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+            {showSaldos
+              ? `$${saldoFondo2.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`
+              : "$ ••••••"}
           </span>
         </div>
+
+        {/* Toggle para ocultar/mostrar saldos de seguridad */}
+        <button
+          type="button"
+          onClick={() => setShowSaldos(!showSaldos)}
+          title={showSaldos ? "Ocultar saldos por privacidad" : "Mostrar saldos de caja"}
+          className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+        >
+          {showSaldos ? <EyeOff size={14} /> : <Eye size={14} />}
+        </button>
       </div>
 
       {/* Action Buttons: Traspaso & Cierre Z */}
