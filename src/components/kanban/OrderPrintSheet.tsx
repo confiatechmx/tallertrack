@@ -195,7 +195,7 @@ export function OrderPrintSheet({
   };
 
   const sheetDocument = (
-    <div className="bg-white text-slate-900 border border-slate-200 rounded-lg shadow-sm print:shadow-none print:border-0 p-4 sm:p-5 print:p-0 max-w-4xl mx-auto text-xs leading-normal font-sans">
+    <div className="bg-white text-slate-900 border border-slate-200/90 rounded-xl shadow-xs print:shadow-none print:border-0 p-4 sm:p-5 print:py-[10mm] print:px-[12mm] max-w-4xl mx-auto text-xs leading-normal font-sans print:m-0 print:max-w-none">
       {/* ─── 1. TOP BANNER / BRAND HEADER (Compacto & Institucional) ─── */}
       <div
         className="flex justify-between items-start pb-2.5 mb-2.5 border-b-2"
@@ -489,7 +489,7 @@ export function OrderPrintSheet({
                     const sub = t.subtotal != null ? Number(t.subtotal) : unit * qty;
                     return (
                       <tr key={`tire-${t.id}`} className="hover:bg-slate-50/50">
-                        <td className="py-1 px-2.5 font-semibold text-blue-700 text-[9px]">🛞 Neumático</td>
+                        <td className="py-1 px-2.5 text-[9px]"><span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200/60">Neumático</span></td>
                         <td className="py-1 px-2.5 font-medium text-slate-900">
                           {tireName}{" "}
                           <span className="font-mono text-slate-700 font-bold">{medida}</span>
@@ -512,7 +512,7 @@ export function OrderPrintSheet({
                     const sub = r.subtotal != null ? Number(r.subtotal) : unit * qty;
                     return (
                       <tr key={`part-${r.id}`} className="hover:bg-slate-50/50">
-                        <td className="py-1 px-2.5 font-semibold text-amber-700 text-[9px]">🔩 Refacción</td>
+                        <td className="py-1 px-2.5 text-[9px]"><span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-200/60">Refacción</span></td>
                         <td className="py-1 px-2.5 font-medium text-slate-900">
                           {r.nombre}
                           {(r.numero_parte || r.proveedor) && (
@@ -541,12 +541,12 @@ export function OrderPrintSheet({
                     const isCortesia = s.es_cortesia || unit === 0;
                     return (
                       <tr key={`srv-${s.id}`} className="hover:bg-slate-50/50">
-                        <td className="py-1 px-2.5 font-semibold text-emerald-700 text-[9px]">🔧 Mano de Obra</td>
+                        <td className="py-1 px-2.5 text-[9px]"><span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200/60">Mano de Obra</span></td>
                         <td className="py-1 px-2.5 font-medium text-slate-900">
                           {srvName}
                           {isCortesia && (
                             <span className="ml-1.5 px-1 py-0.2 rounded text-[8px] font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
-                              🎁 Cortesía / Promoción
+                              Cortesía
                             </span>
                           )}
                           {s.notas && <span className="block text-[8.5px] text-slate-500">{s.notas}</span>}
@@ -839,30 +839,14 @@ export function OrderPrintSheet({
         </div>
       )}
 
-      {/* ─── 6. FIRMAS DE CONFORMIDAD Y RESPONSABILIDAD ─── */}
-      <div className="grid grid-cols-2 gap-6 pt-3 mt-1 text-[9.5px]">
-        <div className="border-t border-slate-400 pt-1 text-center">
-          <p className="font-bold text-slate-800">
-            {order.aprobado_cliente_nombre || c.nombre || "Nombre y Firma del Cliente"}
-          </p>
-          <p className="text-[8.5px] text-slate-500 leading-tight">
-            {docType === "nota_venta"
-              ? "Recibí de conformidad el vehículo y los trabajos y refacciones pagadas detalladas en esta nota de venta."
-              : "Acepto presupuesto, inventario de recepción y tomo conocimiento de partidas sugeridas/diferidas."}
-          </p>
-        </div>
-        <div className="border-t border-slate-400 pt-1 text-center">
-          <p className="font-bold text-slate-800">
-            {docType === "nota_venta"
-              ? `Caja y Entrega • ${activeEmpresa?.nombre_comercial}`
-              : `Asesor Técnico Cotizador • ${activeEmpresa?.nombre_comercial}`}
-          </p>
-          <p className="text-[8.5px] text-slate-500 leading-tight">
-            {docType === "nota_venta"
-              ? `Comprobante de venta y liquidación (${activeSucursal?.nombre || "Matriz"})`
-              : `Cotización formal sujeta a cambios y disponibilidad (${activeSucursal?.nombre || "Matriz"})`}
-          </p>
-        </div>
+      {/* ─── 6. PIE INSTITUCIONAL DE CIERRE ─── */}
+      <div className="border-t border-slate-200 pt-2.5 mt-2 flex flex-col sm:flex-row items-center justify-between text-[9px] text-slate-500 gap-1">
+        <span>
+          Documento expedido por <strong>{activeEmpresa?.nombre_comercial}</strong> • Garantía de 30 días o 1,000 km en mano de obra.
+        </span>
+        <span className="font-mono text-slate-400">
+          {docType === "nota_venta" ? `Nota: ${folioFormatted}` : `Cotización: ${folioFormatted}`} • {activeSucursal?.nombre || "Matriz"}
+        </span>
       </div>
     </div>
   );
@@ -940,9 +924,56 @@ export function OrderPrintSheet({
         createPortal(
           <div className="hidden print:block fixed inset-0 bg-white z-[9999] p-0 m-0">
             {sheetDocument}
+            <style jsx global>{`
+              @page {
+                size: letter portrait;
+                margin: 0;
+              }
+              @media print {
+                @page {
+                  margin: 0;
+                }
+                html, body {
+                  background-color: #ffffff !important;
+                  color: #0f172a !important;
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                }
+                .no-print, header, nav, footer, .modal-backdrop {
+                  display: none !important;
+                }
+              }
+            `}</style>
           </div>,
           document.body
         )}
+
+      {isStandalone && (
+        <style jsx global>{`
+          @page {
+            size: letter portrait;
+            margin: 0;
+          }
+          @media print {
+            @page {
+              margin: 0;
+            }
+            html, body {
+              background-color: #ffffff !important;
+              color: #0f172a !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              margin: 0 !important;
+              padding: 0 !important;
+            }
+            .no-print, header, nav, footer, .modal-backdrop {
+              display: none !important;
+            }
+          }
+        `}</style>
+      )}
     </div>
   );
 }

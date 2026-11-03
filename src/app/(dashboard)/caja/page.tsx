@@ -1361,12 +1361,31 @@ export default function CajaPage() {
                       </span>
                     </div>
 
-                    <Link
-                      href={`/tablero?ordenId=${activeOrder.id}`}
-                      className="text-xs px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white font-semibold transition-colors inline-flex items-center gap-1 shrink-0"
-                    >
-                      Ver Orden <ExternalLink size={12} />
-                    </Link>
+                    <div className="flex items-center gap-2">
+                      {activeOrder.pagado > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const lastP = (activeOrder.pagos_orden || [])[(activeOrder.pagos_orden || []).length - 1];
+                            setReceiptOrder(activeOrder);
+                            setReceiptPayment(lastP || null);
+                            setReceiptPayments(activeOrder.pagos_orden || []);
+                            setReceiptCashGiven(undefined);
+                            setReceiptChangeDue(undefined);
+                            setReceiptModalOpen(true);
+                          }}
+                          className="text-xs px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-colors inline-flex items-center gap-1 shrink-0 cursor-pointer"
+                        >
+                          <Receipt size={12} /> Ver Recibo
+                        </button>
+                      )}
+                      <Link
+                        href={`/tablero?ordenId=${activeOrder.id}`}
+                        className="text-xs px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white font-semibold transition-colors inline-flex items-center gap-1 shrink-0"
+                      >
+                        Ver Orden <ExternalLink size={12} />
+                      </Link>
+                    </div>
                   </div>
 
                   {/* Saldo y Monto a Cobrar Destacado */}
@@ -2185,21 +2204,41 @@ export default function CajaPage() {
                               ${Number(p.monto_total).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                             </td>
                             <td className="py-2.5 px-3 text-right">
-                              {!isCancelled ? (
+                              <div className="flex items-center justify-end gap-2">
                                 <button
+                                  type="button"
                                   onClick={() => {
-                                    setCancelPago(p);
-                                    setMotivoCancelacion("");
+                                    const targetOrd = ordenes.find((o) => o.id === p.orden_servicio_id);
+                                    if (targetOrd) {
+                                      setReceiptOrder(targetOrd);
+                                      setReceiptPayment(p);
+                                      setReceiptPayments(targetOrd.pagos_orden || [p]);
+                                      setReceiptCashGiven(undefined);
+                                      setReceiptChangeDue(undefined);
+                                      setReceiptModalOpen(true);
+                                    }
                                   }}
-                                  className="text-[11px] font-bold text-rose-600 hover:underline"
+                                  className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                                  title="Ver Recibo Oficial de Pago"
                                 >
-                                  Cancelar
+                                  <Receipt size={12} /> Recibo
                                 </button>
-                              ) : (
-                                <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-rose-100 text-rose-700">
-                                  Anulado
-                                </span>
-                              )}
+                                {!isCancelled ? (
+                                  <button
+                                    onClick={() => {
+                                      setCancelPago(p);
+                                      setMotivoCancelacion("");
+                                    }}
+                                    className="text-[11px] font-bold text-rose-600 hover:underline cursor-pointer"
+                                  >
+                                    Cancelar
+                                  </button>
+                                ) : (
+                                  <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-rose-100 text-rose-700">
+                                    Anulado
+                                  </span>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         );

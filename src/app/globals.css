@@ -105,17 +105,31 @@ body {
   scrollbar-width: none;
 }
 
-/* Shopmonkey Print Work Order Sheet */
+/* Universal Print Styling (Carta & Ticket) */
+@page {
+  size: letter portrait;
+  margin: 0;
+}
+
 @media print {
-  body {
+  @page {
+    size: letter portrait;
+    margin: 0;
+  }
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
     background: #FFFFFF !important;
     color: #0F172A !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
-  aside, header, .no-print {
+  aside, header, nav, footer, .no-print, .modal-backdrop {
     display: none !important;
   }
   main {
     padding: 0 !important;
+    margin: 0 !important;
     overflow: visible !important;
     background: #FFFFFF !important;
   }
