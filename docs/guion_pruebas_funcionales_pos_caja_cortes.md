@@ -12,8 +12,19 @@
 
 ### 1.1 Configuración de Doble Terminal (Simulación Multi-Caja)
 Para simular el flujo real del taller (donde el recepcionista y el cajero pueden tener la pantalla abierta simultáneamente):
-- **Terminal A (Mostrador / Caja Principal):** Navegador habitual (ej. Google Chrome) logueado en Cova.
-- **Terminal B (Asesor / Recepción):** Ventana de incógnito o segundo navegador (ej. Microsoft Edge) autenticado en la **misma sucursal Cova**.
+
+* **Terminal A (Caja Principal / Mostrador):**
+  - **Navegador:** Tu navegador habitual (ej. Google Chrome).
+  - **Usuario:** `eduardo@cova.mx`
+  - **Contraseña:** `TallerTrack2026!`
+  - **Rol:** *SuperAdmin*
+
+* **Terminal B (Asesor de Servicio / Recepción):**
+  - **Navegador:** Ventana de incógnito o segundo navegador (ej. Microsoft Edge).
+  - **Usuario:** `larissa.orozcor@gmail.com` *(o puedes usar el mismo `eduardo@cova.mx`)*
+  - **Contraseña:** `TallerTrack2026!`
+  - **Rol:** *Administrador*
+
 - **Distribución en pantalla:** Colocar ambas ventanas en paralelo (pantalla dividida 50/50).
 
 ```mermaid
