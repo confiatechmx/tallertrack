@@ -255,7 +255,7 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
       }
 
       const hostCurrent = typeof window !== "undefined" ? window.location.hostname.toLowerCase() : "";
-      const isCovaHost = hostCurrent.includes("cova") || (hostInfo.subdomain === "cova");
+      const isCovaHost = hostCurrent.includes("cova") || (domainInfo?.empresa?.subdominio === "cova");
       if (!targetEmpresaId && isCovaHost) {
         targetEmpresaId = "b2ad09db-0a34-4876-9ca3-d584c40bd294";
       }
