@@ -58,7 +58,7 @@ export function TurnoStatusBar({
                 Caja Cerrada
               </span>
               <span className="text-[11px] text-amber-800/80 hidden sm:inline">
-                Ã¢â‚¬Â¢ Se requiere abrir turno con arqueo para operar la ventanilla
+                • Se requiere abrir turno con arqueo para operar la ventanilla
               </span>
             </div>
           </div>
@@ -75,7 +75,7 @@ export function TurnoStatusBar({
     );
   }
 
-  // 2. Estado: TURNO ABIERTO ACTIVO (DiseÃƒÂ±o tipo franja de comando moderna)
+  // 2. Estado: TURNO ABIERTO ACTIVO (Diseño tipo franja de comando moderna)
   const fechaApertura = new Date(turnoActivo.fecha_apertura);
   const horaFormateada = fechaApertura.toLocaleTimeString("es-MX", {
     hour: "2-digit",
@@ -88,7 +88,7 @@ export function TurnoStatusBar({
   return (
     <div className="bg-white border border-slate-200/90 rounded-xl px-4 py-2.5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
       {/* Shift Info & Dual Funds Chips */}
-      <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+      <div className="flex flex-wrap items-center gap-2.5 sm:gap-4">
         {/* Status Pill */}
         <div className="inline-flex items-center gap-2">
           <span className="relative flex h-2.5 w-2.5">
