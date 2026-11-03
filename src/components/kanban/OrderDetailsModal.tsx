@@ -12,6 +12,7 @@ import { OrderPrintSheet } from "./OrderPrintSheet";
 import { AuditTimeline } from "@/components/audit/AuditTimeline";
 import { TicketEvidenceLightbox } from "@/components/proveedores/TicketEvidenceLightbox";
 import { ProveedorEvidenceModal } from "@/components/proveedores/ProveedorEvidenceModal";
+import { ProveedorService, type Proveedor } from "@/services/proveedorService";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -196,18 +197,49 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   const [quoteViewMode, setQuoteViewMode] = useState<"operaciones" | "clasico">("operaciones");
   const [addingServiceLoading, setAddingServiceLoading] = useState(false);
 
-  // Buyout Refacciones state (Margin Calculator)
+  // Buyout Refacciones state (Margin Calculator & Garantías Integradas)
   const [isAddingPart, setIsAddingPart] = useState(false);
   const [partNombre, setPartNombre] = useState("");
   const [partNumero, setPartNumero] = useState("");
+  const [proveedoresCatalogo, setProveedoresCatalogo] = useState<Proveedor[]>([]);
+  const [selectedProveedorId, setSelectedProveedorId] = useState<string>("");
   const [partProveedor, setPartProveedor] = useState(PROVEEDORES_REFACCIONES[0]);
   const [partCantidad, setPartCantidad] = useState<number>(1);
   const [partCostoUnitario, setPartCostoUnitario] = useState<string>("");
   const [partMargen, setPartMargen] = useState<string>(
     String(empresa?.margen_refacciones_default ?? 35)
   );
+  const [partPrecioVentaManual, setPartPrecioVentaManual] = useState<string>("");
   const [partPackage, setPartPackage] = useState<string>("Suspensión y Dirección");
   const [addingPartLoading, setAddingPartLoading] = useState(false);
+
+  // Garantía y Evidencias integradas en el alta de refacciones
+  const [showGarantiaSection, setShowGarantiaSection] = useState(false);
+  const [partFolioTicket, setPartFolioTicket] = useState("");
+  const [partMesesGarantia, setPartMesesGarantia] = useState<number>(12);
+  const [partFileEvidencia, setPartFileEvidencia] = useState<File | null>(null);
+  const [partRegistrarCajaChica, setPartRegistrarCajaChica] = useState(false);
+  const [partFuentePago, setPartFuentePago] = useState<"CAJA_CHICA" | "TRANSFERENCIA" | "CREDITO_PENDIENTE">("CAJA_CHICA");
+
+  // Carga de catálogo de proveedores reales
+  useEffect(() => {
+    const fetchProveedores = async () => {
+      const targetEmpresaId = empresa?.id || order?.empresa_id;
+      if (!targetEmpresaId) return;
+      const { data } = await ProveedorService.obtenerProveedores(targetEmpresaId);
+      if (data && data.length > 0) {
+        setProveedoresCatalogo(data);
+        if (!selectedProveedorId) {
+          setSelectedProveedorId(data[0].id);
+          setPartProveedor(data[0].nombre_comercial);
+          if (data[0].meses_garantia_default) {
+            setPartMesesGarantia(data[0].meses_garantia_default);
+          }
+        }
+      }
+    };
+    fetchProveedores();
+  }, [empresa?.id, order?.empresa_id]);
 
   // Supplier Evidence & Warranty modal states
   const [selectedTicketEvidence, setSelectedTicketEvidence] = useState<{
@@ -545,13 +577,56 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
     }
   }, [posPaymentMethod, saldoPendiente, fondos]);
 
-  // Live Buyout Margin Calculator values
+  // Live Buyout Margin Calculator values (Bidireccional)
   const numericCosto = parseFloat(partCostoUnitario) || 0;
   const numericMargen = parseFloat(partMargen) || 0;
   const numericCant = Math.max(1, Number(partCantidad) || 1);
-  const calcPrecioUnitario = Math.round(numericCosto * (1 + numericMargen / 100) * 100) / 100;
+  const calcPrecioUnitario = partPrecioVentaManual !== ""
+    ? (parseFloat(partPrecioVentaManual) || 0)
+    : Math.round(numericCosto * (1 + numericMargen / 100) * 100) / 100;
   const calcSubtotal = Math.round(calcPrecioUnitario * numericCant * 100) / 100;
   const calcUtilidad = Math.round((calcSubtotal - numericCosto * numericCant) * 100) / 100;
+
+  const handleCostoPartChange = (val: string) => {
+    setPartCostoUnitario(val);
+    const c = parseFloat(val) || 0;
+    if (c > 0 && numericMargen > 0) {
+      const p = Math.round(c * (1 + numericMargen / 100) * 100) / 100;
+      setPartPrecioVentaManual(String(p));
+    }
+  };
+
+  const handleMargenPartChange = (val: string) => {
+    setPartMargen(val);
+    const m = parseFloat(val) || 0;
+    if (numericCosto > 0) {
+      const p = Math.round(numericCosto * (1 + m / 100) * 100) / 100;
+      setPartPrecioVentaManual(String(p));
+    }
+  };
+
+  const handlePrecioVentaPartChange = (val: string) => {
+    setPartPrecioVentaManual(val);
+    const p = parseFloat(val) || 0;
+    if (numericCosto > 0 && p > 0) {
+      const m = Math.round(((p - numericCosto) / numericCosto) * 100 * 10) / 10;
+      setPartMargen(String(m));
+    }
+  };
+
+  const handleSelectProveedor = (provIdOrName: string) => {
+    const found = proveedoresCatalogo.find((p) => p.id === provIdOrName || p.nombre_comercial === provIdOrName);
+    if (found) {
+      setSelectedProveedorId(found.id);
+      setPartProveedor(found.nombre_comercial);
+      if (found.meses_garantia_default) {
+        setPartMesesGarantia(found.meses_garantia_default);
+      }
+    } else {
+      setSelectedProveedorId("");
+      setPartProveedor(provIdOrName);
+    }
+  };
 
   // Live Just-in-Time Tire Calculator & Express Parser
   const parseMedidaExpress = (input: string) => {
@@ -1183,44 +1258,150 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
     }
   };
 
-  // Handlers for Buyout Parts (Refacciones Sobre Pedido)
+  // Handlers for Buyout Parts (Refacciones Sobre Pedido & Garantías)
   const handleAddPart = async () => {
     if (!partNombre.trim() || numericCosto <= 0) return;
     setAddingPartLoading(true);
 
-    const payload = {
-      orden_servicio_id: orderId,
-      nombre: partNombre.trim(),
-      numero_parte: partNumero.trim() || null,
-      proveedor: partProveedor,
-      cantidad: numericCant,
-      costo_unitario: numericCosto,
-      margen_porcentaje: numericMargen,
-      precio_unitario: calcPrecioUnitario,
-      subtotal: calcSubtotal,
-      estatus_aprobacion: "Aprobado",
-      paquete_operacion: partPackage || "Suspensión y Dirección",
-    };
+    try {
+      let evidenciaUrl: string | null = null;
+      let storagePath: string | null = null;
+      let evidenciaTipo: "IMAGE" | "PDF" | "OTHER" | null = null;
+      let compraProveedorId: string | null = null;
 
-    const { data, error } = await supabase
-      .from("orden_servicio_refacciones")
-      .insert(payload)
-      .select("*")
-      .single();
+      const targetEmpresaId = order?.empresa_id || empresa?.id;
+      const targetSucursalId = order?.sucursal_id || sucursalActiva?.id;
 
-    if (!error && data) {
-      setOrder((prev: any) => ({
-        ...prev,
-        orden_servicio_refacciones: [...(prev.orden_servicio_refacciones || []), data],
-      }));
-      setIsAddingPart(false);
-      setPartNombre("");
-      setPartNumero("");
-      setPartCantidad(1);
-      setPartCostoUnitario("");
-      onUpdate();
+      // 1. Subida de archivo si se adjuntó evidencia
+      if (partFileEvidencia && targetEmpresaId) {
+        const uploadRes = await ProveedorService.subirEvidenciaCompra(
+          partFileEvidencia,
+          targetEmpresaId,
+          selectedProveedorId || "refacciones_directas"
+        );
+        evidenciaUrl = uploadRes.publicUrl;
+        storagePath = uploadRes.storagePath;
+        evidenciaTipo = partFileEvidencia.type.includes("pdf") ? "PDF" : "IMAGE";
+      }
+
+      // 2. Registro de compra a proveedor si se capturaron datos de garantía/factura o egreso de caja
+      const tieneDatosCompra = Boolean(
+        partFolioTicket.trim() ||
+        showGarantiaSection ||
+        partFileEvidencia ||
+        partRegistrarCajaChica
+      );
+
+      if (tieneDatosCompra && targetEmpresaId) {
+        const today = new Date();
+        const fechaVencGarantia = new Date(today);
+        fechaVencGarantia.setMonth(today.getMonth() + (partMesesGarantia || 12));
+
+        const totalCompraCosto = Math.round(numericCosto * numericCant * 100) / 100;
+
+        const { data: compraData, error: compraError } = await supabase
+          .from("compras_proveedores")
+          .insert({
+            empresa_id: targetEmpresaId,
+            sucursal_id: targetSucursalId || null,
+            proveedor_id: selectedProveedorId || null,
+            orden_servicio_id: orderId,
+            folio_ticket_nota: partFolioTicket.trim() || `TICK-${Date.now().toString().slice(-6)}`,
+            descripcion: `Refacción: ${partNombre.trim()}${partNumero ? ` (SKU: ${partNumero})` : ""} - Orden #${order?.folio || orderId.slice(0, 4)}`,
+            monto_costo: totalCompraCosto,
+            fuente_pago: partRegistrarCajaChica ? "CAJA_CHICA" : partFuentePago,
+            estatus_pago: partFuentePago === "CREDITO_PENDIENTE" ? "PENDIENTE" : "PAGADO",
+            monto_pagado: partFuentePago === "CREDITO_PENDIENTE" ? 0 : totalCompraCosto,
+            monto_saldo_pendiente: partFuentePago === "CREDITO_PENDIENTE" ? totalCompraCosto : 0,
+            fecha_compra: today.toISOString().split("T")[0],
+            evidencia_url: evidenciaUrl,
+            evidencia_storage_path: storagePath,
+            evidencia_tipo: evidenciaTipo,
+            meses_garantia: partMesesGarantia || 12,
+            fecha_vencimiento_garantia: fechaVencGarantia.toISOString().split("T")[0],
+            estatus_garantia: "VIGENTE",
+          })
+          .select("*, proveedores(nombre_comercial)")
+          .single();
+
+        if (!compraError && compraData) {
+          compraProveedorId = compraData.id;
+
+          // 3. Registrar egreso en caja física si se solicitó
+          if (partRegistrarCajaChica && targetSucursalId) {
+            const fondoOperativo = fondos.find((f) => f.tipo === "OPERATIVO") || fondos[0];
+            await supabase.from("caja_movimientos").insert({
+              empresa_id: targetEmpresaId,
+              sucursal_id: targetSucursalId,
+              caja_turno_id: turnoActivo?.id || null,
+              caja_fondo_id: fondoOperativo?.id || null,
+              tipo: "EGRESO",
+              categoria: "PAGO_PROVEEDOR",
+              concepto: `Pago refacción: ${partNombre.trim()} (Nota #${partFolioTicket.trim() || compraData.folio_ticket_nota})`,
+              monto: totalCompraCosto,
+              metodo_pago: "Efectivo",
+              folio_ticket: partFolioTicket.trim() || compraData.folio_ticket_nota,
+              comprobante_url: evidenciaUrl,
+              orden_servicio_id: orderId,
+              usuario_id: perfil?.id || null,
+            });
+          }
+        }
+      }
+
+      // 4. Insertar la refacción en orden_servicio_refacciones
+      const payload: any = {
+        orden_servicio_id: orderId,
+        empresa_id: targetEmpresaId,
+        nombre: partNombre.trim(),
+        numero_parte: partNumero.trim() || null,
+        proveedor: partProveedor,
+        proveedor_id: selectedProveedorId || null,
+        cantidad: numericCant,
+        costo_unitario: numericCosto,
+        margen_porcentaje: numericMargen,
+        precio_unitario: calcPrecioUnitario,
+        subtotal: calcSubtotal,
+        estatus_aprobacion: "Aprobado",
+        paquete_operacion: partPackage || "Suspensión y Dirección",
+        compra_proveedor_id: compraProveedorId,
+        folio_ticket_nota: partFolioTicket.trim() || null,
+        garantia_especifica: partMesesGarantia ? `${partMesesGarantia} meses` : null,
+        evidencia_url: evidenciaUrl,
+      };
+
+      const { data, error } = await supabase
+        .from("orden_servicio_refacciones")
+        .insert(payload)
+        .select("*, compras_proveedores(*, proveedores(nombre_comercial))")
+        .single();
+
+      if (!error && data) {
+        setOrder((prev: any) => ({
+          ...prev,
+          orden_servicio_refacciones: [...(prev.orden_servicio_refacciones || []), data],
+        }));
+        setIsAddingPart(false);
+        setPartNombre("");
+        setPartNumero("");
+        setPartCantidad(1);
+        setPartCostoUnitario("");
+        setPartPrecioVentaManual("");
+        setPartFolioTicket("");
+        setPartFileEvidencia(null);
+        setPartRegistrarCajaChica(false);
+        setShowGarantiaSection(false);
+        toast.success("Refacción agregada con éxito");
+        onUpdate();
+      } else if (error) {
+        toast.error("Error al guardar la refacción: " + error.message);
+      }
+    } catch (err: any) {
+      console.error("Error al procesar refacción:", err);
+      toast.error("Ocurrió un error al agregar la refacción");
+    } finally {
+      setAddingPartLoading(false);
     }
-    setAddingPartLoading(false);
   };
 
   const handleDeferPart = async (part: any) => {
@@ -2067,45 +2248,61 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   );
 
   const renderPartForm = () => (
-    <div className="p-4 bg-indigo-50/40 border-b border-slate-200 space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="text-[11px] font-bold text-indigo-950 flex items-center gap-1.5">
-          <Calculator size={14} className="text-indigo-600" />
-          Calculadora de Margen de Refacciones en Vivo
+    <div className="p-4 bg-indigo-50/40 border-b border-indigo-200/80 space-y-3.5 animate-in fade-in duration-200">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+          <Calculator size={15} className="text-indigo-600" />
+          Calculadora de Margen y Alta de Refacción
         </span>
-        <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded">
-          Margen Taller Default: {empresa?.margen_refacciones_default ?? 35}%
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-100/80 px-2 py-0.5 rounded-md">
+            Margen Taller: {empresa?.margen_refacciones_default ?? 35}%
+          </span>
+          <button
+            type="button"
+            onClick={() => setShowGarantiaSection(!showGarantiaSection)}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+              showGarantiaSection
+                ? "bg-indigo-600 text-white shadow-xs"
+                : "bg-white text-indigo-700 border border-indigo-200 hover:bg-indigo-50"
+            }`}
+          >
+            <ShieldCheck size={13} />
+            <span>{showGarantiaSection ? "Ocultar Garantía" : "+ Garantía y Factura"}</span>
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
-        <div className="sm:col-span-4">
+      {/* Grid Principal sin campos cortados */}
+      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+        {/* Fila 1 */}
+        <div className="sm:col-span-5">
           <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-            Concepto / Refacción
+            Concepto / Refacción *
           </label>
           <input
             type="text"
-            placeholder="Ej. Juego Balatas Cerámicas Del."
+            placeholder="Ej. Juego Balatas Cerámicas Delanteras"
             value={partNombre}
             onChange={(e) => setPartNombre(e.target.value)}
-            className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2.5 text-slate-900"
+            className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2.5 text-slate-900 font-medium focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
           />
         </div>
 
-        <div className="sm:col-span-2">
+        <div className="sm:col-span-3">
           <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
             No. Parte (SKU)
           </label>
           <input
             type="text"
-            placeholder="D1521-8840"
+            placeholder="Ej. D1521-8840"
             value={partNumero}
             onChange={(e) => setPartNumero(e.target.value)}
-            className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 text-slate-900 font-mono"
+            className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2.5 text-slate-900 font-mono"
           />
         </div>
 
-        <div className="sm:col-span-2">
+        <div className="sm:col-span-4">
           <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
             Paquete / Operación
           </label>
@@ -2122,24 +2319,44 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
           </select>
         </div>
 
-        <div className="sm:col-span-2">
+        {/* Fila 2: Proveedor, Cantidad, Costo Proveedor y Precio Venta */}
+        <div className="sm:col-span-5">
           <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-            Proveedor
+            Proveedor (Catálogo)
           </label>
           <select
-            value={partProveedor}
-            onChange={(e) => setPartProveedor(e.target.value)}
-            className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 text-slate-900"
+            value={selectedProveedorId || partProveedor}
+            onChange={(e) => handleSelectProveedor(e.target.value)}
+            className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 text-slate-900 font-medium"
           >
-            {PROVEEDORES_REFACCIONES.map((prov) => (
-              <option key={prov} value={prov}>
-                {prov}
-              </option>
-            ))}
+            {proveedoresCatalogo.length > 0 ? (
+              <>
+                <optgroup label="Proveedores Registrados del Taller">
+                  {proveedoresCatalogo.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nombre_comercial} {p.categoria ? `(${p.categoria})` : ""}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Opciones Rápidas">
+                  {PROVEEDORES_REFACCIONES.map((prov) => (
+                    <option key={prov} value={prov}>
+                      {prov}
+                    </option>
+                  ))}
+                </optgroup>
+              </>
+            ) : (
+              PROVEEDORES_REFACCIONES.map((prov) => (
+                <option key={prov} value={prov}>
+                  {prov}
+                </option>
+              ))
+            )}
           </select>
         </div>
 
-        <div className="sm:col-span-1">
+        <div className="sm:col-span-2">
           <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
             Cant.
           </label>
@@ -2148,58 +2365,186 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
             min="1"
             value={partCantidad}
             onChange={(e) => setPartCantidad(parseInt(e.target.value) || 1)}
-            className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 text-center tabular-nums"
+            className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 text-center font-bold tabular-nums"
           />
         </div>
 
-        <div className="sm:col-span-1">
+        <div className="sm:col-span-2 sm:min-w-[110px]">
           <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-            Costo Prov.
+            Costo Prov. ($) *
           </label>
           <input
             type="number"
             step="10"
             placeholder="0.00"
             value={partCostoUnitario}
-            onChange={(e) => setPartCostoUnitario(e.target.value)}
-            className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 text-slate-900 font-bold tabular-nums"
+            onChange={(e) => handleCostoPartChange(e.target.value)}
+            className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2.5 text-slate-900 font-bold tabular-nums font-mono"
+          />
+        </div>
+
+        <div className="sm:col-span-3 sm:min-w-[120px]">
+          <label className="block text-[10px] font-bold uppercase text-indigo-700 mb-1">
+            P. Venta ($) [Directo]
+          </label>
+          <input
+            type="number"
+            step="10"
+            placeholder="0.00"
+            value={partPrecioVentaManual !== "" ? partPrecioVentaManual : (calcPrecioUnitario > 0 ? calcPrecioUnitario : "")}
+            onChange={(e) => handlePrecioVentaPartChange(e.target.value)}
+            className="w-full h-8 text-xs bg-indigo-50/60 border border-indigo-300 rounded-md px-2.5 text-indigo-950 font-black tabular-nums font-mono"
           />
         </div>
       </div>
 
-      {/* Live Calculation Bar */}
-      <div className="bg-white border border-indigo-200 rounded-md p-2.5 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-1.5">
-            <label className="text-[10px] font-bold uppercase text-slate-500">
-              Markup (%):
-            </label>
-            <input
-              type="number"
-              step="1"
-              value={partMargen}
-              onChange={(e) => setPartMargen(e.target.value)}
-              className="w-16 h-7 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-300 rounded px-2 text-center tabular-nums"
-            />
+      {/* Sección Desplegable de Garantía y Compra de Proveedor */}
+      {showGarantiaSection && (
+        <div className="bg-white border border-indigo-200 rounded-xl p-3.5 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+          <div className="flex items-center justify-between border-b border-indigo-100 pb-2">
+            <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+              <ShieldCheck size={14} className="text-indigo-600" />
+              Datos de Garantía y Trazabilidad de Compra
+            </span>
+            <span className="text-[10px] text-slate-500">
+              Vincula la nota/factura del proveedor con la pieza instalada
+            </span>
           </div>
 
-          <div className="text-xs">
-            <span className="text-slate-500">P. Venta: </span>
-            <strong className="text-slate-900 font-mono tabular-nums">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                Folio Ticket / Nota / Factura
+              </label>
+              <input
+                type="text"
+                placeholder="Ej. FAC-7712 o Nota #4512"
+                value={partFolioTicket}
+                onChange={(e) => setPartFolioTicket(e.target.value)}
+                className="w-full h-8 text-xs bg-slate-50 border border-slate-300 rounded-md px-2.5 text-slate-900 font-mono font-medium"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                Garantía con Proveedor
+              </label>
+              <select
+                value={partMesesGarantia}
+                onChange={(e) => setPartMesesGarantia(Number(e.target.value))}
+                className="w-full h-8 text-xs bg-slate-50 border border-slate-300 rounded-md px-2 text-slate-900 font-medium"
+              >
+                <option value={1}>30 días (1 mes)</option>
+                <option value={3}>90 días (3 meses)</option>
+                <option value={6}>180 días (6 meses)</option>
+                <option value={12}>12 meses (1 año) - Recomendado</option>
+                <option value={24}>24 meses (2 años)</option>
+                <option value={0}>Sin garantía directa</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                Subir Evidencia (Foto / PDF)
+              </label>
+              <div className="relative">
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] || null;
+                    setPartFileEvidencia(f);
+                  }}
+                  className="w-full h-8 text-[11px] text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[10px] file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Integración con Caja Chica */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-100 bg-slate-50/70 p-2.5 rounded-lg">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={partRegistrarCajaChica}
+                onChange={(e) => setPartRegistrarCajaChica(e.target.checked)}
+                className="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 cursor-pointer"
+              />
+              <span className="text-xs text-slate-700 font-medium">
+                Registrar egreso automático en <strong>Caja Chica</strong> por <strong className="font-mono text-slate-900">${(numericCosto * numericCant).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN</strong> (Fondo de Gaveta)
+              </span>
+            </label>
+            {!partRegistrarCajaChica && (
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-[10px] uppercase font-bold text-slate-500">Forma de Pago:</span>
+                <select
+                  value={partFuentePago}
+                  onChange={(e) => setPartFuentePago(e.target.value as any)}
+                  className="h-7 text-xs bg-white border border-slate-300 rounded px-2 text-slate-800"
+                >
+                  <option value="CAJA_CHICA">Efectivo mostrador</option>
+                  <option value="TRANSFERENCIA">Transferencia Bancaria</option>
+                  <option value="CREDITO_PENDIENTE">Crédito Proveedor (CxP)</option>
+                </select>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Live Calculation Bar con Atajos Rápidos */}
+      <div className="bg-white border border-indigo-200 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-5">
+          <div className="flex items-center gap-1.5">
+            <label className="text-[10px] font-bold uppercase text-slate-500">
+              Markup:
+            </label>
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                step="1"
+                value={partMargen}
+                onChange={(e) => handleMargenPartChange(e.target.value)}
+                className="w-14 h-7 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-300 rounded px-1.5 text-center tabular-nums"
+              />
+              <span className="text-xs font-bold text-slate-400">%</span>
+            </div>
+            {/* Presets rápidos */}
+            <div className="hidden lg:flex items-center gap-1 ml-1">
+              {[25, 35, 45, 50].map((pct) => (
+                <button
+                  key={pct}
+                  type="button"
+                  onClick={() => handleMargenPartChange(String(pct))}
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                    Number(partMargen) === pct
+                      ? "bg-indigo-600 text-white"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  {pct}%
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="text-xs border-l border-slate-200 pl-3">
+            <span className="text-slate-500">P. Venta Unit: </span>
+            <strong className="text-slate-900 font-mono tabular-nums font-bold">
               ${calcPrecioUnitario.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
             </strong>
           </div>
 
-          <div className="text-xs">
+          <div className="text-xs border-l border-slate-200 pl-3">
             <span className="text-slate-500">Subtotal: </span>
-            <strong className="text-indigo-700 font-mono tabular-nums">
+            <strong className="text-indigo-700 font-mono tabular-nums font-black text-sm">
               ${calcSubtotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
             </strong>
           </div>
 
-          <div className="text-xs">
+          <div className="text-xs border-l border-slate-200 pl-3">
             <span className="text-slate-500">Utilidad Pieza: </span>
-            <strong className="text-emerald-700 font-mono tabular-nums">
+            <strong className="text-emerald-700 font-mono tabular-nums font-bold">
               +${calcUtilidad.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
             </strong>
           </div>
@@ -2209,7 +2554,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
           <button
             type="button"
             onClick={() => setIsAddingPart(false)}
-            className="px-3 h-7 text-xs text-slate-500 hover:text-slate-800 cursor-pointer"
+            className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 cursor-pointer font-medium"
           >
             Cancelar
           </button>
@@ -2217,9 +2562,19 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
             type="button"
             disabled={!partNombre.trim() || numericCosto <= 0 || addingPartLoading}
             onClick={handleAddPart}
-            className="px-3.5 h-7 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold disabled:opacity-50 cursor-pointer"
+            className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold disabled:opacity-50 cursor-pointer flex items-center gap-1.5 shadow-xs"
           >
-            {addingPartLoading ? "Agregando..." : "Agregar Refacción"}
+            {addingPartLoading ? (
+              <>
+                <Loader2 size={13} className="animate-spin" />
+                <span>Guardando...</span>
+              </>
+            ) : (
+              <>
+                <Plus size={14} />
+                <span>Agregar Refacción</span>
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -3226,30 +3581,32 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                       {part.paquete_operacion}
                                     </span>
                                   )}
-                                  {part.compras_proveedores?.evidencia_url ? (
+                                  {part.compras_proveedores?.evidencia_url || part.evidencia_url ? (
                                     <button
                                       type="button"
                                       onClick={() =>
                                         setSelectedTicketEvidence({
-                                          evidenciaUrl: part.compras_proveedores.evidencia_url,
-                                          folio: part.compras_proveedores.folio_ticket_nota,
+                                          evidenciaUrl: part.compras_proveedores?.evidencia_url || part.evidencia_url,
+                                          folio: part.compras_proveedores?.folio_ticket_nota || part.folio_ticket_nota || "S/F",
                                           proveedorNombre:
-                                            part.compras_proveedores.proveedores?.nombre_comercial ||
+                                            part.compras_proveedores?.proveedores?.nombre_comercial ||
                                             part.proveedor ||
                                             "Proveedor",
                                           descripcion: part.nombre,
-                                          monto: Number(part.compras_proveedores.monto_costo || 0),
-                                          fechaCompra: part.compras_proveedores.fecha_compra,
+                                          monto: Number(part.compras_proveedores?.monto_costo || (Number(part.costo_unitario || 0) * Number(part.cantidad || 1))),
+                                          fechaCompra: part.compras_proveedores?.fecha_compra || new Date().toISOString().split("T")[0],
                                           fechaVencimientoGarantia:
-                                            part.compras_proveedores.fecha_vencimiento_garantia,
-                                          estatusGarantia: part.compras_proveedores.estatus_garantia,
+                                            part.compras_proveedores?.fecha_vencimiento_garantia,
+                                          estatusGarantia: part.compras_proveedores?.estatus_garantia || "VIGENTE",
                                         })
                                       }
-                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 cursor-pointer transition-colors"
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 cursor-pointer transition-colors"
                                       title="Ver comprobante de garantía (Foto / PDF)"
                                     >
-                                      <FileText size={10} className="text-emerald-600" />
-                                      Ticket #{part.compras_proveedores.folio_ticket_nota}
+                                      <ShieldCheck size={11} className="text-emerald-600" />
+                                      <span>
+                                        {part.garantia_especifica || (part.compras_proveedores?.meses_garantia ? `${part.compras_proveedores.meses_garantia} meses` : "Garantía")} • Ticket #{part.compras_proveedores?.folio_ticket_nota || part.folio_ticket_nota || "Nota"}
+                                      </span>
                                     </button>
                                   ) : (
                                     <button
@@ -3258,7 +3615,8 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                       className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 border border-slate-200 cursor-pointer transition-colors"
                                       title="Adjuntar ticket o comprobante de garantía"
                                     >
-                                      + Garantía
+                                      <ShieldCheck size={10} className="text-slate-400" />
+                                      <span>+ Garantía</span>
                                     </button>
                                   )}
                                 </div>
