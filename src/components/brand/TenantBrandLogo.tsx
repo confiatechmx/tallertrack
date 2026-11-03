@@ -71,7 +71,9 @@ export default function TenantBrandLogo({
   const [imageError, setImageError] = useState(false);
 
   // Selector inteligente de imagen según el contexto visual
-  const isCova = (tenantName || empresa?.nombre_comercial || "").toLowerCase().includes("cova");
+  const isCova =
+    (tenantName || empresa?.nombre_comercial || "").toLowerCase().includes("cova") ||
+    (typeof window !== "undefined" && window.location.hostname.toLowerCase().includes("cova"));
   const candidateIsotipo = isotipoUrl ?? empresa?.isotipo_url ?? (isCova ? "/branding/cova/cova-isotipo.png" : undefined);
   const candidateDark = logoUrlDark ?? empresa?.logo_url_dark ?? (isCova ? "/branding/cova/cova-logo-dark-trimmed.png" : undefined);
   const candidateLight = logoUrl ?? empresa?.logo_url ?? (isCova ? "/branding/cova/cova-logo-light-trimmed.png" : undefined);
