@@ -1,5 +1,4 @@
 "use client";
-import TenantBrandLogo from "@/components/brand/TenantBrandLogo";
 
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
@@ -21,9 +20,12 @@ import {
   Phone,
   Globe,
   Sparkles,
+  Coins,
+  Check,
 } from "lucide-react";
 import QRCode from "qrcode";
 import { Modal } from "@/components/ui/Modal";
+import TenantBrandLogo from "@/components/brand/TenantBrandLogo";
 
 interface ReceiptModalProps {
   isOpen: boolean;
@@ -70,6 +72,7 @@ export function ReceiptModal({
     setMounted(true);
   }, []);
 
+  // Chime sutil al registrar cobro
   useEffect(() => {
     if (isOpen) {
       try {
@@ -87,6 +90,21 @@ export function ReceiptModal({
         osc.stop(ctx.currentTime + 0.22);
       } catch {}
     }
+  }, [isOpen]);
+
+  // Atajo de teclado: Enter para imprimir rápidamente
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const target = e.target as HTMLElement;
+        if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA") return;
+        e.preventDefault();
+        window.print();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen]);
 
   useEffect(() => {
@@ -209,13 +227,13 @@ export function ReceiptModal({
 
   // ─── 1. DISEÑO EN HOJA TAMAÑO CARTA (LETTER 8.5" x 11") ──────────────────────
   const renderDocumentoCarta = (
-    <div className="bg-white text-slate-900 border border-slate-200 rounded-lg p-5 sm:p-6 max-w-4xl mx-auto text-xs leading-normal font-sans print:border-0 print:py-[10mm] print:px-[14mm] print:m-0 print:shadow-none print:max-w-none">
+    <div className="bg-white text-slate-900 border border-slate-200/90 rounded-xl p-6 sm:p-7 max-w-4xl w-full mx-auto text-xs leading-normal font-sans shadow-md print:shadow-none print:border-0 print:rounded-none print:py-[10mm] print:px-[14mm] print:m-0 print:max-w-none transition-all">
       {/* ─── Top Banner / Brand Header Homologado ─── */}
       <div
-        className="flex justify-between items-start pb-2.5 mb-2.5 border-b-2"
+        className="flex justify-between items-start pb-3 mb-3 border-b-2"
         style={{ borderColor: primaryColor }}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3.5">
           <TenantBrandLogo
             empresa={empresa}
             size="lg"
@@ -233,7 +251,7 @@ export function ReceiptModal({
                 </span>
               )}
             </div>
-            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[9.5px] text-slate-500 mt-0.5">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[9.5px] text-slate-500 mt-0.5">
               {empresa?.rfc && (
                 <span className="font-mono font-bold text-slate-700">RFC: {empresa.rfc}</span>
               )}
@@ -241,13 +259,13 @@ export function ReceiptModal({
                 <span className="font-medium text-slate-700">Sucursal: {sucursal.nombre}</span>
               )}
               {(sucursal?.direccion || empresa?.direccion) && (
-                <span className="inline-flex items-center gap-0.5 text-slate-600">
-                  <MapPin size={9} /> {sucursal?.direccion || empresa?.direccion}
+                <span className="inline-flex items-center gap-1 text-slate-600">
+                  <MapPin size={10} className="text-slate-400" /> {sucursal?.direccion || empresa?.direccion}
                 </span>
               )}
               {(sucursal?.telefono || empresa?.telefono) && (
-                <span className="inline-flex items-center gap-0.5 text-slate-700 font-semibold tabular-nums">
-                  <Phone size={9} /> {sucursal?.telefono || empresa?.telefono}
+                <span className="inline-flex items-center gap-1 text-slate-700 font-semibold tabular-nums">
+                  <Phone size={10} className="text-slate-400" /> {sucursal?.telefono || empresa?.telefono}
                 </span>
               )}
             </div>
@@ -256,40 +274,40 @@ export function ReceiptModal({
 
         {/* Folio & Estatus Homologado */}
         <div className="flex flex-col items-end shrink-0 text-right">
-          <div className="flex items-center gap-2 mb-0.5">
-            <span className="text-[9.5px] uppercase font-bold text-slate-500">
-              Recibo Oficial de Pago
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">
+              Recibo Oficial
             </span>
             <span
-              className="text-base sm:text-lg font-black font-mono tabular-nums leading-none"
+              className="text-base sm:text-lg font-black font-mono tabular-nums leading-none tracking-tight"
               style={{ color: primaryColor }}
             >
               {ticketFolio}
             </span>
           </div>
-          <div className="flex items-center gap-2 mb-0.5">
-            <span className="text-[9.5px] text-slate-600 font-medium">Orden de Servicio:</span>
+          <div className="flex items-center gap-1.5 mb-1">
+            <span className="text-[10px] text-slate-500 font-medium">Orden de Servicio:</span>
             <span className="font-bold text-slate-900 font-mono text-xs">{folioDisplay}</span>
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[8.5px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">
-              ✓ {saldo <= 0 ? "Venta Liquidada" : "Pago Parcial"}
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+              <Check size={10} className="stroke-[2.5]" /> {saldo <= 0 ? "Venta Liquidada" : "Pago Parcial"}
             </span>
           </div>
-          <div className="text-[9px] text-slate-500 tabular-nums">
-            Fecha de Emisión: <strong className="text-slate-800">{nowStr}</strong>
+          <div className="text-[9.5px] text-slate-500 tabular-nums">
+            Fecha de Emisión: <strong className="text-slate-800 font-medium">{nowStr}</strong>
           </div>
         </div>
       </div>
 
       {/* ─── Customer & Vehicle Grid (Completo y Homologado) ─── */}
-      <div className="border border-slate-200 rounded-md p-2.5 bg-slate-50/60 mb-2 text-[10.5px]">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+      <div className="border border-slate-200 rounded-lg p-3 bg-slate-50/50 mb-2.5 text-[10.5px]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-1.5">
           {/* Cliente */}
           <div className="flex flex-col justify-center">
             <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
-              <User size={11} className="text-slate-600" /> Cliente
+              <User size={11} className="text-slate-400" /> Cliente
             </div>
             <div className="flex flex-wrap items-baseline gap-x-2">
-              <strong className="text-slate-900 text-xs">{cli.nombre || "Cliente Mostrador"}</strong>
+              <strong className="text-slate-900 text-xs font-bold">{cli.nombre || "Cliente Mostrador"}</strong>
               {cli.telefono && (
                 <span className="text-slate-700 font-semibold tabular-nums text-[10px]">
                   Tel: {cli.telefono}
@@ -307,13 +325,13 @@ export function ReceiptModal({
           {/* Vehículo */}
           <div className="flex flex-col justify-center">
             <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
-              <Car size={11} className="text-slate-600" /> Vehículo Identificado
+              <Car size={11} className="text-slate-400" /> Vehículo Identificado
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <strong className="text-slate-900 text-xs">
+              <strong className="text-slate-900 text-xs font-bold">
                 {veh.marca} {veh.modelo} {veh.anio ? `(${veh.anio})` : ""}
               </strong>
-              <span className="font-mono font-black text-xs px-1.5 py-0.2 rounded bg-slate-900 text-white tracking-wider">
+              <span className="font-mono font-bold text-xs px-2 py-0.5 rounded bg-slate-900 text-white tracking-wider">
                 {veh.placas || "SIN PLACAS"}
               </span>
               <span className="text-[10px] text-slate-600">
@@ -329,8 +347,8 @@ export function ReceiptModal({
       </div>
 
       {/* ─── Tira de Recepción Técnica, Odómetro e Inventario (si aplica) ─── */}
-      <div className="flex flex-wrap items-center justify-between gap-2 text-[9.5px] text-slate-600 bg-slate-50 border border-slate-200 rounded px-2.5 py-1 mb-2">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-[9.5px] text-slate-600 bg-slate-50/80 border border-slate-200 rounded-md px-3 py-1.5 mb-2.5">
+        <div className="flex items-center gap-3.5">
           <span className="font-semibold text-slate-800">
             Odómetro Ingreso: {Number(veh.kilometraje_actual || order.kilometraje_ingreso || 0).toLocaleString("es-MX")} km
           </span>
@@ -357,7 +375,7 @@ export function ReceiptModal({
 
       {/* ─── Falla Reportada & Diagnóstico (si existen en la orden) ─── */}
       {(order.falla_reportada || order.motivo_ingreso || order.diagnostico || order.notas_diagnostico) && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px] bg-slate-50/70 border border-slate-200 rounded p-2 mb-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px] bg-slate-50/70 border border-slate-200 rounded p-2 mb-2.5">
           {(order.falla_reportada || order.motivo_ingreso) && (
             <div>
               <span className="text-[9px] font-bold uppercase text-slate-500 block">Falla / Solicitud Reportada:</span>
@@ -374,48 +392,48 @@ export function ReceiptModal({
       )}
 
       {/* ─── Conceptos Amparados en la Orden (Tabla Homologada) ─── */}
-      <div className="border border-slate-200 rounded-md overflow-hidden mb-2.5">
-        <div className="bg-slate-100 px-3 py-1 border-b border-slate-200 flex justify-between items-center text-[9.5px] font-bold uppercase text-slate-700">
+      <div className="border border-slate-200 rounded-lg overflow-hidden mb-3">
+        <div className="bg-slate-100/90 px-3.5 py-1.5 border-b border-slate-200 flex justify-between items-center text-[9.5px] font-bold uppercase text-slate-700 tracking-wider">
           <span>Conceptos Amparados por la Orden de Servicio</span>
-          <span>{folioDisplay}</span>
+          <span className="font-mono">{folioDisplay}</span>
         </div>
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-slate-200 text-[9px] uppercase font-bold text-slate-500 bg-slate-50/80">
-              <th className="py-1.5 px-3 w-28">Tipo</th>
-              <th className="py-1.5 px-3">Descripción</th>
-              <th className="py-1.5 px-3 text-center w-14">Cant.</th>
-              <th className="py-1.5 px-3 text-right w-24">P. Unitario</th>
-              <th className="py-1.5 px-3 text-right w-24">Importe</th>
+              <th className="py-2 px-3.5 w-28">Tipo</th>
+              <th className="py-2 px-3.5">Descripción</th>
+              <th className="py-2 px-3.5 text-center w-14">Cant.</th>
+              <th className="py-2 px-3.5 text-right w-24">P. Unitario</th>
+              <th className="py-2 px-3.5 text-right w-24">Importe</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-[10.5px]">
             {servicios.map((s: any) => (
               <tr key={`srv-${s.id}`} className="hover:bg-slate-50/50">
-                <td className="py-1.5 px-3 font-semibold text-slate-600 text-[9.5px]">Mano de Obra</td>
-                <td className="py-1.5 px-3 text-slate-900 font-medium">
+                <td className="py-2 px-3.5 font-semibold text-slate-600 text-[9.5px]">Mano de Obra</td>
+                <td className="py-2 px-3.5 text-slate-900 font-medium">
                   {s.servicios_taller?.nombre || s.servicio?.nombre || s.nombre || "Servicio Técnico"}
                 </td>
-                <td className="py-1.5 px-3 text-center tabular-nums">{s.cantidad || 1}</td>
-                <td className="py-1.5 px-3 text-right tabular-nums text-slate-700">
+                <td className="py-2 px-3.5 text-center tabular-nums">{s.cantidad || 1}</td>
+                <td className="py-2 px-3.5 text-right tabular-nums text-slate-700">
                   ${Number(s.precio_cobrado || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                 </td>
-                <td className="py-1.5 px-3 text-right font-bold tabular-nums text-slate-900">
+                <td className="py-2 px-3.5 text-right font-bold tabular-nums text-slate-900">
                   ${(Number(s.precio_cobrado || 0) * Number(s.cantidad || 1)).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                 </td>
               </tr>
             ))}
             {refacciones.map((r: any) => (
               <tr key={`ref-${r.id}`} className="hover:bg-slate-50/50">
-                <td className="py-1.5 px-3 font-semibold text-slate-600 text-[9.5px]">Refacción</td>
-                <td className="py-1.5 px-3 text-slate-900 font-medium">
+                <td className="py-2 px-3.5 font-semibold text-slate-600 text-[9.5px]">Refacción</td>
+                <td className="py-2 px-3.5 text-slate-900 font-medium">
                   {r.nombre} {r.numero_parte ? `(P/N: ${r.numero_parte})` : ""}
                 </td>
-                <td className="py-1.5 px-3 text-center tabular-nums">{r.cantidad || 1}</td>
-                <td className="py-1.5 px-3 text-right tabular-nums text-slate-700">
+                <td className="py-2 px-3.5 text-center tabular-nums">{r.cantidad || 1}</td>
+                <td className="py-2 px-3.5 text-right tabular-nums text-slate-700">
                   ${Number(r.precio_unitario || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                 </td>
-                <td className="py-1.5 px-3 text-right font-bold tabular-nums text-slate-900">
+                <td className="py-2 px-3.5 text-right font-bold tabular-nums text-slate-900">
                   ${Number(r.subtotal || (r.precio_unitario || 0) * (r.cantidad || 1)).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                 </td>
               </tr>
@@ -426,15 +444,15 @@ export function ReceiptModal({
               const medida = tire ? `${tire.ancho}/${tire.perfil} R${tire.rin}` : "";
               return (
                 <tr key={`lla-${l.id}`} className="hover:bg-slate-50/50">
-                  <td className="py-1.5 px-3 font-semibold text-slate-600 text-[9.5px]">Neumático</td>
-                  <td className="py-1.5 px-3 text-slate-900 font-medium">
+                  <td className="py-2 px-3.5 font-semibold text-slate-600 text-[9.5px]">Neumático</td>
+                  <td className="py-2 px-3.5 text-slate-900 font-medium">
                     {tireName} <span className="font-mono text-slate-700 font-semibold">{medida}</span>
                   </td>
-                  <td className="py-1.5 px-3 text-center tabular-nums font-bold">{l.cantidad || 1}</td>
-                  <td className="py-1.5 px-3 text-right tabular-nums text-slate-700">
+                  <td className="py-2 px-3.5 text-center tabular-nums font-bold">{l.cantidad || 1}</td>
+                  <td className="py-2 px-3.5 text-right tabular-nums text-slate-700">
                     ${Number(l.precio_unitario || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                   </td>
-                  <td className="py-1.5 px-3 text-right font-bold tabular-nums text-slate-900">
+                  <td className="py-2 px-3.5 text-right font-bold tabular-nums text-slate-900">
                     ${Number(l.subtotal || (l.precio_unitario || 0) * (l.cantidad || 1)).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                   </td>
                 </tr>
@@ -445,10 +463,10 @@ export function ReceiptModal({
       </div>
 
       {/* ─── Bloque Inferior Balanceado (2 Columnas) ─── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mb-3">
         {/* Columna Izquierda: Desglose Fiscal & Póliza */}
-        <div className="flex flex-col justify-between border border-slate-200 rounded-md p-3 bg-slate-50/60 space-y-2">
-          <div className="space-y-1 text-[10.5px]">
+        <div className="flex flex-col justify-between border border-slate-200 rounded-lg p-3.5 bg-slate-50/50 space-y-2.5">
+          <div className="space-y-1.5 text-[10.5px]">
             <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
               Resumen Financiero de la Cuenta
             </span>
@@ -464,7 +482,7 @@ export function ReceiptModal({
                 ${iva.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
-            <div className="flex justify-between font-black text-slate-900 text-xs border-t border-slate-300 pt-1">
+            <div className="flex justify-between font-black text-slate-900 text-xs border-t border-slate-300 pt-1.5">
               <span>TOTAL DE LA ORDEN:</span>
               <span className="tabular-nums">
                 ${total.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
@@ -478,7 +496,7 @@ export function ReceiptModal({
                 </span>
               </div>
             )}
-            <div className="flex justify-between font-bold text-slate-700 border-t border-slate-200 pt-1 text-[10.5px]">
+            <div className="flex justify-between font-bold text-slate-700 border-t border-slate-200 pt-1.5 text-[10.5px]">
               <span>Saldo Restante por Liquidar:</span>
               <span className={`tabular-nums ${saldo > 0 ? "text-amber-700 font-black" : "text-emerald-700 font-black"}`}>
                 ${saldo.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
@@ -493,25 +511,26 @@ export function ReceiptModal({
           </div>
         </div>
 
-        {/* Columna Derecha: Comprobante Oficial de Cobro en Caja */}
-        <div className="border-2 border-emerald-400 rounded-md p-3 bg-emerald-50/50 flex flex-col justify-between shadow-2xs">
+        {/* Columna Derecha: Comprobante Oficial de Cobro en Caja (Estilo Refinado & Sobrio) */}
+        <div className="border border-slate-200/90 rounded-lg p-3.5 bg-white flex flex-col justify-between shadow-2xs">
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[9.5px] font-bold uppercase tracking-wider text-emerald-950 flex items-center gap-1">
-                <CheckCircle2 size={12} className="text-emerald-600" />
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[9.5px] font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                <CheckCircle2 size={13} className="text-emerald-600" />
                 Comprobante de Cobro en Caja
               </span>
-              <span className="text-[8.5px] font-mono font-bold uppercase bg-emerald-200/90 text-emerald-900 px-1.5 py-0.2 rounded">
+              <span className="text-[8.5px] font-mono font-bold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full">
                 PAGO REGISTRADO
               </span>
             </div>
 
-            <div className="bg-white border border-emerald-200 rounded px-2.5 py-1.5 mb-2">
-              <span className="text-[8.5px] text-slate-500 uppercase font-bold block">
+            <div className="bg-slate-50 border border-slate-200/80 rounded-lg px-3 py-2 mb-2.5">
+              <span className="text-[8.5px] text-slate-500 uppercase font-bold tracking-wider block">
                 Monto Cobrado en este Movimiento:
               </span>
-              <span className="text-lg font-black text-emerald-800 font-mono tabular-nums leading-tight">
-                ${montoCobrado.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
+              <span className="text-xl font-bold text-slate-900 font-mono tabular-nums leading-tight">
+                ${montoCobrado.toLocaleString("es-MX", { minimumFractionDigits: 2 })}{" "}
+                <span className="text-xs font-semibold text-slate-500 font-sans">MXN</span>
               </span>
             </div>
 
@@ -525,7 +544,7 @@ export function ReceiptModal({
                     {payments.map((p: any, idx: number) => (
                       <div
                         key={idx}
-                        className="flex justify-between items-center bg-white border border-emerald-200/60 rounded px-2 py-0.5 text-[9.5px]"
+                        className="flex justify-between items-center bg-slate-50/80 border border-slate-200 rounded px-2.5 py-1 text-[9.5px]"
                       >
                         <div className="flex items-center gap-1.5">
                           <strong className="text-slate-900">{p.proveedor_pago || p.metodo_detalle}</strong>
@@ -536,7 +555,7 @@ export function ReceiptModal({
                             <span className="text-[8.5px] font-mono text-slate-400">Ref: {p.referencia}</span>
                           )}
                         </div>
-                        <span className="font-bold tabular-nums text-slate-900">
+                        <span className="font-bold tabular-nums text-slate-900 font-mono">
                           ${Number(p.monto || p.monto_total || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                         </span>
                       </div>
@@ -544,9 +563,9 @@ export function ReceiptModal({
                   </div>
                 </div>
               ) : (
-                <div className="flex justify-between">
-                  <span className="text-slate-600">Forma de Pago:</span>
-                  <strong className="text-slate-900">
+                <div className="flex justify-between items-center py-0.5">
+                  <span className="text-slate-500">Forma de Pago:</span>
+                  <strong className="text-slate-900 font-medium">
                     {payment?.metodo_detalle || payment?.proveedor_pago || (payments?.[0]?.metodo_detalle || payments?.[0]?.proveedor_pago) || "Efectivo en Ventanilla"}
                     {(payment?.referencia || payments?.[0]?.referencia) ? ` (Ref: ${payment?.referencia || payments?.[0]?.referencia})` : ""}
                   </strong>
@@ -555,23 +574,23 @@ export function ReceiptModal({
 
               {cashGiven != null && cashGiven > 0 && (
                 <>
-                  <div className="flex justify-between text-slate-600">
+                  <div className="flex justify-between items-center text-slate-500 py-0.5">
                     <span>Efectivo entregado:</span>
-                    <span className="tabular-nums font-medium">${cashGiven.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+                    <span className="tabular-nums font-mono text-slate-800">${cashGiven.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
                   </div>
-                  <div className="flex justify-between text-emerald-800 font-bold">
+                  <div className="flex justify-between items-center text-emerald-800 font-bold py-0.5">
                     <span>Cambio devuelto:</span>
-                    <span className="tabular-nums font-black">${(changeDue ?? 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+                    <span className="tabular-nums font-mono font-black">${(changeDue ?? 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
                   </div>
                 </>
               )}
             </div>
           </div>
 
-          <div className="text-[9px] text-emerald-900 pt-2 mt-2 border-t border-emerald-200/80">
+          <div className="text-[9px] text-slate-600 pt-2.5 mt-2 border-t border-slate-200">
             {saldo <= 0 ? (
-              <span className="font-bold text-emerald-800 uppercase flex items-center gap-1">
-                ✓ Cuenta liquidada en su totalidad • No presenta adeudo
+              <span className="font-semibold text-emerald-700 flex items-center gap-1">
+                ✓ Cuenta liquidada en su totalidad • No presenta adeudo pendiente.
               </span>
             ) : (
               <span>Anticipo / Pago parcial aplicado correctamente a la orden {folioDisplay}.</span>
@@ -581,10 +600,10 @@ export function ReceiptModal({
       </div>
 
       {/* ─── Cierre Institucional & QR de Validación ─── */}
-      <div className="border border-slate-200 rounded-md p-2.5 bg-slate-50/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-[9.5px]">
+      <div className="border border-slate-200 rounded-lg p-3 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-[9.5px]">
         <div className="space-y-1 flex-1 text-slate-600">
           <div className="flex items-center gap-1.5 text-slate-800 font-bold uppercase text-[9px]">
-            <ShieldCheck size={12} className="text-blue-600" />
+            <ShieldCheck size={13} className="text-blue-600" />
             Certificación Oficial de Servicio y Caja • {empresa?.nombre_comercial || "Cova"}
           </div>
           <p className="text-[8.5px] text-slate-500 leading-tight">
@@ -596,7 +615,7 @@ export function ReceiptModal({
         </div>
 
         {qrCodeDataUrl && (
-          <div className="flex items-center gap-2 border-t sm:border-t-0 sm:border-l border-slate-200 pt-2 sm:pt-0 sm:pl-3 shrink-0">
+          <div className="flex items-center gap-2.5 border-t sm:border-t-0 sm:border-l border-slate-200 pt-2 sm:pt-0 sm:pl-3.5 shrink-0">
             <img src={qrCodeDataUrl} alt="QR Verificación" className="w-14 h-14 rounded border border-slate-200" />
             <div className="flex flex-col text-[8.5px] text-slate-500">
               <span className="font-bold text-slate-700 uppercase">Expediente Digital</span>
@@ -607,19 +626,18 @@ export function ReceiptModal({
         )}
       </div>
 
-      <div className="border-t border-slate-200 pt-1.5 mt-2 flex justify-between items-center text-[8.5px] text-slate-400 font-mono">
+      <div className="border-t border-slate-200 pt-2 mt-2.5 flex justify-between items-center text-[8.5px] text-slate-400 font-mono">
         <span>TallerTrack OS • Comprobante de Cobro {ticketFolio}</span>
         <span>Orden {folioDisplay} • {nowStr}</span>
       </div>
     </div>
   );
 
-
   // ─── 2. DISEÑO EN TICKET TÉRMICO (80MM ROLL) ──────────────────────────────────
   const renderTicketTermico = (
     <div
       id="pos-thermal-ticket"
-      className="bg-white border-2 border-dashed border-slate-300 rounded-xl p-5 font-mono text-xs text-slate-800 shadow-inner flex flex-col gap-3 max-w-sm mx-auto"
+      className="bg-white border border-slate-200/90 rounded-xl p-5 font-mono text-xs text-slate-800 shadow-md flex flex-col gap-3 max-w-sm w-full mx-auto print:shadow-none print:border-0 print:rounded-none"
     >
       <div className="text-center border-b border-slate-200 pb-3">
         <h2 className="font-bold text-sm tracking-tight text-slate-900 uppercase">
@@ -646,7 +664,7 @@ export function ReceiptModal({
         </div>
       </div>
 
-      <div className="bg-slate-50 rounded p-2 text-[11px] flex flex-col gap-0.5 border border-slate-100">
+      <div className="bg-slate-50 rounded-lg p-2 text-[11px] flex flex-col gap-0.5 border border-slate-100">
         <p className="font-bold text-slate-900">{cli.nombre || "Venta de Mostrador"}</p>
         <p className="text-slate-600">
           Auto: {veh.marca} {veh.modelo} {veh.anio || ""} • Placas:{" "}
@@ -665,7 +683,7 @@ export function ReceiptModal({
               <span className="truncate pr-2">
                 {s.servicios_taller?.nombre || s.servicio?.nombre || s.nombre || "Mano de Obra"}
               </span>
-              <span className="font-bold shrink-0">
+              <span className="font-bold shrink-0 font-mono">
                 ${Number(s.precio_cobrado || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
               </span>
             </div>
@@ -673,7 +691,7 @@ export function ReceiptModal({
           {refacciones.map((r: any) => (
             <div key={r.id} className="flex justify-between text-slate-700">
               <span className="truncate pr-2">{r.nombre} x{r.cantidad || 1}</span>
-              <span className="font-bold shrink-0">
+              <span className="font-bold shrink-0 font-mono">
                 ${Number(r.subtotal || (r.precio_unitario || 0) * (r.cantidad || 1)).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
               </span>
             </div>
@@ -684,7 +702,7 @@ export function ReceiptModal({
             return (
               <div key={l.id} className="flex justify-between text-slate-700">
                 <span className="truncate pr-2">{tName} x{l.cantidad || 1}</span>
-                <span className="font-bold shrink-0">
+                <span className="font-bold shrink-0 font-mono">
                   ${Number(l.subtotal || (l.precio_unitario || 0) * (l.cantidad || 1)).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                 </span>
               </div>
@@ -696,42 +714,42 @@ export function ReceiptModal({
       <div className="flex flex-col gap-1 text-[11px]">
         <div className="flex justify-between text-slate-600">
           <span>Subtotal (sin IVA):</span>
-          <span>${subtotalSinIva.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          <span className="font-mono">${subtotalSinIva.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
         <div className="flex justify-between text-slate-600">
           <span>IVA ({tasaIva}%):</span>
-          <span>${iva.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          <span className="font-mono">${iva.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
         <div className="flex justify-between font-bold text-sm text-slate-900 border-t border-slate-200 pt-1 mt-1">
           <span>TOTAL ORDEN:</span>
-          <span>${total.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+          <span className="font-mono">${total.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
         </div>
       </div>
 
-      <div className="bg-emerald-50/70 border border-emerald-200 rounded p-2.5 text-[11px] flex flex-col gap-1 text-emerald-950">
+      <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-[11px] flex flex-col gap-1 text-slate-900">
         <div className="flex justify-between font-bold">
           <span>Cobrado en este movimiento:</span>
-          <span>${montoCobrado.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+          <span className="font-mono">${montoCobrado.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
         </div>
-        <div className="flex justify-between text-[10px] text-emerald-800">
+        <div className="flex justify-between text-[10px] text-slate-600">
           <span>Método:</span>
-          <span className="font-bold">{payment?.metodo_detalle || payment?.proveedor_pago || "Efectivo"}</span>
+          <span className="font-semibold text-slate-900">{payment?.metodo_detalle || payment?.proveedor_pago || "Efectivo"}</span>
         </div>
         {Number(payment?.descuento_aplicado || order?.descuento_efectivo_monto || 0) > 0 && (
-          <div className="flex justify-between text-[10px] text-emerald-900 font-bold bg-emerald-100/70 px-1 py-0.5 rounded">
+          <div className="flex justify-between text-[10px] text-emerald-800 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">
             <span>Descuento Promoción Efectivo:</span>
-            <span>-${Number(payment?.descuento_aplicado || order?.descuento_efectivo_monto).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+            <span className="font-mono">-${Number(payment?.descuento_aplicado || order?.descuento_efectivo_monto).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
           </div>
         )}
         {payment?.referencia && (
-          <div className="flex justify-between text-[10px] text-emerald-700 font-mono">
+          <div className="flex justify-between text-[10px] text-slate-500 font-mono">
             <span>Ref:</span>
             <span>{payment.referencia}</span>
           </div>
         )}
-        <div className="flex justify-between text-[10px] font-bold text-slate-700 pt-1 border-t border-emerald-200">
+        <div className="flex justify-between text-[10px] font-bold text-slate-700 pt-1.5 border-t border-slate-200">
           <span>Saldo restante por liquidar:</span>
-          <span className={saldo > 0 ? "text-rose-600" : "text-emerald-700"}>
+          <span className={`font-mono ${saldo > 0 ? "text-amber-700" : "text-emerald-700"}`}>
             ${saldo.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
           </span>
         </div>
@@ -751,109 +769,123 @@ export function ReceiptModal({
       title="Recibo Oficial de Pago / Comprobante de Cobro"
       size={formato === "CARTA" ? "xl" : "md"}
     >
-      <div className="flex flex-col gap-4">
-        {/* ─── Microinteracción Visual / Banner de Cobro Exitoso en Pantalla ─── */}
-        <div className="bg-emerald-50 border border-emerald-300 rounded-xl p-3 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs animate-in fade-in slide-in-from-top-2 duration-300 no-print">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-              <CheckCircle2 size={22} className="stroke-[2.5]" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-sm font-black text-emerald-950 uppercase tracking-tight">
-                  ¡Cobro Registrado Exitosamente en Caja!
-                </h3>
-                <span className="text-[10px] font-mono font-bold bg-white text-emerald-900 border border-emerald-300 px-2 py-0.5 rounded-full shadow-2xs">
-                  {ticketFolio}
-                </span>
-              </div>
-              <p className="text-xs text-emerald-800 mt-0.5">
-                Se aplicó el pago de <strong className="font-bold text-emerald-950">${montoCobrado.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN</strong> a la orden <strong className="text-emerald-950">{folioDisplay}</strong>.
-                {saldo <= 0 ? (
-                  <span className="ml-1 text-emerald-900 font-semibold">• Cuenta 100% liquidada.</span>
-                ) : (
-                  <span className="ml-1 text-amber-800 font-semibold">• Saldo pendiente: ${saldo.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN.</span>
-                )}
-              </p>
-            </div>
-          </div>
-
-          {changeDue != null && changeDue > 0 && (
-            <div className="bg-white border-2 border-emerald-400 rounded-xl px-3 py-1.5 text-right shrink-0 shadow-xs self-stretch sm:self-auto flex sm:flex-col justify-between sm:justify-center items-center sm:items-end">
-              <span className="text-[9px] uppercase font-bold text-slate-500">Cambio a Devolver</span>
-              <span className="text-base font-black text-emerald-700 font-mono tabular-nums leading-tight">
-                ${changeDue.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-              </span>
-            </div>
-          )}
-        </div>
-        {/* Selector de Formato de Impresión (Carta vs Ticket 80mm) */}
-        <div className="flex items-center justify-between bg-slate-100 p-1.5 rounded-xl border border-slate-200 text-xs no-print">
-          <span className="font-bold text-slate-700 pl-2 flex items-center gap-1.5">
-            <FileText size={14} className="text-blue-600" />
-            Formato de Impresión:
-          </span>
-          <div className="flex items-center gap-1">
+      <div className="flex flex-col min-h-full">
+        {/* ─── 1. BARRA FIJA SUPERIOR DE ACCIONES (Sticky Toolbar) ─── */}
+        <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-slate-200/90 px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-2.5 no-print">
+          {/* Segmented Control para Formato */}
+          <div className="inline-flex items-center p-1 bg-slate-100 rounded-lg border border-slate-200/80 text-xs font-medium">
             <button
               type="button"
               onClick={() => setFormato("CARTA")}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5 text-xs ${
                 formato === "CARTA"
-                  ? "bg-white text-slate-900 shadow-xs border border-slate-200"
+                  ? "bg-white text-slate-900 shadow-xs font-semibold"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              <span>📄 Hoja Tamaño Carta (Recomendado)</span>
+              <FileText size={13} className={formato === "CARTA" ? "text-blue-600" : "text-slate-400"} />
+              <span>Carta</span>
             </button>
             <button
               type="button"
               onClick={() => setFormato("TICKET")}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5 text-xs ${
                 formato === "TICKET"
-                  ? "bg-white text-slate-900 shadow-xs border border-slate-200"
+                  ? "bg-white text-slate-900 shadow-xs font-semibold"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              <span>🧾 Ticket Térmico 80mm</span>
+              <Receipt size={13} className={formato === "TICKET" ? "text-blue-600" : "text-slate-400"} />
+              <span>Ticket 80mm</span>
+            </button>
+          </div>
+
+          {/* Botones de Acción Primarios */}
+          <div className="flex items-center gap-2 ml-auto">
+            {cli.telefono && (
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Compartir comprobante al WhatsApp del cliente"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100/70 text-emerald-800 text-xs font-semibold transition-colors cursor-pointer"
+              >
+                <MessageCircle size={14} className="text-emerald-600" />
+                <span className="hidden sm:inline">WhatsApp</span>
+              </a>
+            )}
+
+            <button
+              type="button"
+              onClick={handlePrint}
+              style={{ backgroundColor: primaryColor }}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-white font-semibold text-xs shadow-xs hover:opacity-95 cursor-pointer transition-opacity"
+            >
+              <Printer size={14} />
+              <span>Imprimir</span>
+              <kbd className="hidden sm:inline-block font-mono text-[10px] bg-white/20 text-white px-1.5 py-0.2 rounded">
+                ↵ Enter
+              </kbd>
+            </button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-700 font-medium text-xs transition-colors cursor-pointer"
+            >
+              Listo
             </button>
           </div>
         </div>
 
-        {/* Preview en Pantalla según formato */}
-        <div className="no-print">
-          {formato === "CARTA" ? renderDocumentoCarta : renderTicketTermico}
+        {/* ─── 2. BANNER DE ESTADO DEL COBRO (Moderno, Sobrio, Estilo Stripe / Square) ─── */}
+        <div className="px-4 sm:px-6 pt-4 no-print">
+          <div className="bg-gradient-to-r from-slate-50 via-white to-slate-50/80 border border-slate-200/90 rounded-xl p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+            <div className="flex items-start sm:items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                <CheckCircle2 size={18} strokeWidth={2.25} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold text-slate-900 tracking-tight">
+                    Cobro registrado en caja
+                  </span>
+                  <span className="font-mono text-[11px] font-semibold text-slate-600 bg-slate-100 border border-slate-200/80 px-2 py-0.5 rounded-md">
+                    {ticketFolio}
+                  </span>
+                  <span className="text-[10px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-2 py-0.5 rounded-full">
+                    {saldo <= 0 ? "Liquidado 100%" : "Abono / Pago Parcial"}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Se aplicaron <strong className="font-semibold text-slate-800 font-mono">${montoCobrado.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN</strong> a la orden <strong className="font-semibold text-slate-800 font-mono">{folioDisplay}</strong>
+                  {saldo > 0 ? (
+                    <span className="text-amber-700 font-medium"> • Restante: ${saldo.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+                  ) : (
+                    <span className="text-emerald-700 font-medium"> • Sin adeudo</span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {changeDue != null && changeDue > 0 && (
+              <div className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 shrink-0 shadow-2xs flex sm:flex-col justify-between sm:justify-center items-center sm:items-end">
+                <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">
+                  Cambio a entregar
+                </span>
+                <span className="text-base font-bold text-slate-900 font-mono tabular-nums leading-tight">
+                  ${changeDue.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 no-print border-t border-slate-200">
-          <button
-            type="button"
-            onClick={handlePrint}
-            style={{ backgroundColor: primaryColor }}
-            className="w-full sm:flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-white font-bold text-xs shadow-sm hover:opacity-95 cursor-pointer transition-opacity"
-          >
-            <Printer size={15} />
-            {formato === "CARTA" ? "Imprimir en Hoja Tamaño Carta / PDF" : "Imprimir Ticket Térmico (80mm)"}
-          </button>
-
-          {cli.telefono && (
-            <a
-              href={whatsappUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full sm:flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-sm transition-colors"
-            >
-              <MessageCircle size={15} /> Enviar Comprobante por WhatsApp
-            </a>
-          )}
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
-          >
-            Cerrar
-          </button>
+        {/* ─── 3. LIENZO DE PREVISUALIZACIÓN ("Paper Studio") ─── */}
+        <div className="p-4 sm:p-6 no-print">
+          <div className="bg-slate-100/75 border border-slate-200/80 rounded-2xl p-4 sm:p-6 flex justify-center overflow-x-auto">
+            {formato === "CARTA" ? renderDocumentoCarta : renderTicketTermico}
+          </div>
         </div>
       </div>
 

@@ -4536,177 +4536,303 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
               </div>
             </div>
 
-            {/* Right 5 Cols: Terminal / Payment Registration Box */}
+            {/* Right 5 Cols: Terminal Oficial de Cobro POS */}
             <div className="lg:col-span-5">
-              <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-2xs space-y-4">
-                <div className="border-b border-slate-200 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                    Terminal de Cobro en Caja
-                  </h3>
-                  {saldoPendiente > 0 && (
-                    <div className="flex flex-wrap items-center gap-2">
-                      {empresa?.descuento_efectivo_habilitado && Number(empresa?.descuento_efectivo_porcentaje || 0) > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const pct = Number(empresa.descuento_efectivo_porcentaje);
-                            const netVal = Math.round((saldoPendiente * (1 - pct / 100)) * 100) / 100;
-                            setPaymentProvider("Efectivo");
-                            setPaymentMetodoDetalle("Efectivo en Caja");
-                            setPaymentAmount(String(netVal));
-                          }}
-                          className="text-[11px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded cursor-pointer"
-                        >
-                          💵 Liquidar con Desc. Efectivo (-{empresa.descuento_efectivo_porcentaje}%: ${(Math.round((saldoPendiente * (1 - Number(empresa.descuento_efectivo_porcentaje) / 100)) * 100) / 100).toLocaleString("es-MX")})
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setPaymentAmount(String(saldoPendiente))}
-                        className="text-[11px] font-bold text-blue-600 hover:underline cursor-pointer"
-                      >
-                        Cobrar Total (${saldoPendiente.toLocaleString("es-MX")})
-                      </button>
-                    </div>
+              {saldoPendiente <= 0 ? (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-6 text-center flex flex-col items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+                    <CheckCircle2 size={28} />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-emerald-950">Orden 100% Liquidada</h4>
+                    <p className="text-xs text-emerald-700 mt-0.5">
+                      No hay saldo pendiente por cobrar en esta orden.
+                    </p>
+                  </div>
+                  {order.pagos_orden && order.pagos_orden.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const lastP = order.pagos_orden[order.pagos_orden.length - 1];
+                        setSelectedReceiptPayment(lastP || null);
+                        setReceiptPaymentsList(order.pagos_orden);
+                        setShowReceiptModal(true);
+                      }}
+                      className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm cursor-pointer"
+                    >
+                      <Receipt size={14} /> Imprimir Recibo Oficial
+                    </button>
                   )}
                 </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-                      Monto a Cobrar ($)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={paymentAmount}
-                      onChange={(e) => setPaymentAmount(e.target.value)}
-                      className="w-full h-9 text-sm font-black bg-white border border-slate-300 rounded-md px-3 text-slate-900 tabular-nums"
-                    />
+              ) : !turnoActivo ? (
+                <div className="bg-amber-50/90 border border-amber-200 rounded-2xl p-6 text-center flex flex-col items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center text-amber-700">
+                    <Unlock size={24} />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-                      Método / Pasarela
-                    </label>
-                    <select
-                      value={paymentProvider}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setPaymentProvider(val);
-                        if (val === "Efectivo") setPaymentMetodoDetalle("Efectivo en Caja");
-                        else if (val === "Transferencia") {
-                          const firstCuenta = cuentasBancarias[0];
-                          if (firstCuenta) {
-                            setSelectedCuentaBancariaId(firstCuenta.id);
-                            setPaymentMetodoDetalle(`SPEI (${firstCuenta.alias} - ${firstCuenta.banco})`);
-                          } else {
-                            setPaymentMetodoDetalle("Transferencia SPEI");
-                          }
-                        }
-                        else if (val === "Mercado Pago")
-                          setPaymentMetodoDetalle("Terminal Point Smart TPV");
-                        else if (val === "Stripe")
-                          setPaymentMetodoDetalle("Tarjeta Crédito / Débito");
-                        else if (val === "KueskiPay")
-                          setPaymentMetodoDetalle("Kueski Pay Quincenas");
-                        else if (val === "Atrato")
-                          setPaymentMetodoDetalle("Atrato Pago Mensualidades");
-                      }}
-                      className="w-full h-9 text-xs font-bold bg-white border border-slate-300 rounded-md px-2.5 text-slate-900"
-                    >
-                      <option value="Efectivo">💵 Efectivo en Caja</option>
-                      <option value="Transferencia">🏦 Transferencia SPEI</option>
-                      <option value="Mercado Pago">💳 Mercado Pago (Point / Link)</option>
-                      <option value="Stripe">💳 Tarjeta Bancaria (Stripe)</option>
-                      <option value="KueskiPay">📱 Kueski Pay (BNPL Quincenas)</option>
-                      <option value="Atrato">⚡ Atrato Pago (BNPL Meses sin Tarjeta)</option>
-                    </select>
+                    <h4 className="text-sm font-black text-amber-950">Caja de Mostrador Cerrada</h4>
+                    <p className="text-xs text-amber-800 mt-1 max-w-sm">
+                      Para recepcionar dinero en efectivo o terminales y registrar este ingreso en el Corte Z, es necesario iniciar el turno de caja.
+                    </p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsAbrirTurnoOpen(true)}
+                    className="mt-2 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-sm cursor-pointer"
+                  >
+                    <Unlock size={14} /> Abrir Turno de Caja
+                  </button>
                 </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-                      Detalle de Instrumento
-                    </label>
-                    <input
-                      type="text"
-                      value={paymentMetodoDetalle}
-                      onChange={(e) => setPaymentMetodoDetalle(e.target.value)}
-                      className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2.5 text-slate-800"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-                      Referencia / Folio Voucher
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Ej. SPEI-99412 o Aut TPV"
-                      value={paymentReferencia}
-                      onChange={(e) => setPaymentReferencia(e.target.value)}
-                      className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2.5 font-mono text-slate-800"
-                    />
-                  </div>
-                </div>
-
-                {paymentProvider === "Efectivo" && empresa?.descuento_efectivo_habilitado && Number(empresa?.descuento_efectivo_porcentaje || 0) > 0 && (
-                  <div className="p-2.5 rounded-md bg-emerald-50 border border-emerald-300 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={applyCashDiscount}
-                        onChange={(e) => setApplyCashDiscount(e.target.checked)}
-                        className="w-4 h-4 text-emerald-600 rounded"
-                      />
-                      <div>
-                        <span className="font-bold text-emerald-950 block">
-                          Aplicar Precio Preferencial en Efectivo (-{empresa.descuento_efectivo_porcentaje}%)
-                        </span>
-                        <span className="text-[10.5px] text-emerald-700">
-                          Descuento institucional por liquidación en efectivo en caja.
-                        </span>
-                      </div>
-                    </label>
-                    {applyCashDiscount && (
-                      <span className="text-[11px] font-black text-emerald-800 tabular-nums shrink-0">
-                        Ahorro cliente: -${(Math.round(((parseFloat(paymentAmount) || saldoPendiente || 0) * (Number(empresa.descuento_efectivo_porcentaje) / 100)) * 100) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {paymentProvider === "Transferencia" && (
-                  <div className="bg-blue-50/70 border border-blue-200 rounded-lg p-3 space-y-2 text-xs">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[10px] font-bold uppercase text-blue-900 flex items-center gap-1.5">
-                        <Building2 size={13} className="text-blue-600" />
-                        Cuenta Bancaria Receptora (Catálogo SPEI) *
-                      </label>
-                      <span className="text-[10px] text-blue-700 font-medium">
-                        {cuentasBancarias.length} cuentas configuradas
+              ) : (
+                <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col gap-4">
+                  {/* Header con estatus del turno */}
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                    <div>
+                      <h3 className="text-xs font-black uppercase tracking-wider text-slate-900">
+                        Terminal de Cobro POS
+                      </h3>
+                      <span className="text-[10px] text-emerald-700 font-bold flex items-center gap-1 mt-0.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Turno Abierto • Gaveta Lista
                       </span>
                     </div>
+                    <span className="text-[11px] font-bold text-slate-500">
+                      Folio #{1000 + Number(order.folio || 1)}
+                    </span>
+                  </div>
 
-                    {cuentasBancarias.length === 0 ? (
-                      <div className="p-2 bg-amber-50 border border-amber-200 rounded text-amber-800 text-[11px] flex items-center gap-2">
-                        <AlertCircle size={14} className="text-amber-600 shrink-0" />
-                        <span>No hay cuentas bancarias activas. Puedes agregarlas en <strong>Configuración &gt; Métodos de Pago</strong>.</span>
+                  {/* Banner Total por Cobrar */}
+                  <div className="bg-slate-50 border border-slate-200/90 rounded-xl p-3 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase text-slate-500 block">Total por Cobrar</span>
+                      <div className="text-2xl font-black text-slate-900 tabular-nums">
+                        ${(posPaymentMethod === "Efectivo" ? cashTotalPorCobrar : saldoPendiente).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                        <span className="text-xs font-semibold text-slate-500 ml-1.5">MXN</span>
                       </div>
-                    ) : (
-                      <>
+                    </div>
+                    {hasCashDiscount && posPaymentMethod === "Efectivo" && cashAhorro > 0 && (
+                      <div className="text-right">
+                        <span className="text-[10px] font-bold uppercase text-emerald-700 block">Precio Promoción (-{cashDiscountPct}%)</span>
+                        <span className="text-xs font-black text-emerald-700 tabular-nums">Ahorro: -${cashAhorro.toFixed(2)}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Selector Guiado de Métodos de Pago */}
+                  <div className="flex flex-col gap-2.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      ¿Cómo paga el cliente?
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {/* Efectivo */}
+                      <button
+                        type="button"
+                        onClick={() => setPosPaymentMethod("Efectivo")}
+                        className={`p-2.5 rounded-xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
+                          posPaymentMethod === "Efectivo"
+                            ? "border-emerald-600 bg-emerald-50/60 ring-2 ring-emerald-600/20"
+                            : "border-slate-200 hover:border-slate-300 bg-white"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <Banknote size={16} className="text-emerald-600" />
+                          <span className="text-[8.5px] font-bold uppercase text-emerald-700 bg-emerald-100 px-1 py-0.2 rounded">
+                            Directo
+                          </span>
+                        </div>
+                        <span className="text-xs font-bold text-slate-800">Efectivo</span>
+                        <span className="text-[10px] text-slate-400">Gaveta</span>
+                      </button>
+
+                      {/* Tarjeta TPV */}
+                      <button
+                        type="button"
+                        onClick={() => setPosPaymentMethod("TPV")}
+                        className={`p-2.5 rounded-xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
+                          posPaymentMethod === "TPV"
+                            ? "border-blue-600 bg-blue-50/60 ring-2 ring-blue-600/20"
+                            : "border-slate-200 hover:border-slate-300 bg-white"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <CreditCard size={16} className="text-blue-600" />
+                          <span className="text-[8.5px] font-bold uppercase text-blue-700 bg-blue-100 px-1 py-0.2 rounded">
+                            TPV
+                          </span>
+                        </div>
+                        <span className="text-xs font-bold text-slate-800">Tarjeta</span>
+                        <span className="text-[10px] text-slate-400">Terminal</span>
+                      </button>
+
+                      {/* Transferencia SPEI */}
+                      <button
+                        type="button"
+                        onClick={() => setPosPaymentMethod("SPEI")}
+                        className={`p-2.5 rounded-xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
+                          posPaymentMethod === "SPEI"
+                            ? "border-indigo-600 bg-indigo-50/60 ring-2 ring-indigo-600/20"
+                            : "border-slate-200 hover:border-slate-300 bg-white"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <Landmark size={16} className="text-indigo-600" />
+                          <span className="text-[8.5px] font-bold uppercase text-indigo-700 bg-indigo-100 px-1 py-0.2 rounded">
+                            Bancos
+                          </span>
+                        </div>
+                        <span className="text-xs font-bold text-slate-800">SPEI</span>
+                        <span className="text-[10px] text-slate-400">Transferencia</span>
+                      </button>
+                    </div>
+
+                    {/* Fila secundaria: Multi-Método o BNPL */}
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setPosPaymentMethod("SPLIT")}
+                        className={`flex-1 py-1.5 px-2.5 rounded-lg border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                          posPaymentMethod === "SPLIT"
+                            ? "border-amber-600 bg-amber-50 text-amber-900 ring-2 ring-amber-600/20"
+                            : "border-slate-200 hover:border-slate-300 text-slate-600 bg-slate-50/70"
+                        }`}
+                      >
+                        <Split size={13} />
+                        Pago Dividido (Multi-Método)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPosPaymentMethod("BNPL")}
+                        className={`flex-1 py-1.5 px-2.5 rounded-lg border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                          posPaymentMethod === "BNPL"
+                            ? "border-sky-600 bg-sky-50 text-sky-900 ring-2 ring-sky-600/20"
+                            : "border-slate-200 hover:border-slate-300 text-slate-600 bg-slate-50/70"
+                        }`}
+                      >
+                        <Smartphone size={13} />
+                        Kueski / Atrato
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* FORMULARIO DINÁMICO POR MÉTODO */}
+                  {/* 1. EFECTIVO */}
+                  {posPaymentMethod === "Efectivo" && (
+                    <div className="flex flex-col gap-3 bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/80">
+                      {hasCashDiscount && (
+                        <label className="flex items-center justify-between p-2 rounded-lg bg-emerald-50 border border-emerald-200 cursor-pointer select-none">
+                          <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                            <Percent size={13} className="text-emerald-600" />
+                            Precio Promocional en Efectivo (-{cashDiscountPct}%)
+                          </span>
+                          <input
+                            type="checkbox"
+                            checked={applyCashDiscount}
+                            onChange={(e) => setApplyCashDiscount(e.target.checked)}
+                            className="w-4 h-4 text-emerald-600 rounded cursor-pointer"
+                          />
+                        </label>
+                      )}
+
+                      {/* Billetes rápidos */}
+                      <div>
+                        <span className="text-[10px] font-bold uppercase text-slate-500 block mb-1.5">Billetes sugeridos</span>
+                        <div className="flex flex-wrap items-center gap-1.5 text-xs font-bold">
+                          {["100", "200", "500", "1000"].map((b) => (
+                            <button
+                              key={b}
+                              type="button"
+                              onClick={() => setCashGiven((prev) => String((parseFloat(prev) || 0) + Number(b)))}
+                              className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-emerald-500 hover:text-emerald-700 text-slate-700 shadow-2xs transition-all cursor-pointer"
+                            >
+                              +${b}
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => setCashGiven(String(cashTotalPorCobrar))}
+                            className="px-2.5 py-1 rounded-lg bg-emerald-100/70 border border-emerald-300 text-emerald-800 hover:bg-emerald-200 shadow-2xs transition-all cursor-pointer ml-auto"
+                          >
+                            Pago Exacto
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Input de Efectivo Recibido y Cambio */}
+                      <div className="grid grid-cols-2 gap-3 pt-1">
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                            Efectivo Recibido:
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={cashGiven}
+                            onChange={(e) => setCashGiven(e.target.value)}
+                            placeholder={String(cashTotalPorCobrar)}
+                            className="w-full h-10 text-base font-black bg-white border border-slate-300 rounded-xl px-3 text-slate-900 tabular-nums focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                        <div className="bg-white border border-slate-200 rounded-xl p-2.5 flex flex-col justify-center">
+                          <span className="text-[10px] font-bold uppercase text-slate-500 block">
+                            Cambio a Devolver
+                          </span>
+                          {cashGivenVal > 0 && cashFaltanteVal > 0 ? (
+                            <span className="text-sm font-black text-amber-600 tabular-nums">
+                              Faltan ${cashFaltanteVal.toFixed(2)}
+                            </span>
+                          ) : (
+                            <span className="text-xl font-black text-slate-900 tabular-nums">
+                              ${cashChangeVal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 2. TARJETA TPV */}
+                  {posPaymentMethod === "TPV" && (
+                    <div className="flex flex-col gap-3 bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/80">
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                          Terminal / Dispositivo TPV
+                        </label>
+                        <select
+                          value={tpvType}
+                          onChange={(e) => setTpvType(e.target.value)}
+                          className="w-full h-9 text-xs font-bold bg-white border border-slate-300 rounded-xl px-2.5 text-slate-900"
+                        >
+                          <option value="BanBajío TPV (Débito/Crédito)">BanBajío TPV (Débito / Crédito)</option>
+                          <option value="Mercado Pago Point Smart">Mercado Pago (Point Smart)</option>
+                          <option value="Clip Total TPV">Clip Total</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                          Folio / No. Autorización Voucher
+                        </label>
+                        <input
+                          type="text"
+                          value={tpvAuth}
+                          onChange={(e) => setTpvAuth(e.target.value)}
+                          placeholder="Ej. AUTH-98241"
+                          className="w-full h-9 text-xs font-mono bg-white border border-slate-300 rounded-xl px-3 text-slate-900"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 3. SPEI */}
+                  {posPaymentMethod === "SPEI" && (
+                    <div className="flex flex-col gap-3 bg-blue-50/50 p-3.5 rounded-xl border border-blue-200/80">
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase text-blue-900 mb-1">
+                          Cuenta Receptora SPEI
+                        </label>
                         <select
                           value={selectedCuentaBancariaId}
-                          onChange={(e) => {
-                            const cId = e.target.value;
-                            setSelectedCuentaBancariaId(cId);
-                            const found = cuentasBancarias.find((c) => c.id === cId);
-                            if (found) {
-                              setPaymentMetodoDetalle(`SPEI (${found.alias} - ${found.banco})`);
-                            }
-                          }}
-                          className="w-full h-9 bg-white border border-blue-300 rounded-md px-2.5 text-xs font-bold text-slate-900 focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                          onChange={(e) => setSelectedCuentaBancariaId(e.target.value)}
+                          className="w-full h-9 text-xs font-bold bg-white border border-blue-300 rounded-xl px-2.5 text-slate-900"
                         >
                           {cuentasBancarias.map((cb) => (
                             <option key={cb.id} value={cb.id}>
@@ -4714,138 +4840,161 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                             </option>
                           ))}
                         </select>
+                      </div>
 
-                        {/* Selected account preview */}
-                        {(() => {
-                          const cb = cuentasBancarias.find((c) => c.id === selectedCuentaBancariaId) || cuentasBancarias[0];
-                          if (!cb) return null;
-                          return (
-                            <div className="bg-white p-2.5 rounded border border-blue-100 space-y-1 text-[11px] shadow-2xs">
-                              <div className="flex items-center justify-between">
-                                <span className="font-bold text-slate-900 flex items-center gap-1.5">
-                                  <Landmark size={13} className="text-blue-600" />
-                                  {cb.alias} ({cb.banco})
-                                </span>
-                                {cb.es_fiscal ? (
-                                  <span className="text-[9.5px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded border border-emerald-200">
-                                    🏛️ Fiscal (SAT)
-                                  </span>
-                                ) : (
-                                  <span className="text-[9.5px] font-medium bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded">
-                                    💼 Operativa
-                                  </span>
-                                )}
-                              </div>
-                              {cb.titular && (
-                                <div className="text-slate-500 text-[10.5px]">
-                                  Titular: <strong className="text-slate-700">{cb.titular}</strong>
-                                </div>
-                              )}
-                              <div className="pt-1 border-t border-slate-100 flex items-center justify-between">
-                                {cb.clabe ? (
-                                  <span className="font-mono text-slate-800 font-bold flex items-center gap-1.5 text-[11px]">
-                                    CLABE: {cb.clabe}
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        navigator.clipboard.writeText(cb.clabe);
-                                        toast.success("CLABE copiada al portapapeles");
-                                      }}
-                                      title="Copiar CLABE"
-                                      className="text-blue-600 hover:underline cursor-pointer font-sans text-[10px] font-bold"
-                                    >
-                                      Copiar
-                                    </button>
-                                  </span>
-                                ) : (
-                                  <span className="text-amber-800 text-[10.5px] font-semibold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                                    ⚠️ Sin CLABE asignada (Falta ingresar en Configuración)
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })()}
-                      </>
-                    )}
-                  </div>
-                )}
+                      {(() => {
+                        const cb = cuentasBancarias.find((c) => c.id === selectedCuentaBancariaId) || cuentasBancarias[0];
+                        if (!cb) return null;
+                        return (
+                          <div className="bg-white p-2.5 rounded-xl border border-blue-100 flex items-center justify-between text-xs">
+                            <span className="font-mono font-bold text-slate-800">
+                              CLABE: {cb.clabe || "Sin asignar"}
+                            </span>
+                            {cb.clabe && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(cb.clabe);
+                                  toast.success("CLABE copiada al portapapeles");
+                                }}
+                                className="text-blue-600 hover:underline font-bold text-[11px] cursor-pointer"
+                              >
+                                Copiar
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })()}
 
-                {
-                ["KueskiPay", "Atrato"].includes(paymentProvider) && (
-                  <div className="bg-blue-50/60 border border-blue-200 rounded-lg p-3 text-xs space-y-2">
-                    <div className="flex items-center justify-between font-bold text-blue-900">
-                      <span>Plan {paymentProvider === "KueskiPay" ? "Kueski Pay (Quincenas)" : "Atrato Pago (Mensualidades)"}</span>
-                      <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold uppercase tracking-wider">Sin tarjeta</span>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                          Clave de Rastreo SPEI / Referencia
+                        </label>
+                        <input
+                          type="text"
+                          value={speiRastreo}
+                          onChange={(e) => setSpeiRastreo(e.target.value)}
+                          placeholder="Ej. SPEI-89421"
+                          className="w-full h-9 text-xs font-mono bg-white border border-slate-300 rounded-xl px-3 text-slate-900"
+                        />
+                      </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-[11px]">
-                      {calcularCuotasBNPL(
-                        Number(paymentAmount) || saldoPendiente || 1000,
-                        paymentProvider === "KueskiPay" ? "KueskiPay" : "Atrato"
-                      ).map((c, i) => (
-                        <div key={i} className="bg-white p-2 rounded border border-blue-100 flex justify-between items-center shadow-2xs">
-                          <span className="text-slate-600 font-medium">{c.plazo}</span>
-                          <span className="font-black text-slate-900 tabular-nums">${c.monto_cuota.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+                  )}
+
+                  {/* 4. SPLIT PAYMENT */}
+                  {posPaymentMethod === "SPLIT" && (
+                    <div className="p-1">
+                      <SplitPaymentManager
+                        total={saldoPendiente}
+                        payments={splitPayments}
+                        onChange={setSplitPayments}
+                        cuentasBancarias={cuentasBancarias}
+                      />
+                    </div>
+                  )}
+
+                  {/* 5. BNPL */}
+                  {posPaymentMethod === "BNPL" && (
+                    <div className="flex flex-col gap-3 bg-sky-50/50 p-3.5 rounded-xl border border-sky-200">
+                      <div className="grid grid-cols-3 gap-2">
+                        {(["KueskiPay", "Atrato", "Stripe"]).map((prov) => (
+                          <button
+                            key={prov}
+                            type="button"
+                            onClick={() => setBnplProvider(prov)}
+                            className={`p-2 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
+                              bnplProvider === prov
+                                ? "border-sky-600 bg-sky-100 text-sky-900"
+                                : "border-slate-200 bg-white text-slate-700"
+                            }`}
+                          >
+                            {prov}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-slate-200 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMode("directo")}
+                          className={`flex-1 py-1.5 rounded-md font-bold text-[11px] cursor-pointer ${
+                            paymentMode === "directo" ? "bg-slate-900 text-white" : "text-slate-600"
+                          }`}
+                        >
+                          Aprobado en Terminal
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMode("link")}
+                          className={`flex-1 py-1.5 rounded-md font-bold text-[11px] cursor-pointer ${
+                            paymentMode === "link" ? "bg-blue-600 text-white" : "text-slate-600"
+                          }`}
+                        >
+                          Generar Link Digital
+                        </button>
+                      </div>
+
+                      {paymentStatusMessage && (
+                        <div className="text-xs text-blue-700 bg-blue-50 p-2.5 rounded border border-blue-200">
+                          {paymentStatusMessage}
                         </div>
-                      ))}
+                      )}
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {["Mercado Pago", "KueskiPay", "Atrato"].includes(paymentProvider) && (
-                  <div className="flex items-center gap-2 bg-slate-50 p-2 rounded border border-slate-200 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMode("directo")}
-                      className={`flex-1 py-1.5 rounded font-bold text-[11px] cursor-pointer ${
-                        paymentMode === "directo"
-                          ? "bg-slate-900 text-white"
-                          : "text-slate-600 hover:bg-slate-200"
-                      }`}
-                    >
-                      Terminal Física TPV (Aprobado)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMode("link")}
-                      className={`flex-1 py-1.5 rounded font-bold text-[11px] cursor-pointer ${
-                        paymentMode === "link"
-                          ? "bg-blue-600 text-white"
-                          : "text-slate-600 hover:bg-slate-200"
-                      }`}
-                    >
-                      Generar Link de Pago Digital
-                    </button>
-                  </div>
-                )}
-
-                {paymentStatusMessage && (
-                  <div className="text-xs text-blue-700 bg-blue-50 p-2.5 rounded border border-blue-200">
-                    {paymentStatusMessage}
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  disabled={addingPaymentLoading || !paymentAmount}
-                  onClick={handleAddPayment}
-                  className="w-full py-2.5 px-4 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  <CheckCircle2 size={15} />
-                  {addingPaymentLoading ? "Procesando..." : "Confirmar y Aplicar Pago"}
-                </button>
-              </div>
+                  {/* BOTÓN PRINCIPAL DE COBRO */}
+                  <button
+                    type="button"
+                    disabled={
+                      addingPaymentLoading ||
+                      (posPaymentMethod === "Efectivo" && cashGivenVal > 0 && cashGivenVal < cashTotalPorCobrar) ||
+                      (posPaymentMethod === "SPLIT" && splitPayments.reduce((acc, p) => acc + Number(p.monto || 0), 0) < saldoPendiente - 0.05)
+                    }
+                    onClick={handleConfirmCobro}
+                    className="w-full py-3.5 px-4 rounded-xl bg-slate-900 hover:bg-emerald-600 text-white text-xs font-black flex items-center justify-center gap-2 transition-all shadow-md disabled:opacity-50 cursor-pointer"
+                  >
+                    <CheckCircle2 size={16} />
+                    {addingPaymentLoading
+                      ? "Procesando Cobro..."
+                      : posPaymentMethod === "Efectivo"
+                      ? `COBRAR $${cashTotalPorCobrar.toLocaleString("es-MX", { minimumFractionDigits: 2 })} E IMPRIMIR RECIBO →`
+                      : posPaymentMethod === "SPLIT"
+                      ? `COBRAR $${saldoPendiente.toLocaleString("es-MX", { minimumFractionDigits: 2 })} (PAGO DIVIDIDO) →`
+                      : `COBRAR $${saldoPendiente.toLocaleString("es-MX", { minimumFractionDigits: 2 })} E IMPRIMIR RECIBO →`}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
+
+        {/* Modal de Apertura de Turno de Caja */}
+        <AbrirTurnoModal
+          isOpen={isAbrirTurnoOpen}
+          onClose={() => setIsAbrirTurnoOpen(false)}
+          onSuccess={async () => {
+            setIsAbrirTurnoOpen(false);
+            toast.success("Turno de caja abierto correctamente");
+            const targetSucId = order?.sucursal_id || sucursalActiva?.id || "b0000000-0000-0000-0000-000000000001";
+            const shiftRes = await CajaTurnoService.obtenerTurnoActivo(targetSucId);
+            setTurnoActivo(shiftRes);
+          }}
+          empresaId={order?.empresa_id || empresa?.id || "a0000000-0000-0000-0000-000000000001"}
+          sucursalId={order?.sucursal_id || sucursalActiva?.id || "b0000000-0000-0000-0000-000000000001"}
+          usuarioId={perfil?.id || "u0000000-0000-0000-0000-000000000001"}
+          fondos={fondos}
+        />
 
         <ReceiptModal
           isOpen={showReceiptModal}
           onClose={() => setShowReceiptModal(false)}
           order={order}
           payment={selectedReceiptPayment}
+          payments={receiptPaymentsList.length > 0 ? receiptPaymentsList : (order?.pagos_orden || [])}
           empresa={empresa}
           sucursal={sucursalActiva}
+          cashGiven={receiptCashGiven}
+          changeDue={receiptChangeDue}
         />
 
         {/* Modal de Comprobante / Póliza de Garantía en Pantalla Completa */}
