@@ -128,7 +128,7 @@ export default async function LoginPage({
             <ShieldCheck size={14} className="text-emerald-500" />
             {tenant ? `Aislamiento Multi-Tenant • ${tenant.domain}` : "Aislamiento de Datos Multi-Tenant (RLS)"}
           </span>
-          <span>Monterrey, N.L. • México</span>
+          <span>{tenant ? "Culiacán, Sin. • México" : "México"}</span>
         </div>
       </div>
 

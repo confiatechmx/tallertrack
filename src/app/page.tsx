@@ -228,7 +228,7 @@ export default function HomePage() {
                   <p className="text-xs font-bold text-[#1D2030]">
                     Ing. Roberto Cavazos{" "}
                     <span className="font-normal text-[#64748B]">
-                      — Director General, Cova Tires & Service (Monterrey, N.L.)
+                      — Director General, Cova Tires & Service (Culiacán, Sin.)
                     </span>
                   </p>
                 </div>
@@ -1162,7 +1162,7 @@ export default function HomePage() {
                 </div>
                 <div>
                   <div className="text-xs font-bold text-[#1D2030]">Ing. Roberto Cavazos</div>
-                  <div className="text-[11px] text-[#64748B]">Director General, Cova Tires (Monterrey)</div>
+                  <div className="text-[11px] text-[#64748B]">Director General, Cova Tires (Culiacán)</div>
                 </div>
               </div>
             </div>
@@ -1261,7 +1261,7 @@ export default function HomePage() {
                 El sistema operativo en la nube para talleres mecánicos, centros llanteros y especialistas automotrices en México y Latinoamérica.
               </p>
               <div className="text-[11px] text-slate-500 font-mono">
-                Monterrey, N.L. • San Pedro Garza García
+                Culiacán, Sin. • México
               </div>
             </div>
 

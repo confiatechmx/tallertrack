@@ -147,6 +147,8 @@ function getInitialEmpresa(): EmpresaConfig {
         return {
           ...DEFAULT_EMPRESA,
           nombre_comercial: "Cova - Taller & Llantera",
+          direccion: "Río Aguanaval 1595, Col. Pascual Orozco, C.P. 80170, Culiacán Rosales, Sin.",
+          telefono: "+526674125459",
           subdominio: "cova",
           logo_url_dark: "/branding/cova/cova-logo-dark-trimmed.png",
           logo_url: "/branding/cova/cova-logo-light-trimmed.png",
