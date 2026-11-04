@@ -17,6 +17,7 @@
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.2",
     "@whiskeysockets/baileys": "^7.0.0-rc13",
+    "exceljs": "^4.4.0",
     "jimp": "^1.6.1",
     "lucide-react": "^1.18.0",
     "next": "^16.2.9",

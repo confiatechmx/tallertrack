@@ -171,6 +171,68 @@ export interface ResumenCorteDiarioAuditoria {
   }>;
 }
 
+export interface TurnoVentaPartida {
+  tipo: "Servicio" | "Refacción" | "Neumático";
+  descripcion: string;
+  cantidad: number;
+  costoUnitario: number;
+  costoTotal: number;
+  precioUnitario: number;
+  importe: number;
+  margenMonto: number;
+  margenPorcentaje: number;
+  proveedor?: string;
+  folioTicketProv?: string;
+  mesesGarantia?: number;
+  evidenciaUrl?: string;
+}
+
+export interface TurnoVentaOrden {
+  ordenId: string;
+  folio: number;
+  folioStr: string;
+  clienteNombre: string;
+  clienteTelefono: string;
+  vehiculoDesc: string;
+  placas: string;
+  fechaPago: string;
+  metodoPago: string;
+  referencia: string;
+  partidas: TurnoVentaPartida[];
+  totalVenta: number;
+  totalCostos: number;
+  utilidadBruta: number;
+  margenPorcentaje: number;
+}
+
+export interface TurnoGastoMovimiento {
+  id: string;
+  fecha: string;
+  hora: string;
+  tipo: string;
+  categoria: string;
+  concepto: string;
+  monto: number;
+  fondoNombre: string;
+  proveedor?: string;
+  folioTicket?: string;
+  comprobanteUrl?: string;
+}
+
+export interface TurnoDetalleCompleto {
+  ventas: TurnoVentaOrden[];
+  gastos: TurnoGastoMovimiento[];
+  totales: {
+    totalVentas: number;
+    totalCostos: number;
+    utilidadEstimada: number;
+    margenEstimadoPorcentaje: number;
+    totalGastos: number;
+    cantidadOrdenes: number;
+    cantidadPartidas: number;
+  };
+}
+
 export const DENOMINACIONES_BASE: DenominacionesConteo = {
   b1000: 0,
   b500: 0,
@@ -803,6 +865,395 @@ export const CajaTurnoService = {
     } catch (err: any) {
       console.error("Excepción al actualizar fondo:", err);
       return { success: false, error: err.message || "Error al actualizar fondo" };
+    }
+  },
+
+  /**
+   * Obtiene el desglose completo de un turno:
+   * - Ventas y Servicios (Órdenes, autos, clientes, partidas con costo y margen)
+   * - Gastos de Caja Chica (Salidas a proveedores e insumos con folio y evidencia)
+   * - Totales consolidados de la jornada
+   */
+  async obtenerDetalleTurnoCompleto(turnoId: string): Promise<TurnoDetalleCompleto> {
+    try {
+      // 1. Obtener el turno
+      const { data: turno, error: turnoErr } = await supabase
+        .from("caja_turnos")
+        .select("*")
+        .eq("id", turnoId)
+        .maybeSingle();
+
+      if (turnoErr || !turno) {
+        return {
+          ventas: [],
+          gastos: [],
+          totales: { totalVentas: 0, totalCostos: 0, utilidadEstimada: 0, margenEstimadoPorcentaje: 0, totalGastos: 0, cantidadOrdenes: 0, cantidadPartidas: 0 },
+        };
+      }
+
+      // 2. Obtener los pagos del turno
+      let pagosQuery = supabase
+        .from("pagos_orden")
+        .select(`
+          id,
+          orden_servicio_id,
+          monto_total,
+          proveedor_pago,
+          metodo_detalle,
+          referencia,
+          comision_monto,
+          fecha_pago,
+          estatus,
+          deleted_at,
+          caja_turno_id
+        `)
+        .in("estatus", ["Aprobado", "COMPLETADO"])
+        .is("deleted_at", null);
+
+      if (turno.sucursal_id) {
+        pagosQuery = pagosQuery.eq("sucursal_id", turno.sucursal_id);
+      }
+
+      // Filtro seguro: por turno_id o por ventana de tiempo de apertura
+      if (turno.fecha_apertura) {
+        if (turno.fecha_cierre) {
+          pagosQuery = pagosQuery.or(
+            `caja_turno_id.eq.${turnoId},and(fecha_pago.gte.${turno.fecha_apertura},fecha_pago.lte.${turno.fecha_cierre})`
+          );
+        } else {
+          pagosQuery = pagosQuery.or(
+            `caja_turno_id.eq.${turnoId},fecha_pago.gte.${turno.fecha_apertura}`
+          );
+        }
+      } else {
+        pagosQuery = pagosQuery.eq("caja_turno_id", turnoId);
+      }
+
+      const { data: pagosData, error: pagosErr } = await pagosQuery;
+      if (pagosErr) console.warn("Aviso al obtener pagos del turno:", pagosErr);
+
+      const pagos = pagosData || [];
+      const ordenIds = Array.from(
+        new Set(pagos.map((p: any) => p.orden_servicio_id).filter(Boolean))
+      ) as string[];
+
+      // 3. Obtener las órdenes con vehículos, clientes, servicios y refacciones
+      const ordenesMap = new Map<string, any>();
+      if (ordenIds.length > 0) {
+        const { data: ordenesData, error: ordErr } = await supabase
+          .from("ordenes_servicio")
+          .select(`
+            id,
+            folio,
+            fecha_ingreso,
+            estatus_pago,
+            vehiculo:vehiculos (
+              id,
+              marca,
+              modelo,
+              anio,
+              placas,
+              color,
+              vin
+            ),
+            cliente:clientes (
+              id,
+              nombre_completo,
+              telefono,
+              email
+            ),
+            orden_servicio_servicios (
+              id,
+              descripcion,
+              cantidad,
+              precio_unitario,
+              subtotal,
+              estatus_aprobacion
+            ),
+            orden_servicio_refacciones (
+              id,
+              nombre,
+              numero_parte,
+              proveedor,
+              cantidad,
+              costo_unitario,
+              precio_unitario,
+              subtotal,
+              margen_porcentaje,
+              estatus_aprobacion,
+              garantia_especifica,
+              compras_proveedores (
+                id,
+                folio_ticket_nota,
+                meses_garantia,
+                evidencia_url
+              )
+            ),
+            cotizaciones (
+              id,
+              detalles_cotizacion (
+                id,
+                descripcion,
+                cantidad,
+                precio_unitario,
+                subtotal,
+                estatus_aprobacion
+              )
+            )
+          `)
+          .in("id", ordenIds);
+
+        if (ordErr) console.warn("Aviso al obtener órdenes del turno:", ordErr);
+        (ordenesData || []).forEach((o: any) => ordenesMap.set(o.id, o));
+      }
+
+      // 4. Mapear pagos a órdenes y desglosar partidas
+      const ventas: TurnoVentaOrden[] = [];
+      let totalVentasSum = 0;
+      let totalCostosSum = 0;
+      let totalPartidasCount = 0;
+
+      const pagosPorOrden = new Map<string, any[]>();
+      pagos.forEach((p: any) => {
+        if (!p.orden_servicio_id) return;
+        const current = pagosPorOrden.get(p.orden_servicio_id) || [];
+        current.push(p);
+        pagosPorOrden.set(p.orden_servicio_id, current);
+      });
+
+      pagosPorOrden.forEach((pagosList, ordenId) => {
+        const ord = ordenesMap.get(ordenId);
+        const totalCobradoEnTurno = pagosList.reduce(
+          (acc, p) => acc + Number(p.monto_total || 0),
+          0
+        );
+        const metodos = Array.from(new Set(pagosList.map((p) => p.proveedor_pago))).join(", ");
+        const referencias = pagosList.map((p) => p.referencia).filter(Boolean).join(", ");
+        const primerPagoFecha = pagosList[0]?.fecha_pago || turno.fecha_apertura;
+
+        const partidas: TurnoVentaPartida[] = [];
+        let ordenCostos = 0;
+
+        // Servicios / Mano de obra
+        const activeSrvs = (ord?.orden_servicio_servicios || []).filter(
+          (s: any) => s.estatus_aprobacion !== "Diferido"
+        );
+        activeSrvs.forEach((s: any) => {
+          const importe = Number(s.subtotal || s.precio_unitario * (s.cantidad || 1) || 0);
+          partidas.push({
+            tipo: "Servicio",
+            descripcion: s.descripcion || "Servicio de Mano de Obra",
+            cantidad: Number(s.cantidad || 1),
+            costoUnitario: 0,
+            costoTotal: 0,
+            precioUnitario: Number(s.precio_unitario || importe),
+            importe,
+            margenMonto: importe,
+            margenPorcentaje: 100,
+          });
+        });
+
+        // Refacciones
+        const activeParts = (ord?.orden_servicio_refacciones || []).filter(
+          (r: any) => r.estatus_aprobacion !== "Diferido"
+        );
+        activeParts.forEach((r: any) => {
+          const qty = Number(r.cantidad || 1);
+          const costoUnit = Number(r.costo_unitario || 0);
+          const costoTot = costoUnit * qty;
+          const precioUnit = Number(r.precio_unitario || 0);
+          const importe = Number(r.subtotal || precioUnit * qty);
+          const margenMonto = importe - costoTot;
+          const margenPct =
+            costoTot > 0 ? (margenMonto / costoTot) * 100 : importe > 0 ? 100 : 0;
+
+          ordenCostos += costoTot;
+          partidas.push({
+            tipo: "Refacción",
+            descripcion: `${r.nombre || "Refacción"}${r.numero_parte ? ` (${r.numero_parte})` : ""}`,
+            cantidad: qty,
+            costoUnitario: costoUnit,
+            costoTotal: costoTot,
+            precioUnitario: precioUnit,
+            importe,
+            margenMonto,
+            margenPorcentaje: Math.round(margenPct * 10) / 10,
+            proveedor: r.proveedor || undefined,
+            folioTicketProv: r.compras_proveedores?.folio_ticket_nota || undefined,
+            mesesGarantia: r.compras_proveedores?.meses_garantia || undefined,
+            evidenciaUrl: r.compras_proveedores?.evidencia_url || undefined,
+          });
+        });
+
+        // Llantas / Neumáticos si hubiera en cotizaciones
+        const activeTires = (ord?.cotizaciones?.detalles_cotizacion || []).filter(
+          (t: any) => t.estatus_aprobacion !== "Diferido"
+        );
+        activeTires.forEach((t: any) => {
+          const qty = Number(t.cantidad || 1);
+          const importe = Number(t.subtotal || t.precio_unitario * qty || 0);
+          partidas.push({
+            tipo: "Neumático",
+            descripcion: t.descripcion || "Neumático",
+            cantidad: qty,
+            costoUnitario: 0,
+            costoTotal: 0,
+            precioUnitario: Number(t.precio_unitario || importe),
+            importe,
+            margenMonto: importe,
+            margenPorcentaje: 100,
+          });
+        });
+
+        if (partidas.length === 0) {
+          partidas.push({
+            tipo: "Servicio",
+            descripcion: "Servicio General de Taller",
+            cantidad: 1,
+            costoUnitario: 0,
+            costoTotal: 0,
+            precioUnitario: totalCobradoEnTurno,
+            importe: totalCobradoEnTurno,
+            margenMonto: totalCobradoEnTurno,
+            margenPorcentaje: 100,
+          });
+        }
+
+        const utilidadBruta = totalCobradoEnTurno - ordenCostos;
+        const margenPorcentaje =
+          totalCobradoEnTurno > 0
+            ? Math.round((utilidadBruta / totalCobradoEnTurno) * 1000) / 10
+            : 0;
+
+        totalVentasSum += totalCobradoEnTurno;
+        totalCostosSum += ordenCostos;
+        totalPartidasCount += partidas.length;
+
+        const v = ord?.vehiculo;
+        const c = ord?.cliente;
+        const vehiculoDesc = v
+          ? `${v.marca || ""} ${v.modelo || ""} ${v.anio || ""}`.trim()
+          : "Mostrador / Público";
+
+        ventas.push({
+          ordenId,
+          folio: ord?.folio || 0,
+          folioStr: ord?.folio ? `#${ord.folio}` : `#${ordenId.substring(0, 6)}`,
+          clienteNombre: c?.nombre_completo || "Público General",
+          clienteTelefono: c?.telefono || "-",
+          vehiculoDesc,
+          placas: v?.placas || "SIN PLACAS",
+          fechaPago: primerPagoFecha,
+          metodoPago: metodos || "Efectivo",
+          referencia: referencias,
+          partidas,
+          totalVenta: totalCobradoEnTurno,
+          totalCostos: ordenCostos,
+          utilidadBruta,
+          margenPorcentaje,
+        });
+      });
+
+      // 5. Gastos y compras a proveedor del turno
+      let movsQuery = supabase
+        .from("caja_movimientos")
+        .select(`
+          id,
+          tipo,
+          concepto,
+          monto,
+          categoria,
+          comprobante_url,
+          folio_ticket,
+          created_at,
+          caja_fondos ( nombre ),
+          proveedores ( nombre_comercial )
+        `)
+        .order("created_at", { ascending: true });
+
+      if (turno.sucursal_id) {
+        movsQuery = movsQuery.eq("sucursal_id", turno.sucursal_id);
+      }
+
+      if (turno.fecha_apertura) {
+        if (turno.fecha_cierre) {
+          movsQuery = movsQuery.or(
+            `caja_turno_id.eq.${turnoId},and(created_at.gte.${turno.fecha_apertura},created_at.lte.${turno.fecha_cierre})`
+          );
+        } else {
+          movsQuery = movsQuery.or(
+            `caja_turno_id.eq.${turnoId},created_at.gte.${turno.fecha_apertura}`
+          );
+        }
+      } else {
+        movsQuery = movsQuery.eq("caja_turno_id", turnoId);
+      }
+
+      const { data: movsData } = await movsQuery;
+      const gastos: TurnoGastoMovimiento[] = (movsData || [])
+        .filter((m: any) =>
+          [
+            "Gasto / Insumos",
+            "Pago Proveedor",
+            "Retiro de Efectivo",
+            "Retiro Administrativo",
+            "EGRESO",
+          ].includes(m.tipo)
+        )
+        .map((m: any) => {
+          const d = new Date(m.created_at);
+          return {
+            id: m.id,
+            fecha: d.toLocaleDateString("es-MX", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+            }),
+            hora: d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }),
+            tipo: m.tipo,
+            categoria: m.categoria || "Gasto Operativo",
+            concepto: m.concepto || "Salida de Caja Chica",
+            monto: Number(m.monto || 0),
+            fondoNombre: m.caja_fondos?.nombre || "Mostrador",
+            proveedor: m.proveedores?.nombre_comercial || undefined,
+            folioTicket: m.folio_ticket || undefined,
+            comprobanteUrl: m.comprobante_url || undefined,
+          };
+        });
+
+      const totalGastosSum = gastos.reduce((acc, g) => acc + g.monto, 0);
+      const utilidadEstimada = totalVentasSum - totalCostosSum;
+      const margenEstimadoPorcentaje =
+        totalVentasSum > 0 ? Math.round((utilidadEstimada / totalVentasSum) * 1000) / 10 : 0;
+
+      return {
+        ventas,
+        gastos,
+        totales: {
+          totalVentas: totalVentasSum,
+          totalCostos: totalCostosSum,
+          utilidadEstimada,
+          margenEstimadoPorcentaje,
+          totalGastos: totalGastosSum,
+          cantidadOrdenes: ventas.length,
+          cantidadPartidas: totalPartidasCount,
+        },
+      };
+    } catch (err) {
+      console.error("Excepción en obtenerDetalleTurnoCompleto:", err);
+      return {
+        ventas: [],
+        gastos: [],
+        totales: {
+          totalVentas: 0,
+          totalCostos: 0,
+          utilidadEstimada: 0,
+          margenEstimadoPorcentaje: 0,
+          totalGastos: 0,
+          cantidadOrdenes: 0,
+          cantidadPartidas: 0,
+        },
+      };
     }
   },
 };

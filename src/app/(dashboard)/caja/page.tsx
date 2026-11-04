@@ -2282,7 +2282,7 @@ export default function CajaPage() {
                       className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
                     >
                       <FileSpreadsheet size={14} />
-                      <span>Auditoría Turno Activo (Excel / PDF)</span>
+                      <span>Reporte del Turno en Vivo (Excel)</span>
                     </button>
                   )}
                   <button
@@ -2410,10 +2410,10 @@ export default function CajaPage() {
                                       });
                                       setTicketCierreOpen(true);
                                     }}
-                                    className="text-[11px] font-bold text-primary hover:underline inline-flex items-center gap-1"
+                                    className="text-[11px] font-bold text-primary hover:underline inline-flex items-center gap-1 cursor-pointer"
                                   >
                                     <Printer size={12} />
-                                    <span>Imprimir Corte Z (Carta)</span>
+                                    <span>Ver Cierre (Corte Z)</span>
                                   </button>
                                 )}
                                 <button
@@ -2422,10 +2422,10 @@ export default function CajaPage() {
                                     setAuditoriaModalOpen(true);
                                   }}
                                   className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 hover:underline inline-flex items-center gap-1 cursor-pointer"
-                                  title="Auditoría y Reporte Excel"
+                                  title="Descargar Reporte en Excel y Resumen Financiero"
                                 >
                                   <FileSpreadsheet size={12} />
-                                  <span>Auditar / Excel</span>
+                                  <span>Excel / Detalle</span>
                                 </button>
                               </div>
                             </td>

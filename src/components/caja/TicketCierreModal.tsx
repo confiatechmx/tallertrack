@@ -2,26 +2,30 @@
 
 import React, { useRef, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import * as XLSX from "xlsx";
 import {
-  X,
   Printer,
   FileText,
   Receipt,
   MessageCircle,
   FileSpreadsheet,
   Building2,
-  Calendar,
-  User,
   ShieldCheck,
   CheckCircle2,
   AlertTriangle,
-  ArrowRight,
-  Check,
-  Download,
+  Car,
+  Layers,
+  Loader2,
+  Wrench,
+  PackageCheck,
+  TrendingUp,
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import TenantBrandLogo from "@/components/brand/TenantBrandLogo";
+import {
+  CajaTurnoService,
+  TurnoDetalleCompleto,
+} from "@/services/cajaTurnoService";
+import { ReportesExportService } from "@/services/reportesExportService";
 
 interface TicketCierreModalProps {
   isOpen: boolean;
@@ -35,6 +39,7 @@ interface TicketCierreModalProps {
 }
 
 type FormatoImpresion = "CARTA" | "TICKET";
+type VistaCorte = "VENTAS" | "BALANCE";
 
 export function TicketCierreModal({
   isOpen,
@@ -47,12 +52,42 @@ export function TicketCierreModal({
   cajeroNombre = "Cajero en Turno",
 }: TicketCierreModalProps) {
   const [formato, setFormato] = useState<FormatoImpresion>("CARTA");
+  const [vista, setVista] = useState<VistaCorte>("VENTAS");
   const [mounted, setMounted] = useState(false);
+  const [loadingDetalle, setLoadingDetalle] = useState(false);
+  const [detalleTurno, setDetalleTurno] = useState<TurnoDetalleCompleto>({
+    ventas: [],
+    gastos: [],
+    totales: {
+      totalVentas: 0,
+      totalCostos: 0,
+      utilidadEstimada: 0,
+      margenEstimadoPorcentaje: 0,
+      totalGastos: 0,
+      cantidadOrdenes: 0,
+      cantidadPartidas: 0,
+    },
+  });
+
   const printableRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Cargar detalle completo de ventas y gastos cuando se abre el modal
+  useEffect(() => {
+    if (isOpen && cierreData?.turno_id) {
+      setLoadingDetalle(true);
+      CajaTurnoService.obtenerDetalleTurnoCompleto(cierreData.turno_id)
+        .then((data) => {
+          setDetalleTurno(data);
+        })
+        .finally(() => {
+          setLoadingDetalle(false);
+        });
+    }
+  }, [isOpen, cierreData?.turno_id]);
 
   // Atajo de teclado: Enter para imprimir rápidamente
   useEffect(() => {
@@ -95,207 +130,231 @@ export function TicketCierreModal({
     window.print();
   };
 
-  // Exportar Excel (.xlsx) Nativo y Profesional
-  const handleExportExcel = () => {
-    const wb = XLSX.utils.book_new();
-    const wsData: any[][] = [
-      [`${(empresa?.nombre_comercial || empresaNombre || "COVA").toUpperCase()} - ACTA OFICIAL DE CORTE DE CAJA (CORTE Z)`],
-      [
-        `Sucursal: ${sucursal?.nombre || sucursalNombre || "Cova Culiacán"}`,
-        `Fecha de Emisión: ${fechaStr} ${horaStr}`,
-        `Responsable: ${cajeroNombre}`,
-        `Turno: #${cierreData.turno_id ? String(cierreData.turno_id).substring(0, 8).toUpperCase() : "Z-ACTIVO"}`
-      ],
-      [],
-      ["1. ARQUEO FÍSICO DE FONDOS EN EFECTIVO"],
-      ["Fondo / Concepto", "Saldo Apertura ($)", "Cobros POS / Entradas ($)", "Salidas / Gastos ($)", "Traspasos Fondos ($)", "Teórico Sistema ($)", "Físico Contado ($)", "Variación / Descuadre ($)", "Estado"],
-      [
-        "Fondo 1: Operativo (Mostrador)",
-        Number(teorico?.fondo1?.apertura || 0),
-        Number(teorico?.fondo1?.entradasEfectivoPOS || 0),
-        Number(teorico?.fondo1?.salidasGastos || 0),
-        Number((teorico?.fondo1?.traspasosRecibidos || 0) - (teorico?.fondo1?.traspasosEnviados || 0)),
-        Number(cierreData.teoricoF1 || 0),
-        f1Declarado,
-        difF1,
-        Math.abs(difF1) <= 10 ? "Cuadrado" : (difF1 > 0 ? "Sobrante" : "Faltante")
-      ],
-      [
-        "Fondo 2: Reserva (Caja Fuerte)",
-        Number(teorico?.fondo2?.apertura || 0),
-        0,
-        0,
-        -Number(teorico?.fondo2?.traspasosEnviados || 0),
-        Number(cierreData.teoricoF2 || 0),
-        f2Declarado,
-        difF2,
-        Math.abs(difF2) <= 10 ? "Cuadrado" : (difF2 > 0 ? "Sobrante" : "Faltante")
-      ],
-      [],
-      ["2. DESTINO DEL EFECTIVO"],
-      ["Concepto", "Monto ($)"],
-      ["Remesa Retirada a Caja Fuerte / Depósito", remesa],
-      ["Fondo Base para Siguiente Turno (Gaveta)", fondoSig],
-      [],
-      ["3. CONCILIACIÓN DE TRANSFERENCIAS SPEI (ESPEJO BANCARIO)"],
-      ["Cuenta Bancaria", "Banco", "No. Transacciones", "Monto Total ($)"]
-    ];
-
-    if (teorico?.bancosSPEI && teorico.bancosSPEI.length > 0) {
-      teorico.bancosSPEI.forEach((b: any) => {
-        wsData.push([b.alias, b.banco, Number(b.conteo || 0), Number(b.total || 0)]);
-      });
-    } else {
-      wsData.push(["Sin transferencias SPEI registradas", "-", 0, 0]);
-    }
-
-    wsData.push([]);
-    wsData.push(["4. TERMINALES Y OTROS MÉTODOS DE PAGO"]);
-    wsData.push(["Método", "No. Transacciones", "Monto Total ($)"]);
-    wsData.push(["Terminales TPV (Tarjetas)", Number(teorico?.tarjetasTPV?.conteo || 0), Number(teorico?.tarjetasTPV?.total || 0)]);
-    if (teorico?.bnpl && teorico.bnpl.total > 0) {
-      wsData.push(["Crédito BNPL (Kueski / Atrato)", Number(teorico.bnpl.conteo || 0), Number(teorico.bnpl.total || 0)]);
-    }
-
-    wsData.push([]);
-    wsData.push(["TOTAL GENERAL VENTAS Y COBROS DEL TURNO", "", "", Number(teorico?.totalVentasTurno || 0)]);
-
-    if (cierreData.justificacion_descuadre) {
-      wsData.push([]);
-      wsData.push(["JUSTIFICACIÓN DE DESCUADRE REGISTRADA:", cierreData.justificacion_descuadre]);
-    }
-
-    const ws = XLSX.utils.aoa_to_sheet(wsData);
-    ws["!cols"] = [
-      { wch: 34 },
-      { wch: 22 },
-      { wch: 24 },
-      { wch: 20 },
-      { wch: 22 },
-      { wch: 20 },
-      { wch: 20 },
-      { wch: 24 },
-      { wch: 16 },
-    ];
-
-    XLSX.utils.book_append_sheet(wb, ws, "Corte Z Arqueo");
-    const filename = `Corte_Z_${(empresa?.nombre_comercial || empresaNombre).replace(/\s+/g, "_")}_${now.toISOString().slice(0, 10)}.xlsx`;
-    XLSX.writeFile(wb, filename);
+  // Exportar Excel Nativo con Diseño Editorial (exceljs)
+  const handleExportExcel = async () => {
+    await ReportesExportService.exportarCorteExcelElegante({
+      empresaNombre: empresa?.nombre_comercial || empresaNombre,
+      sucursalNombre: sucursal?.nombre || sucursalNombre,
+      cajeroNombre,
+      fechaTurno: fechaStr,
+      turnoId: cierreData.turno_id,
+      cierreData,
+      detalleTurno,
+    });
   };
 
   const handleWhatsAppShare = () => {
-    let msg = `*CORTE DE CAJA Z - ${empresaNombre.toUpperCase()}*\n`;
-    msg += `📍 Sucursal: ${sucursalNombre}\n`;
+    let msg = `*CIERRE DE CAJA - ${(empresa?.nombre_comercial || empresaNombre).toUpperCase()}*\n`;
+    msg += `📍 Sucursal: ${sucursal?.nombre || sucursalNombre}\n`;
     msg += `📅 Fecha: ${fechaStr} ${horaStr}\n`;
-    msg += `👤 Cajero: ${cajeroNombre}\n\n`;
+    msg += `👤 Responsable: ${cajeroNombre}\n\n`;
 
     msg += `*RESUMEN DE EFECTIVO*\n`;
-    msg += `• Fondo 1 (Mostrador): $${f1Declarado.toLocaleString("es-MX", { minimumFractionDigits: 2 })}\n`;
+    msg += `• Mostrador (Fondo 1): $${f1Declarado.toLocaleString("es-MX", { minimumFractionDigits: 2 })}\n`;
     if (Math.abs(difF1) > 0) {
       msg += `  ↳ Variación: ${difF1 > 0 ? "+" : ""}$${difF1.toFixed(2)} (${difF1 >= 0 ? "Sobrante" : "Faltante"})\n`;
     }
-    msg += `• Fondo 2 (Reserva): $${f2Declarado.toLocaleString("es-MX", { minimumFractionDigits: 2 })}\n`;
-    msg += `• Remesa a Caja Fuerte: $${remesa.toLocaleString("es-MX", { minimumFractionDigits: 2 })}\n`;
+    msg += `• Reserva (Fondo 2): $${f2Declarado.toLocaleString("es-MX", { minimumFractionDigits: 2 })}\n`;
+    msg += `• Remesa Retirada a Caja Fuerte: $${remesa.toLocaleString("es-MX", { minimumFractionDigits: 2 })}\n`;
     msg += `• Fondo para Mañana: $${fondoSig.toLocaleString("es-MX", { minimumFractionDigits: 2 })}\n\n`;
 
     if (teorico?.bancosSPEI && teorico.bancosSPEI.length > 0) {
-      msg += `*TRANSFERENCIAS SPEI:*\n`;
+      msg += `*TRANSFERENCIAS BANCARIAS:*\n`;
       teorico.bancosSPEI.forEach((b: any) => {
-        msg += `• ${b.alias} (${b.banco}): $${b.total.toLocaleString("es-MX", { minimumFractionDigits: 2 })}\n`;
+        msg += `• ${b.alias} (${b.banco}): $${Number(b.total || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}\n`;
       });
       msg += `\n`;
     }
 
     if (teorico?.tarjetasTPV && teorico.tarjetasTPV.total > 0) {
-      msg += `*PAGOS CON TARJETA / TPV:*\n`;
-      msg += `• Total Terminales: $${teorico.tarjetasTPV.total.toLocaleString("es-MX", { minimumFractionDigits: 2 })} (${teorico.tarjetasTPV.conteo})\n\n`;
+      msg += `*TERMINALES TPV (TARJETAS):*\n`;
+      msg += `• Total Tarjetas: $${Number(teorico.tarjetasTPV.total).toLocaleString("es-MX", { minimumFractionDigits: 2 })} (${teorico.tarjetasTPV.conteo})\n\n`;
     }
 
-    if (teorico?.bnpl && teorico.bnpl.total > 0) {
-      msg += `*CRÉDITO BNPL:*\n`;
-      msg += `• Kueski/Atrato: $${teorico.bnpl.total.toLocaleString("es-MX", { minimumFractionDigits: 2 })}\n\n`;
-    }
-
-    msg += `*TOTAL VENTAS TURNO:* $${(teorico?.totalVentasTurno || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN`;
+    const totalCobrado = Number(teorico?.totalVentasTurno || detalleTurno.totales.totalVentas || 0);
+    msg += `*TOTAL COBROS DEL TURNO:* $${totalCobrado.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN`;
 
     const encoded = encodeURIComponent(msg);
     window.open(`https://wa.me/?text=${encoded}`, "_blank");
   };
 
-  // ─── 1. DISEÑO EN HOJA TAMAÑO CARTA (LETTER 8.5" x 11") ──────────────────────
-  const renderDocumentoCarta = (
-    <div
-      id="printable-corte-document"
-      ref={printableRef}
-      className="bg-white text-slate-900 border border-slate-200/90 rounded-xl p-6 sm:p-8 max-w-4xl w-full mx-auto text-xs leading-normal font-sans shadow-md print:shadow-none print:border-0 print:rounded-none print:py-[10mm] print:px-[12mm] print:m-0 print:max-w-none transition-all"
-    >
-      {/* 1. Encabezado Corporativo Homologado */}
-      <div
-        className="flex items-start justify-between border-b-2 pb-4 mb-4"
-        style={{ borderColor: primaryColor }}
-      >
-        <div className="flex items-center gap-3.5">
-          <TenantBrandLogo
-            empresa={empresa || { nombre_comercial: empresaNombre }}
-            size="lg"
-            variant="light"
-            className="shrink-0"
-          />
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-base sm:text-lg font-black uppercase tracking-tight text-slate-900">
-                {empresa?.nombre_comercial || empresaNombre}
-              </h1>
-              {empresa?.eslogan && (
-                <span className="hidden sm:inline-block text-[10px] font-medium text-slate-500 border-l border-slate-300 pl-2">
-                  {empresa.eslogan}
-                </span>
-              )}
-            </div>
-            <p className="text-slate-600 font-medium text-xs mt-0.5">
-              {sucursal?.nombre || sucursalNombre} • Centro de Servicio y Alineación
-            </p>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[9.5px] text-slate-500 mt-1">
-              <span>RFC: <strong className="text-slate-700 font-mono">{empresa?.rfc || "COV2201019A1"}</strong></span>
-              <span>•</span>
-              <span>Turno: <strong className="text-slate-700 font-mono">#{cierreData.turno_id ? String(cierreData.turno_id).substring(0, 8).toUpperCase() : "Z-ACTIVO"}</strong></span>
-              {(sucursal?.direccion || empresa?.direccion) && (
-                <>
-                  <span>•</span>
-                  <span>{sucursal?.direccion || empresa?.direccion}</span>
-                </>
-              )}
-              {(sucursal?.telefono || empresa?.telefono) && (
-                <>
-                  <span>•</span>
-                  <span className="font-semibold text-slate-700 font-mono">Tel: {sucursal?.telefono || empresa?.telefono}</span>
-                </>
-              )}
-            </div>
-          </div>
+  // ─── BLOQUE 1: VENTAS Y SERVICIOS DEL TURNO ──────────────────────────────────
+  const renderSeccionVentas = (
+    <div className="space-y-4">
+      {/* Tarjetas Resumen */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+        <div className="border border-blue-200 bg-blue-50/50 rounded-xl p-3">
+          <span className="text-[10px] text-blue-700 font-bold uppercase tracking-wider block">
+            Ventas Cobradas
+          </span>
+          <span className="text-sm sm:text-base font-black text-blue-950 font-mono tabular-nums block mt-0.5">
+            ${detalleTurno.totales.totalVentas.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+          </span>
+          <span className="text-[10px] text-blue-600 font-medium">
+            {detalleTurno.totales.cantidadOrdenes} órdenes cobradas
+          </span>
         </div>
 
-        <div className="flex flex-col items-end shrink-0 text-right">
-          <span className="inline-block px-3 py-1 bg-slate-900 text-white text-[10px] font-bold rounded-lg tracking-wider uppercase mb-1">
-            Acta Oficial de Corte Z
+        <div className="border border-amber-200 bg-amber-50/50 rounded-xl p-3">
+          <span className="text-[10px] text-amber-800 font-bold uppercase tracking-wider block">
+            Costo Refacciones
           </span>
-          <p className="text-xs font-bold text-slate-900">
-            Fecha: {fechaStr}
-          </p>
-          <p className="text-[10px] text-slate-500 font-mono">
-            Hora de Cierre: {horaStr}
-          </p>
-          <p className="text-[10px] text-slate-600 mt-0.5">
-            Responsable: <strong className="text-slate-900">{cajeroNombre}</strong>
-          </p>
+          <span className="text-sm sm:text-base font-black text-amber-950 font-mono tabular-nums block mt-0.5">
+            ${detalleTurno.totales.totalCostos.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+          </span>
+          <span className="text-[10px] text-amber-700 font-medium">
+            Compras a proveedores
+          </span>
+        </div>
+
+        <div className="border border-emerald-200 bg-emerald-50/50 rounded-xl p-3">
+          <span className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider block">
+            Utilidad Bruta Est.
+          </span>
+          <span className="text-sm sm:text-base font-black text-emerald-950 font-mono tabular-nums block mt-0.5">
+            +${detalleTurno.totales.utilidadEstimada.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+          </span>
+          <span className="text-[10px] text-emerald-700 font-medium">
+            Margen promedio {detalleTurno.totales.margenEstimadoPorcentaje.toFixed(1)}%
+          </span>
+        </div>
+
+        <div className="border border-slate-200 bg-slate-50/70 rounded-xl p-3">
+          <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">
+            Gastos Caja Chica
+          </span>
+          <span className="text-sm sm:text-base font-black text-slate-800 font-mono tabular-nums block mt-0.5">
+            ${detalleTurno.totales.totalGastos.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+          </span>
+          <span className="text-[10px] text-slate-500 font-medium">
+            Salidas operativas
+          </span>
         </div>
       </div>
 
-      {/* 2. Arqueo Comparativo Dual de Efectivo */}
-      <div className="mb-4">
+      {/* Tabla Detallada por Orden y Partidas */}
+      <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+        <div className="bg-slate-900 text-white px-4 py-2.5 flex items-center justify-between">
+          <span className="font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
+            <Car size={14} className="text-blue-400" />
+            Desglose de Servicios y Refacciones por Vehículo
+          </span>
+          <span className="text-[11px] text-slate-300">
+            {detalleTurno.totales.cantidadPartidas} partidas amparadas
+          </span>
+        </div>
+
+        {loadingDetalle ? (
+          <div className="p-8 text-center text-slate-500 flex flex-col items-center justify-center gap-2">
+            <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+            <span className="text-xs font-medium">Consultando ventas y partidas del turno...</span>
+          </div>
+        ) : detalleTurno.ventas.length === 0 ? (
+          <div className="p-8 text-center text-slate-400 text-xs">
+            Sin órdenes cobradas registradas durante este turno.
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-200">
+            {detalleTurno.ventas.map((v) => (
+              <div key={v.ordenId} className="p-3.5 hover:bg-slate-50/50 transition-colors">
+                {/* Cabecera de la Orden */}
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-900 font-black font-mono text-xs">
+                      {v.folioStr}
+                    </span>
+                    <span className="font-bold text-slate-900 text-xs">{v.vehiculoDesc}</span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-200 text-slate-800">
+                      {v.placas}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3 text-xs">
+                    <span className="text-slate-500 text-[11px]">
+                      Cliente: <strong className="text-slate-700">{v.clienteNombre}</strong>
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      {v.metodoPago}
+                    </span>
+                    <span className="font-mono font-black text-slate-900 tabular-nums">
+                      ${v.totalVenta.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Partidas de la Orden */}
+                <div className="pt-2 overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-[11px]">
+                    <thead className="text-[9.5px] uppercase font-bold text-slate-400">
+                      <tr>
+                        <th className="py-1 px-2 w-2/12">Tipo</th>
+                        <th className="py-1 px-2 w-4/12">Concepto</th>
+                        <th className="py-1 px-2 text-center w-1/12">Cant.</th>
+                        <th className="py-1 px-2 text-right w-2/12">P. Unitario</th>
+                        <th className="py-1 px-2 text-right w-2/12">Importe</th>
+                        <th className="py-1 px-2 text-right w-1/12">Margen</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {v.partidas.map((item, pIdx) => (
+                        <tr key={pIdx} className="text-slate-700">
+                          <td className="py-1 px-2">
+                            <span
+                              className={`inline-flex items-center gap-1 text-[9.5px] font-semibold px-1.5 py-0.5 rounded ${
+                                item.tipo === "Refacción"
+                                  ? "bg-amber-50 text-amber-800 border border-amber-200"
+                                  : "bg-blue-50 text-blue-800 border border-blue-200"
+                              }`}
+                            >
+                              {item.tipo === "Refacción" ? (
+                                <PackageCheck size={10} />
+                              ) : (
+                                <Wrench size={10} />
+                              )}
+                              {item.tipo}
+                            </span>
+                          </td>
+                          <td className="py-1 px-2 font-medium">
+                            <span>{item.descripcion}</span>
+                            {item.proveedor && (
+                              <span className="block text-[9.5px] text-slate-400">
+                                Proveedor: {item.proveedor}
+                                {item.folioTicketProv ? ` • Nota #${item.folioTicketProv}` : ""}
+                                {item.mesesGarantia ? ` • Garantía: ${item.mesesGarantia}m` : ""}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-1 px-2 text-center font-mono">{item.cantidad}</td>
+                          <td className="py-1 px-2 text-right font-mono text-slate-600 tabular-nums">
+                            ${item.precioUnitario.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="py-1 px-2 text-right font-mono font-bold text-slate-900 tabular-nums">
+                            ${item.importe.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="py-1 px-2 text-right font-mono text-[10px] font-semibold text-emerald-700 tabular-nums">
+                            {item.margenPorcentaje.toFixed(0)}%
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // ─── BLOQUE 2: BALANCE DE EFECTIVO Y BANCOS ──────────────────────────────────
+  const renderSeccionBalance = (
+    <div className="space-y-4">
+      {/* 1. Arqueo Comparativo Dual de Efectivo */}
+      <div>
         <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 mb-2.5 flex items-center gap-1.5">
           <ShieldCheck size={15} className="text-emerald-600" />
-          1. Arqueo Físico de Fondos en Efectivo
+          1. Resumen de Efectivo en Caja
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           {/* Fondo 1: Mostrador Operativo */}
@@ -303,7 +362,7 @@ export function TicketCierreModal({
             <div>
               <div className="flex justify-between items-center border-b border-slate-200 pb-2">
                 <span className="font-bold text-xs text-slate-900">
-                  Fondo 1: Operativo (Mostrador)
+                  Mostrador (Fondo 1)
                 </span>
                 <span
                   className={`text-[9.5px] font-semibold px-2 py-0.5 rounded-full border ${
@@ -329,13 +388,13 @@ export function TicketCierreModal({
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block text-[10px]">(+) Cobros POS:</span>
+                  <span className="text-slate-500 block text-[10px]">(+) Cobros Efectivo:</span>
                   <span className="font-bold text-emerald-700 tabular-nums font-mono">
                     +${Number(teorico?.fondo1?.entradasEfectivoPOS || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block text-[10px]">(-) Vales y Gastos:</span>
+                  <span className="text-slate-500 block text-[10px]">(-) Gastos Mostrador:</span>
                   <span className="font-bold text-rose-700 tabular-nums font-mono">
                     -${Number(teorico?.fondo1?.salidasGastos || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                   </span>
@@ -370,7 +429,7 @@ export function TicketCierreModal({
             <div>
               <div className="flex justify-between items-center border-b border-purple-200/80 pb-2">
                 <span className="font-bold text-xs text-purple-950">
-                  Fondo 2: Reserva (Caja Fuerte)
+                  Caja Fuerte (Fondo 2)
                 </span>
                 <span
                   className={`text-[9.5px] font-semibold px-2 py-0.5 rounded-full border ${
@@ -416,11 +475,11 @@ export function TicketCierreModal({
         </div>
       </div>
 
-      {/* 3. Conciliación Espejo Bancaria (3 Cuentas SPEI) */}
-      <div className="mb-4">
+      {/* 2. Conciliación de Transferencias SPEI */}
+      <div>
         <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 mb-2 flex items-center gap-1.5">
           <Building2 size={15} className="text-blue-600" />
-          2. Conciliación de Transferencias SPEI (Espejo Bancario)
+          2. Transferencias Bancarias (SPEI)
         </h2>
         <div className="border border-slate-200 rounded-xl overflow-hidden">
           <table className="w-full text-left border-collapse table-fixed">
@@ -438,16 +497,18 @@ export function TicketCierreModal({
                   <tr key={b.cuentaId} className="hover:bg-slate-50/50">
                     <td className="py-2 px-3.5 font-bold text-slate-900">{b.alias}</td>
                     <td className="py-2 px-3.5 text-slate-600">{b.banco}</td>
-                    <td className="py-2 px-3.5 text-center font-bold text-slate-700 tabular-nums">{b.conteo}</td>
+                    <td className="py-2 px-3.5 text-center font-bold text-slate-700 tabular-nums">
+                      {b.conteo}
+                    </td>
                     <td className="py-2 px-3.5 text-right font-bold tabular-nums font-mono text-slate-900">
-                      ${b.total.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                      ${Number(b.total || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
                   <td colSpan={4} className="py-3 px-3.5 text-center text-slate-400">
-                    Sin transferencias SPEI en este turno
+                    Sin transferencias registradas en este turno
                   </td>
                 </tr>
               )}
@@ -456,15 +517,15 @@ export function TicketCierreModal({
         </div>
       </div>
 
-      {/* 4. Resumen de Terminales TPV y BNPL */}
-      <div className="mb-4">
+      {/* 3. Terminales TPV y Destino del Efectivo */}
+      <div>
         <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 mb-2">
-          3. Terminales TPV y Financiamiento
+          3. Terminales de Tarjeta y Destino del Efectivo
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
           <div className="border border-slate-200 p-3 rounded-xl bg-slate-50/60">
             <span className="text-[10px] text-slate-500 block uppercase font-bold">
-              Terminales TPV
+              Terminales Tarjeta
             </span>
             <span className="font-bold text-slate-900 text-sm tabular-nums font-mono">
               ${Number(teorico?.tarjetasTPV?.total || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
@@ -488,7 +549,7 @@ export function TicketCierreModal({
 
           <div className="border border-emerald-200 p-3 rounded-xl bg-emerald-50/40">
             <span className="text-[10px] text-emerald-800 block uppercase font-bold">
-              Remesa a Guardar
+              Remesa a Retirar
             </span>
             <span className="font-bold text-emerald-700 text-sm tabular-nums font-mono">
               ${remesa.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
@@ -500,7 +561,7 @@ export function TicketCierreModal({
 
           <div className="border border-slate-200 p-3 rounded-xl bg-slate-50/60">
             <span className="text-[10px] text-slate-500 block uppercase font-bold">
-              Fondo Sig. Turno
+              Fondo Turno Siguiente
             </span>
             <span className="font-bold text-slate-900 text-sm tabular-nums font-mono">
               ${fondoSig.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
@@ -513,23 +574,23 @@ export function TicketCierreModal({
       </div>
 
       {/* Gran Total */}
-      <div className="p-3.5 bg-slate-900 text-white rounded-xl flex items-center justify-between mb-4">
+      <div className="p-3.5 bg-slate-900 text-white rounded-xl flex items-center justify-between">
         <span className="font-bold text-xs uppercase tracking-wider text-slate-300">
           Total General de Cobros Facturados en el Turno:
         </span>
         <span className="text-base font-black text-emerald-400 tabular-nums font-mono">
-          ${Number(teorico?.totalVentasTurno || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
+          ${Number(teorico?.totalVentasTurno || detalleTurno.totales.totalVentas || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
         </span>
       </div>
 
       {/* Justificación de Descuadre si existe */}
       {cierreData.justificacion_descuadre && (
-        <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-900 text-xs mb-4">
+        <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-900 text-xs">
           <strong>Justificación de Descuadre Registrada:</strong> {cierreData.justificacion_descuadre}
         </div>
       )}
 
-      {/* Firmas de Entrega / Recepción Legal */}
+      {/* Firmas de Entrega / Recepción */}
       <div className="pt-6 grid grid-cols-2 gap-12 text-center text-xs text-slate-600 border-t border-slate-200">
         <div>
           <div className="border-t border-slate-400 pt-1.5 font-bold text-slate-900">
@@ -547,27 +608,122 @@ export function TicketCierreModal({
     </div>
   );
 
+  // ─── 1. DISEÑO EN HOJA TAMAÑO CARTA (LETTER) ─────────────────────────────────
+  const renderDocumentoCarta = (
+    <div
+      id="printable-corte-document"
+      ref={printableRef}
+      className="bg-white text-slate-900 border border-slate-200/90 rounded-xl p-6 sm:p-8 max-w-4xl w-full mx-auto text-xs leading-normal font-sans shadow-md print:shadow-none print:border-0 print:rounded-none print:py-[10mm] print:px-[12mm] print:m-0 print:max-w-none transition-all"
+    >
+      {/* Encabezado Corporativo */}
+      <div
+        className="flex items-start justify-between border-b-2 pb-4 mb-4"
+        style={{ borderColor: primaryColor }}
+      >
+        <div className="flex items-center gap-3.5">
+          <TenantBrandLogo
+            empresa={empresa || { nombre_comercial: empresaNombre }}
+            size="lg"
+            variant="light"
+            className="shrink-0"
+          />
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-base sm:text-lg font-black uppercase tracking-tight text-slate-900">
+                {empresa?.nombre_comercial || empresaNombre}
+              </h1>
+              {empresa?.eslogan && (
+                <span className="hidden sm:inline-block text-[10px] font-medium text-slate-500 border-l border-slate-300 pl-2">
+                  {empresa.eslogan}
+                </span>
+              )}
+            </div>
+            <p className="text-slate-600 font-medium text-xs mt-0.5">
+              {sucursal?.nombre || sucursalNombre} • Centro de Servicio y Alineación
+            </p>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[9.5px] text-slate-500 mt-1">
+              <span>
+                RFC: <strong className="text-slate-700 font-mono">{empresa?.rfc || "COV2201019A1"}</strong>
+              </span>
+              <span>•</span>
+              <span>
+                Turno: <strong className="text-slate-700 font-mono">#{cierreData.turno_id ? String(cierreData.turno_id).substring(0, 8).toUpperCase() : "Z-ACTIVO"}</strong>
+              </span>
+              {(sucursal?.direccion || empresa?.direccion) && (
+                <>
+                  <span>•</span>
+                  <span>{sucursal?.direccion || empresa?.direccion}</span>
+                </>
+              )}
+              {(sucursal?.telefono || empresa?.telefono) && (
+                <>
+                  <span>•</span>
+                  <span className="font-semibold text-slate-700 font-mono">
+                    Tel: {sucursal?.telefono || empresa?.telefono}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col items-end shrink-0 text-right">
+          <span className="inline-block px-3 py-1 bg-slate-900 text-white text-[10px] font-bold rounded-lg tracking-wider uppercase mb-1">
+            Cierre de Caja (Corte Z)
+          </span>
+          <p className="text-xs font-bold text-slate-900">Fecha: {fechaStr}</p>
+          <p className="text-[10px] text-slate-500 font-mono">Hora: {horaStr}</p>
+          <p className="text-[10px] text-slate-600 mt-0.5">
+            Responsable: <strong className="text-slate-900">{cajeroNombre}</strong>
+          </p>
+        </div>
+      </div>
+
+      {/* En pantalla: Vista Condicional según Pestaña */}
+      <div className="print:hidden">
+        {vista === "VENTAS" ? renderSeccionVentas : renderSeccionBalance}
+      </div>
+
+      {/* En impresión física: Ambas secciones en secuencia limpia */}
+      <div className="hidden print:block space-y-6">
+        <div>{renderSeccionVentas}</div>
+        <div className="page-break-before pt-6" style={{ pageBreakBefore: "always" }}>
+          <div
+            className="border-b-2 pb-3 mb-4 flex justify-between items-center"
+            style={{ borderColor: primaryColor }}
+          >
+            <span className="font-black text-sm uppercase text-slate-900">
+              {empresa?.nombre_comercial || empresaNombre} • Balance de Efectivo y Bancos
+            </span>
+            <span className="text-[10px] text-slate-500 font-mono">
+              Turno: #{cierreData.turno_id ? String(cierreData.turno_id).substring(0, 8).toUpperCase() : "Z-ACTIVO"}
+            </span>
+          </div>
+          {renderSeccionBalance}
+        </div>
+      </div>
+    </div>
+  );
+
   // ─── 2. DISEÑO EN TICKET TÉRMICO 80MM ────────────────────────────────────────
   const renderTicketTermico = (
     <div
       id="pos-thermal-ticket"
       className="bg-white border border-slate-200/90 rounded-xl p-5 font-mono text-xs text-slate-800 shadow-md flex flex-col gap-3 max-w-[340px] w-full mx-auto print:shadow-none print:border-0 print:rounded-none"
     >
-      {/* Header */}
       <div className="text-center pb-3 border-b border-dashed border-slate-300">
         <h2 className="font-bold text-sm uppercase tracking-wider text-slate-900">
-          {empresaNombre}
+          {empresa?.nombre_comercial || empresaNombre}
         </h2>
-        <p className="text-[10px] text-slate-500">{sucursalNombre}</p>
+        <p className="text-[10px] text-slate-500">{sucursal?.nombre || sucursalNombre}</p>
         <p className="text-[10px] text-slate-400 mt-1">
           {fechaStr} • {horaStr}
         </p>
         <div className="inline-block mt-2 px-2.5 py-0.5 bg-slate-900 text-white text-[10px] font-bold rounded">
-          TICKET CORTE Z (80MM)
+          TICKET DE CIERRE (80MM)
         </div>
       </div>
 
-      {/* Shift Staff */}
       <div className="py-2 border-b border-dashed border-slate-300 text-[10px]">
         <div className="flex justify-between">
           <span>RESPONSABLE:</span>
@@ -581,13 +737,12 @@ export function TicketCierreModal({
         </div>
       </div>
 
-      {/* Efectivo Fondos */}
       <div className="py-2.5 border-b border-dashed border-slate-300">
         <span className="font-bold text-[10px] text-slate-900 block mb-1">
-          ARQUEO DE EFECTIVO
+          RESUMEN DE EFECTIVO
         </span>
         <div className="flex justify-between text-[11px]">
-          <span>Fondo 1 (Mostrador):</span>
+          <span>Mostrador (Fondo 1):</span>
           <span className="font-bold tabular-nums font-mono">${f1Declarado.toFixed(2)}</span>
         </div>
         <div className="flex justify-between text-[10px] text-slate-500">
@@ -598,7 +753,7 @@ export function TicketCierreModal({
         </div>
 
         <div className="flex justify-between text-[11px] mt-2">
-          <span>Fondo 2 (Reserva):</span>
+          <span>Caja Fuerte (Fondo 2):</span>
           <span className="font-bold tabular-nums font-mono">${f2Declarado.toFixed(2)}</span>
         </div>
         <div className="flex justify-between text-[10px] text-slate-500">
@@ -609,7 +764,6 @@ export function TicketCierreModal({
         </div>
       </div>
 
-      {/* Remesa & Destino */}
       <div className="py-2 border-b border-dashed border-slate-300 text-[10px]">
         <span className="font-bold text-slate-900 block mb-1">DESTINO DEL EFECTIVO</span>
         <div className="flex justify-between">
@@ -617,51 +771,39 @@ export function TicketCierreModal({
           <span className="font-bold tabular-nums font-mono">${remesa.toFixed(2)}</span>
         </div>
         <div className="flex justify-between mt-1">
-          <span>Fondo Sig. Turno:</span>
+          <span>Fondo Turno Siguiente:</span>
           <span className="font-bold tabular-nums font-mono">${fondoSig.toFixed(2)}</span>
         </div>
       </div>
 
-      {/* SPEI */}
       {teorico?.bancosSPEI && teorico.bancosSPEI.length > 0 && (
         <div className="py-2 border-b border-dashed border-slate-300 text-[10px]">
-          <span className="font-bold text-slate-900 block mb-1">SPEI POR CUENTA</span>
+          <span className="font-bold text-slate-900 block mb-1">TRANSFERENCIAS SPEI</span>
           {teorico.bancosSPEI.map((b: any) => (
             <div key={b.cuentaId} className="flex justify-between py-0.5">
               <span className="truncate max-w-[190px]">{b.alias}:</span>
-              <span className="font-bold tabular-nums font-mono">${b.total.toFixed(2)}</span>
+              <span className="font-bold tabular-nums font-mono">${Number(b.total || 0).toFixed(2)}</span>
             </div>
           ))}
         </div>
       )}
 
-      {/* Tarjetas */}
       <div className="py-2 border-b border-dashed border-slate-300 text-[10px]">
         <div className="flex justify-between">
-          <span>Terminales TPV ({teorico?.tarjetasTPV?.conteo || 0}):</span>
+          <span>Terminales ({teorico?.tarjetasTPV?.conteo || 0}):</span>
           <span className="font-bold tabular-nums font-mono">
             ${Number(teorico?.tarjetasTPV?.total || 0).toFixed(2)}
           </span>
         </div>
-        {teorico?.bnpl && teorico.bnpl.total > 0 && (
-          <div className="flex justify-between mt-1">
-            <span>BNPL Kueski/Atrato:</span>
-            <span className="font-bold tabular-nums font-mono">
-              ${Number(teorico.bnpl.total).toFixed(2)}
-            </span>
-          </div>
-        )}
       </div>
 
-      {/* Total */}
       <div className="pt-2 pb-3 text-center">
-        <span className="text-[10px] text-slate-500 font-bold">TOTAL VENTAS TURNO</span>
+        <span className="text-[10px] text-slate-500 font-bold">TOTAL FACTURADO</span>
         <p className="text-sm font-bold text-slate-900 mt-0.5 font-mono">
-          ${Number(teorico?.totalVentasTurno || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
+          ${Number(teorico?.totalVentasTurno || detalleTurno.totales.totalVentas || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
         </p>
       </div>
 
-      {/* Firmas */}
       <div className="pt-4 grid grid-cols-2 gap-4 text-center text-[8px] text-slate-400">
         <div className="border-t border-slate-400 pt-1">Firma Cajero</div>
         <div className="border-t border-slate-400 pt-1">Firma Supervisor</div>
@@ -673,33 +815,51 @@ export function TicketCierreModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Corte Z Definitivo • Acta de Cierre y Arqueo"
-      size={formato === "CARTA" ? "xl" : "md"}
+      title="Cierre de Caja (Corte Z)"
+      size="xl"
       zIndex="z-[60]"
     >
       <div className="flex flex-col min-h-full">
         {/* ─── 1. BARRA FIJA SUPERIOR DE ACCIONES (Sticky Toolbar) ─── */}
         <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-slate-200/90 px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-2.5 no-print">
-          {/* Segmented Control para Formato */}
+          {/* Segmented Control para Vistas en Pantalla */}
           <div className="inline-flex items-center p-1 bg-slate-100 rounded-lg border border-slate-200/80 text-xs font-medium">
             <button
               type="button"
-              onClick={() => setFormato("CARTA")}
-              className={`px-3 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5 text-xs ${
-                formato === "CARTA"
-                  ? "bg-white text-slate-900 shadow-xs font-semibold"
+              onClick={() => {
+                setFormato("CARTA");
+                setVista("VENTAS");
+              }}
+              className={`px-3 py-1.5 rounded-md transition-all cursor-pointer flex items-center gap-1.5 text-xs ${
+                formato === "CARTA" && vista === "VENTAS"
+                  ? "bg-white text-blue-900 shadow-xs font-bold"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              <FileText size={13} className={formato === "CARTA" ? "text-blue-600" : "text-slate-400"} />
-              <span>Hoja Carta (Auditoría)</span>
+              <Car size={13} className={formato === "CARTA" && vista === "VENTAS" ? "text-blue-600" : "text-slate-400"} />
+              <span>Ventas y Servicios</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setFormato("CARTA");
+                setVista("BALANCE");
+              }}
+              className={`px-3 py-1.5 rounded-md transition-all cursor-pointer flex items-center gap-1.5 text-xs ${
+                formato === "CARTA" && vista === "BALANCE"
+                  ? "bg-white text-emerald-900 shadow-xs font-bold"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <ShieldCheck size={13} className={formato === "CARTA" && vista === "BALANCE" ? "text-emerald-600" : "text-slate-400"} />
+              <span>Balance de Caja</span>
             </button>
             <button
               type="button"
               onClick={() => setFormato("TICKET")}
-              className={`px-3 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5 text-xs ${
+              className={`px-3 py-1.5 rounded-md transition-all cursor-pointer flex items-center gap-1.5 text-xs ${
                 formato === "TICKET"
-                  ? "bg-white text-slate-900 shadow-xs font-semibold"
+                  ? "bg-white text-slate-900 shadow-xs font-bold"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
@@ -713,11 +873,11 @@ export function TicketCierreModal({
             <button
               type="button"
               onClick={handleExportExcel}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100/70 text-emerald-800 text-xs font-semibold transition-colors cursor-pointer"
-              title="Descargar libro de Excel nativo (.xlsx)"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+              title="Descargar libro de Excel formateado (.xlsx)"
             >
               <FileSpreadsheet size={14} className="text-emerald-700" />
-              <span>Excel (.xlsx)</span>
+              <span>Descargar Reporte en Excel</span>
             </button>
 
             <button
@@ -737,7 +897,7 @@ export function TicketCierreModal({
               className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-white font-semibold text-xs shadow-xs hover:opacity-95 cursor-pointer transition-opacity"
             >
               <Printer size={14} />
-              <span>{formato === "CARTA" ? "Imprimir / Guardar PDF" : "Imprimir Ticket"}</span>
+              <span>{formato === "CARTA" ? "Imprimir Comprobante de Cierre" : "Imprimir Ticket"}</span>
               <kbd className="hidden sm:inline-block font-mono text-[10px] bg-white/20 text-white px-1.5 py-0.2 rounded">
                 ↵ Enter
               </kbd>
@@ -772,12 +932,9 @@ export function TicketCierreModal({
                 <style jsx global>{`
                   @page {
                     size: letter portrait;
-                    margin: 0;
+                    margin: 8mm 10mm;
                   }
                   @media print {
-                    @page {
-                      margin: 0;
-                    }
                     html, body {
                       background-color: #ffffff !important;
                       color: #0f172a !important;
