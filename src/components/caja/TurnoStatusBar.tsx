@@ -21,6 +21,7 @@ interface TurnoStatusBarProps {
   onAbrirTurno: () => void;
   onHacerCorte: () => void;
   onTraspaso: () => void;
+  onVerHistorial?: () => void;
 }
 
 export function TurnoStatusBar({
@@ -30,6 +31,7 @@ export function TurnoStatusBar({
   onAbrirTurno,
   onHacerCorte,
   onTraspaso,
+  onVerHistorial,
 }: TurnoStatusBarProps) {
   const fondoOperativo = fondos.find((f) => f.tipo === "OPERATIVO") || fondos[0];
   const fondoReserva = fondos.find((f) => f.tipo === "RESERVA") || fondos[1];
@@ -64,13 +66,24 @@ export function TurnoStatusBar({
           </div>
         </div>
 
-        <button
-          onClick={onAbrirTurno}
-          className="w-full sm:w-auto px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer"
-        >
-          <Unlock size={14} />
-          Aperturar Turno
-        </button>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          {onVerHistorial && (
+            <button
+              onClick={onVerHistorial}
+              className="w-full sm:w-auto px-3.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 active:scale-95 text-slate-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs transition-all cursor-pointer"
+            >
+              <Receipt size={14} className="text-slate-500" />
+              <span>Consultar Cortes Anteriores</span>
+            </button>
+          )}
+          <button
+            onClick={onAbrirTurno}
+            className="w-full sm:w-auto px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer"
+          >
+            <Unlock size={14} />
+            <span>Aperturar Turno</span>
+          </button>
+        </div>
       </div>
     );
   }
@@ -137,8 +150,19 @@ export function TurnoStatusBar({
         </button>
       </div>
 
-      {/* Action Buttons: Traspaso & Cierre Z */}
+      {/* Action Buttons: Traspaso, Historial & Cierre Z */}
       <div className="flex items-center gap-2 w-full md:w-auto justify-end shrink-0">
+        {onVerHistorial && (
+          <button
+            onClick={onVerHistorial}
+            title="Consultar cortes y cierres anteriores"
+            className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer"
+          >
+            <Receipt size={13} className="text-slate-500" />
+            <span className="hidden sm:inline">Cortes Anteriores</span>
+          </button>
+        )}
+
         <button
           onClick={onTraspaso}
           title="Traspasar dinero de Reserva a Gaveta o viceversa"

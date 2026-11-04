@@ -1183,7 +1183,7 @@ export default function CajaPage() {
               }`}
             >
               <Landmark size={13} />
-              Corte & Auditoría
+              Historial de Cortes
             </button>
             <button
               onClick={() => setActiveTab("CajaChica")}
@@ -1219,6 +1219,7 @@ export default function CajaPage() {
             onAbrirTurno={() => setIsAbrirTurnoOpen(true)}
             onHacerCorte={() => setIsCorteOpen(true)}
             onTraspaso={() => setIsTraspasoOpen(true)}
+            onVerHistorial={() => setActiveTab("Cobranza")}
           />
         </div>
       </div>
@@ -2393,7 +2394,7 @@ export default function CajaPage() {
                             </td>
                             <td className="py-3 px-4 text-right">
                               <div className="flex items-center justify-end gap-2">
-                                {t.estado === "CERRADO" && (
+                                {(t.estado === "CERRADO" || t.estado === "AUDITADO") && (
                                   <button
                                     onClick={() => {
                                       setCierreTicketData({
@@ -2407,6 +2408,7 @@ export default function CajaPage() {
                                         remesa: t.monto_remesa_retirada,
                                         fondoSiguiente: t.monto_fondo_siguiente_f1,
                                         resumenTeorico: t.snapshot_resumen,
+                                        justificacion_descuadre: t.justificacion_descuadre,
                                       });
                                       setTicketCierreOpen(true);
                                     }}
