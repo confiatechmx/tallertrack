@@ -776,14 +776,27 @@ export const CajaTurnoService = {
   /**
    * Obtiene el historial de turnos cerrados para auditoría
    */
-  async obtenerHistorialTurnos(sucursalId: string, limite = 15): Promise<CajaTurno[]> {
+  async obtenerHistorialTurnos(
+    sucursalId?: string | null,
+    limite = 25,
+    empresaId?: string | null
+  ): Promise<CajaTurno[]> {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("caja_turnos")
         .select("*")
-        .eq("sucursal_id", sucursalId)
         .order("fecha_apertura", { ascending: false })
         .limit(limite);
+
+      if (sucursalId && empresaId) {
+        query = query.or(`sucursal_id.eq.${sucursalId},empresa_id.eq.${empresaId}`);
+      } else if (empresaId) {
+        query = query.eq("empresa_id", empresaId);
+      } else if (sucursalId) {
+        query = query.eq("sucursal_id", sucursalId);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error("Error al obtener historial de turnos:", error);

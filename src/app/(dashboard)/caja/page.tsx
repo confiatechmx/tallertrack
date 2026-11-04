@@ -314,10 +314,14 @@ export default function CajaPage() {
         movQuery = movQuery.eq("sucursal_id", sucursalActiva.id);
       }
 
+      const isCova = (empresa?.subdominio === "cova") || (empresa?.nombre_comercial || "").toLowerCase().includes("cova") || (typeof window !== "undefined" && window.location.hostname.includes("cova"));
       const targetSucId =
         sucursalActiva?.id ||
         sucursales[0]?.id ||
-        "b0000000-0000-0000-0000-000000000001";
+        (isCova ? "b2ad09db-0a34-4876-9ca3-d584c40bd295" : "b0000000-0000-0000-0000-000000000001");
+      const targetEmpresaId =
+        empresa?.id ||
+        (isCova ? "b2ad09db-0a34-4876-9ca3-d584c40bd294" : undefined);
 
       const [ordRes, pagRes, movRes, empRes, cfgRes, shiftRes, fondosRes, bankRes, histRes, metodosRes] = await Promise.all([
         ordQuery,
@@ -330,10 +334,10 @@ export default function CajaPage() {
           .order("nombre"),
         supabase.from("configuracion_pagos").select("*"),
         CajaTurnoService.obtenerTurnoActivo(targetSucId),
-        CajaTurnoService.obtenerFondos(targetSucId, empresa?.id),
-        CajaTurnoService.obtenerCuentasBancarias(empresa?.id || "a0000000-0000-0000-0000-000000000001", targetSucId),
-        CajaTurnoService.obtenerHistorialTurnos(targetSucId),
-        TenantMetodosPagoService.obtenerMetodos(empresa?.id, targetSucId),
+        CajaTurnoService.obtenerFondos(targetSucId, targetEmpresaId),
+        CajaTurnoService.obtenerCuentasBancarias(targetEmpresaId || "a0000000-0000-0000-0000-000000000001", targetSucId),
+        CajaTurnoService.obtenerHistorialTurnos(targetSucId, 25, targetEmpresaId),
+        TenantMetodosPagoService.obtenerMetodos(targetEmpresaId, targetSucId),
       ]);
 
       setTurnoActivo(shiftRes);
@@ -1175,7 +1179,7 @@ export default function CajaPage() {
               Terminal POS
             </button>
             <button
-              onClick={() => setActiveTab("Cobranza")}
+              onClick={() => { setActiveTab("Cobranza"); loadData(); }}
               className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
                 activeTab === "Cobranza"
                   ? "bg-white text-slate-900 shadow-xs"
@@ -1219,7 +1223,7 @@ export default function CajaPage() {
             onAbrirTurno={() => setIsAbrirTurnoOpen(true)}
             onHacerCorte={() => setIsCorteOpen(true)}
             onTraspaso={() => setIsTraspasoOpen(true)}
-            onVerHistorial={() => setActiveTab("Cobranza")}
+            onVerHistorial={() => { setActiveTab("Cobranza"); loadData(); }}
           />
         </div>
       </div>
@@ -2023,6 +2027,198 @@ export default function CajaPage() {
 
         {activeTab === "Cobranza" && (
           <div className="flex flex-col gap-6">
+            {/* Historial de Turnos y Cortes de Caja (Cierre Z) */}
+            <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden flex flex-col">
+              <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                    <Receipt size={16} className="text-emerald-600" />
+                    Historial de Turnos y Cortes de Caja (Cierre Z) ({historialTurnos.length})
+                  </h2>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Auditoría inmutable de cierres, arqueos de gaveta, remesas y desviaciones
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {turnoActivo && (
+                    <button
+                      onClick={() => {
+                        setAuditoriaTurnoId(turnoActivo.id);
+                        setAuditoriaModalOpen(true);
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
+                    >
+                      <FileSpreadsheet size={14} />
+                      <span>Reporte del Turno en Vivo (Excel)</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => loadData()}
+                    className="p-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors shadow-xs cursor-pointer"
+                    title="Actualizar historial de cortes"
+                  >
+                    <Loader2 size={14} className={loading ? "animate-spin" : ""} />
+                  </button>
+                  <button
+                    onClick={() => setProveedorEvidenceOpen(true)}
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
+                  >
+                    <Plus size={14} className="text-primary" />
+                    <span>Evidencia Proveedor</span>
+                  </button>
+                  {historialTurnos.length > 0 && (
+                    <button
+                      onClick={handleExportHistorialCSV}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors shrink-0 shadow-xs cursor-pointer"
+                    >
+                      <FileSpreadsheet size={14} className="text-emerald-600" />
+                      <span>Exportar CSV</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                      <th className="py-3 px-4">Fecha Apertura / Cierre</th>
+                      <th className="py-3 px-4">Fondo 1 (Operativo)</th>
+                      <th className="py-3 px-4">Fondo 2 (Reserva)</th>
+                      <th className="py-3 px-4 text-center">Variación</th>
+                      <th className="py-3 px-4 text-right">Remesa Retirada</th>
+                      <th className="py-3 px-4 text-center">Estado</th>
+                      <th className="py-3 px-4 text-right">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {historialTurnos.length > 0 ? (
+                      historialTurnos.map((t) => {
+                        const f1Dec = Number(t.monto_cierre_declarado_f1 ?? t.monto_apertura_fondo1);
+                        const dif1 = Number(t.diferencia_f1 || 0);
+                        const isCuadrado = Math.abs(dif1) <= 10;
+                        const fApertura = new Date(t.fecha_apertura).toLocaleDateString("es-MX", {
+                          day: "2-digit",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        });
+                        const fCierre = t.fecha_cierre
+                          ? new Date(t.fecha_cierre).toLocaleTimeString("es-MX", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : null;
+
+                        return (
+                          <tr key={t.id} className="hover:bg-slate-50/50">
+                            <td className="py-3 px-4">
+                              <span className="font-bold text-slate-900 block">{fApertura}</span>
+                              <span className="text-[10px] text-slate-400">
+                                {fCierre ? `Cierre: ${fCierre}` : "Turno Abierto"}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="font-bold tabular-nums block">
+                                ${f1Dec.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                Inicial: ${Number(t.monto_apertura_fondo1).toFixed(2)}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="font-bold tabular-nums block">
+                                ${Number(t.monto_cierre_declarado_f2 ?? t.monto_apertura_fondo2).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                Inicial: ${Number(t.monto_apertura_fondo2).toFixed(2)}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              <span
+                                className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                  isCuadrado
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : dif1 > 0
+                                    ? "bg-blue-100 text-blue-800"
+                                    : "bg-rose-100 text-rose-800"
+                                }`}
+                              >
+                                {isCuadrado
+                                  ? "✓ Cuadrado"
+                                  : dif1 > 0
+                                  ? `+${dif1.toFixed(2)}`
+                                  : `-${Math.abs(dif1).toFixed(2)}`}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-right font-bold tabular-nums text-slate-900">
+                              ${Number(t.monto_remesa_retirada || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                                  t.estado === "ABIERTO"
+                                    ? "bg-amber-100 text-amber-800"
+                                    : "bg-slate-100 text-slate-700"
+                                }`}
+                              >
+                                {t.estado}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                {(t.estado === "CERRADO" || t.estado === "AUDITADO") && (
+                                  <button
+                                    onClick={() => {
+                                      setCierreTicketData({
+                                        turno_id: t.id,
+                                        declaradoF1: t.monto_cierre_declarado_f1,
+                                        declaradoF2: t.monto_cierre_declarado_f2,
+                                        teoricoF1: t.monto_cierre_teorico_f1,
+                                        teoricoF2: t.monto_cierre_teorico_f2,
+                                        diferenciaF1: t.diferencia_f1,
+                                        diferenciaF2: t.diferencia_f2,
+                                        remesa: t.monto_remesa_retirada,
+                                        fondoSiguiente: t.monto_fondo_siguiente_f1,
+                                        resumenTeorico: t.snapshot_resumen,
+                                        justificacion_descuadre: t.justificacion_descuadre,
+                                      });
+                                      setTicketCierreOpen(true);
+                                    }}
+                                    className="text-[11px] font-bold text-primary hover:underline inline-flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <Printer size={12} />
+                                    <span>Ver Cierre (Corte Z)</span>
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => {
+                                    setAuditoriaTurnoId(t.id);
+                                    setAuditoriaModalOpen(true);
+                                  }}
+                                  className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                                  title="Descargar Reporte en Excel y Resumen Financiero"
+                                >
+                                  <FileSpreadsheet size={12} />
+                                  <span>Excel / Detalle</span>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan={7} className="py-6 text-center text-xs text-slate-400">
+                          No hay turnos cerrados en el historial de esta sucursal.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
             {/* 5 Financial KPIs */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs flex flex-col justify-between">
@@ -2261,190 +2457,7 @@ export default function CajaPage() {
               </div>
             </div>
 
-            {/* Historial de Turnos y Cortes de Caja (Cierre Z) */}
-            <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden flex flex-col">
-              <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                    <Receipt size={16} className="text-emerald-600" />
-                    Historial de Turnos y Cortes de Caja (Cierre Z) ({historialTurnos.length})
-                  </h2>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Auditoría inmutable de cierres, arqueos de gaveta, remesas y desviaciones
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {turnoActivo && (
-                    <button
-                      onClick={() => {
-                        setAuditoriaTurnoId(turnoActivo.id);
-                        setAuditoriaModalOpen(true);
-                      }}
-                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
-                    >
-                      <FileSpreadsheet size={14} />
-                      <span>Reporte del Turno en Vivo (Excel)</span>
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setProveedorEvidenceOpen(true)}
-                    className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
-                  >
-                    <Plus size={14} className="text-primary" />
-                    <span>Evidencia Proveedor</span>
-                  </button>
-                  {historialTurnos.length > 0 && (
-                    <button
-                      onClick={handleExportHistorialCSV}
-                      className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors shrink-0 shadow-xs cursor-pointer"
-                    >
-                      <FileSpreadsheet size={14} className="text-emerald-600" />
-                      <span>Exportar CSV</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                      <th className="py-3 px-4">Fecha Apertura / Cierre</th>
-                      <th className="py-3 px-4">Fondo 1 (Operativo)</th>
-                      <th className="py-3 px-4">Fondo 2 (Reserva)</th>
-                      <th className="py-3 px-4 text-center">Variación</th>
-                      <th className="py-3 px-4 text-right">Remesa Retirada</th>
-                      <th className="py-3 px-4 text-center">Estado</th>
-                      <th className="py-3 px-4 text-right">Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {historialTurnos.length > 0 ? (
-                      historialTurnos.map((t) => {
-                        const f1Dec = Number(t.monto_cierre_declarado_f1 ?? t.monto_apertura_fondo1);
-                        const dif1 = Number(t.diferencia_f1 || 0);
-                        const isCuadrado = Math.abs(dif1) <= 10;
-                        const fApertura = new Date(t.fecha_apertura).toLocaleDateString("es-MX", {
-                          day: "2-digit",
-                          month: "short",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        });
-                        const fCierre = t.fecha_cierre
-                          ? new Date(t.fecha_cierre).toLocaleTimeString("es-MX", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })
-                          : null;
-
-                        return (
-                          <tr key={t.id} className="hover:bg-slate-50/50">
-                            <td className="py-3 px-4">
-                              <span className="font-bold text-slate-900 block">{fApertura}</span>
-                              <span className="text-[10px] text-slate-400">
-                                {fCierre ? `Cierre: ${fCierre}` : "Turno Abierto"}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4">
-                              <span className="font-bold tabular-nums block">
-                                ${f1Dec.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                              </span>
-                              <span className="text-[10px] text-slate-400">
-                                Inicial: ${Number(t.monto_apertura_fondo1).toFixed(2)}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4">
-                              <span className="font-bold tabular-nums block">
-                                ${Number(t.monto_cierre_declarado_f2 ?? t.monto_apertura_fondo2).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                              </span>
-                              <span className="text-[10px] text-slate-400">
-                                Inicial: ${Number(t.monto_apertura_fondo2).toFixed(2)}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4 text-center">
-                              <span
-                                className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                  isCuadrado
-                                    ? "bg-emerald-100 text-emerald-800"
-                                    : dif1 > 0
-                                    ? "bg-blue-100 text-blue-800"
-                                    : "bg-rose-100 text-rose-800"
-                                }`}
-                              >
-                                {isCuadrado
-                                  ? "✓ Cuadrado"
-                                  : dif1 > 0
-                                  ? `+${dif1.toFixed(2)}`
-                                  : `-${Math.abs(dif1).toFixed(2)}`}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4 text-right font-bold tabular-nums text-slate-900">
-                              ${Number(t.monto_remesa_retirada || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                            </td>
-                            <td className="py-3 px-4 text-center">
-                              <span
-                                className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                                  t.estado === "ABIERTO"
-                                    ? "bg-amber-100 text-amber-800"
-                                    : "bg-slate-100 text-slate-700"
-                                }`}
-                              >
-                                {t.estado}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4 text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                {(t.estado === "CERRADO" || t.estado === "AUDITADO") && (
-                                  <button
-                                    onClick={() => {
-                                      setCierreTicketData({
-                                        turno_id: t.id,
-                                        declaradoF1: t.monto_cierre_declarado_f1,
-                                        declaradoF2: t.monto_cierre_declarado_f2,
-                                        teoricoF1: t.monto_cierre_teorico_f1,
-                                        teoricoF2: t.monto_cierre_teorico_f2,
-                                        diferenciaF1: t.diferencia_f1,
-                                        diferenciaF2: t.diferencia_f2,
-                                        remesa: t.monto_remesa_retirada,
-                                        fondoSiguiente: t.monto_fondo_siguiente_f1,
-                                        resumenTeorico: t.snapshot_resumen,
-                                        justificacion_descuadre: t.justificacion_descuadre,
-                                      });
-                                      setTicketCierreOpen(true);
-                                    }}
-                                    className="text-[11px] font-bold text-primary hover:underline inline-flex items-center gap-1 cursor-pointer"
-                                  >
-                                    <Printer size={12} />
-                                    <span>Ver Cierre (Corte Z)</span>
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => {
-                                    setAuditoriaTurnoId(t.id);
-                                    setAuditoriaModalOpen(true);
-                                  }}
-                                  className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 hover:underline inline-flex items-center gap-1 cursor-pointer"
-                                  title="Descargar Reporte en Excel y Resumen Financiero"
-                                >
-                                  <FileSpreadsheet size={12} />
-                                  <span>Excel / Detalle</span>
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    ) : (
-                      <tr>
-                        <td colSpan={7} className="py-6 text-center text-xs text-slate-400">
-                          No hay turnos cerrados en el historial de esta sucursal.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            
           </div>
         )}
 
