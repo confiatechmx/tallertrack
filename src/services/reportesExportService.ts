@@ -695,22 +695,25 @@ export const ReportesExportService = {
       { width: 22 }, // Folio
     ];
 
-    // Descarga nativa en el navegador
+    // Descarga nativa en el navegador (si está en browser)
     const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buffer], {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    });
-    const url = URL.createObjectURL(blob);
-    const safeName = (empresaNombre || "Reporte").replace(/[\s/\\?%*:|"<>]/g, "_");
-    const filename = `Corte_Z_${safeName}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    if (typeof window !== "undefined" && typeof document !== "undefined") {
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = URL.createObjectURL(blob);
+      const safeName = (empresaNombre || "Reporte").replace(/[\s/\\?%*:|"<>]/g, "_");
+      const filename = `Corte_Z_${safeName}_${new Date().toISOString().slice(0, 10)}.xlsx`;
 
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+    return buffer;
   },
 
   /**

@@ -967,20 +967,19 @@ export const CajaTurnoService = {
               anio,
               placas,
               color,
-              vin
-            ),
-            cliente:clientes (
-              id,
-              nombre_completo,
-              telefono,
-              email
+              vin,
+              cliente:clientes (
+                id,
+                nombre,
+                telefono,
+                correo
+              )
             ),
             orden_servicio_servicios (
               id,
-              descripcion,
+              notas,
               cantidad,
-              precio_unitario,
-              subtotal,
+              precio_cobrado,
               estatus_aprobacion
             ),
             orden_servicio_refacciones (
@@ -995,22 +994,13 @@ export const CajaTurnoService = {
               margen_porcentaje,
               estatus_aprobacion,
               garantia_especifica,
+              folio_ticket_nota,
+              evidencia_url,
               compras_proveedores (
                 id,
                 folio_ticket_nota,
                 meses_garantia,
                 evidencia_url
-              )
-            ),
-            cotizaciones (
-              id,
-              detalles_cotizacion (
-                id,
-                descripcion,
-                cantidad,
-                precio_unitario,
-                subtotal,
-                estatus_aprobacion
               )
             )
           `)
@@ -1052,14 +1042,15 @@ export const CajaTurnoService = {
           (s: any) => s.estatus_aprobacion !== "Diferido"
         );
         activeSrvs.forEach((s: any) => {
-          const importe = Number(s.subtotal || s.precio_unitario * (s.cantidad || 1) || 0);
+          const cant = Number(s.cantidad || 1);
+          const importe = Number(s.precio_cobrado || s.subtotal || 0);
           partidas.push({
             tipo: "Servicio",
-            descripcion: s.descripcion || "Servicio de Mano de Obra",
-            cantidad: Number(s.cantidad || 1),
+            descripcion: s.notas || s.descripcion || "Servicio de Mano de Obra",
+            cantidad: cant,
             costoUnitario: 0,
             costoTotal: 0,
-            precioUnitario: Number(s.precio_unitario || importe),
+            precioUnitario: cant > 0 ? importe / cant : importe,
             importe,
             margenMonto: importe,
             margenPorcentaje: 100,
@@ -1092,9 +1083,9 @@ export const CajaTurnoService = {
             margenMonto,
             margenPorcentaje: Math.round(margenPct * 10) / 10,
             proveedor: r.proveedor || undefined,
-            folioTicketProv: r.compras_proveedores?.folio_ticket_nota || undefined,
-            mesesGarantia: r.compras_proveedores?.meses_garantia || undefined,
-            evidenciaUrl: r.compras_proveedores?.evidencia_url || undefined,
+            folioTicketProv: r.folio_ticket_nota || r.compras_proveedores?.folio_ticket_nota || undefined,
+            mesesGarantia: r.compras_proveedores?.meses_garantia || (r.garantia_especifica ? parseInt(r.garantia_especifica) : undefined),
+            evidenciaUrl: r.evidencia_url || r.compras_proveedores?.evidencia_url || undefined,
           });
         });
 
@@ -1143,7 +1134,7 @@ export const CajaTurnoService = {
         totalPartidasCount += partidas.length;
 
         const v = ord?.vehiculo;
-        const c = ord?.cliente;
+        const c = v?.cliente || ord?.cliente;
         const vehiculoDesc = v
           ? `${v.marca || ""} ${v.modelo || ""} ${v.anio || ""}`.trim()
           : "Mostrador / Público";
@@ -1152,7 +1143,7 @@ export const CajaTurnoService = {
           ordenId,
           folio: ord?.folio || 0,
           folioStr: ord?.folio ? `#${ord.folio}` : `#${ordenId.substring(0, 6)}`,
-          clienteNombre: c?.nombre_completo || "Público General",
+          clienteNombre: c?.nombre || c?.nombre_completo || "Público General",
           clienteTelefono: c?.telefono || "-",
           vehiculoDesc,
           placas: v?.placas || "SIN PLACAS",
@@ -1179,8 +1170,7 @@ export const CajaTurnoService = {
           comprobante_url,
           folio_ticket,
           created_at,
-          caja_fondos ( nombre ),
-          proveedores ( nombre_comercial )
+          caja_fondos ( nombre )
         `)
         .order("created_at", { ascending: true });
 
