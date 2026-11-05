@@ -1,16 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import {
   Clock,
   ArrowRightLeft,
   Lock,
   Unlock,
   Receipt,
-  Vault,
-  Wallet,
-  Eye,
-  EyeOff,
+  ShieldCheck,
 } from "lucide-react";
 import { CajaTurno, CajaFondo } from "@/services/cajaTurnoService";
 
@@ -33,9 +30,7 @@ export function TurnoStatusBar({
   onTraspaso,
   onVerHistorial,
 }: TurnoStatusBarProps) {
-  const fondoOperativo = fondos.find((f) => f.tipo === "OPERATIVO") || fondos[0];
   const fondoReserva = fondos.find((f) => f.tipo === "RESERVA") || fondos[1];
-  const [showSaldos, setShowSaldos] = useState(false);
 
   if (loading) {
     return (
@@ -95,12 +90,9 @@ export function TurnoStatusBar({
     minute: "2-digit",
   });
 
-  const saldoFondo1 = Number(fondoOperativo?.saldo_actual || turnoActivo.monto_apertura_fondo1);
-  const saldoFondo2 = Number(fondoReserva?.saldo_actual || turnoActivo.monto_apertura_fondo2);
-
   return (
     <div className="bg-white border border-slate-200/90 rounded-xl px-4 py-2.5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-      {/* Shift Info & Dual Funds Chips */}
+      {/* Shift Info & Arqueo Ciego Shield */}
       <div className="flex flex-wrap items-center gap-2.5 sm:gap-4">
         {/* Status Pill */}
         <div className="inline-flex items-center gap-2">
@@ -117,37 +109,16 @@ export function TurnoStatusBar({
 
         <div className="hidden sm:block h-4 w-px bg-slate-200"></div>
 
-        {/* Fondo 1: Mostrador */}
-        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200/70 text-xs">
-          <Wallet size={13} className="text-slate-500" />
-          <span className="text-[10px] uppercase font-bold text-slate-400">Gaveta:</span>
-          <span className="font-bold text-slate-900 tabular-nums">
-            {showSaldos
-              ? `$${saldoFondo1.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`
-              : "$ ••••••"}
+        {/* Badge de Arqueo Ciego Activo: blindaje estricto sin saldos teóricos visibles al cajero */}
+        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50/60 border border-emerald-200/60 text-xs">
+          <ShieldCheck size={13} className="text-emerald-700" />
+          <span className="text-[10px] uppercase font-bold text-emerald-800">
+            Arqueo Ciego Activo
+          </span>
+          <span className="text-[10px] text-emerald-600 hidden sm:inline">
+            • Fondo en Ventanilla Protegido
           </span>
         </div>
-
-        {/* Fondo 2: Reserva */}
-        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-50/70 border border-purple-200/60 text-xs">
-          <Vault size={13} className="text-purple-600" />
-          <span className="text-[10px] uppercase font-bold text-purple-600">Reserva:</span>
-          <span className="font-bold text-purple-900 tabular-nums">
-            {showSaldos
-              ? `$${saldoFondo2.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`
-              : "$ ••••••"}
-          </span>
-        </div>
-
-        {/* Toggle para ocultar/mostrar saldos de seguridad */}
-        <button
-          type="button"
-          onClick={() => setShowSaldos(!showSaldos)}
-          title={showSaldos ? "Ocultar saldos por privacidad" : "Mostrar saldos de caja"}
-          className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-        >
-          {showSaldos ? <EyeOff size={14} /> : <Eye size={14} />}
-        </button>
       </div>
 
       {/* Action Buttons: Traspaso, Historial & Cierre Z */}
