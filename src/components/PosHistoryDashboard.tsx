@@ -361,7 +361,7 @@ export default function PosHistoryDashboard() {
 
       {/* Hidden Printable Ticket rendered at the body level */}
       {mounted && printData && typeof document !== 'undefined' && createPortal(
-        <div id="print-section" className="hidden print:block">
+        <div id="print-section" data-print-portal="true" className="hidden print:block">
           <div style={{ fontFamily: 'monospace', fontSize: '11px', color: '#111111', lineHeight: '1.4' }}>
             <div style={{ textAlign: 'center', borderBottom: '1px dashed #111111', paddingBottom: '10px', marginBottom: '10px' }}>
               <h1 style={{ fontSize: '16px', fontWeight: 'bold', margin: '0 0 4px 0', letterSpacing: '1px' }}>LLANTERA COVA</h1>

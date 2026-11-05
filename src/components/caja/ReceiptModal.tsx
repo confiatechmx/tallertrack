@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   Printer,
   X,
@@ -889,32 +890,34 @@ export function ReceiptModal({
         </div>
       </div>
 
-      {/* Standard Print Stylesheet */}
-      <style>{`
-        @media print {
-          body * {
-            visibility: hidden !important;
-          }
-          #printable-receipt-document,
-          #printable-receipt-document * {
-            visibility: visible !important;
-          }
-          #printable-receipt-document {
-            position: fixed !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            margin: 0 !important;
-            padding: ${formato === "CARTA" ? "10mm 14mm" : "2mm 4mm"} !important;
-            background: white !important;
-            z-index: 999999 !important;
-          }
-          @page {
-            size: ${formato === "CARTA" ? "letter portrait" : "80mm auto"};
-            margin: ${formato === "CARTA" ? "8mm" : "2mm"};
-          }
-        }
-      `}</style>
+      {/* Print Portal outside .no-print Modal Container */}
+      {mounted &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div data-print-portal="true" className="hidden print:block fixed inset-0 bg-white z-[9999] p-0 m-0">
+            {formato === "CARTA" ? renderDocumentoCarta : renderTicketTermico}
+            <style>{`
+              @page {
+                size: ${formato === "CARTA" ? "letter portrait" : "80mm auto"};
+                margin: ${formato === "CARTA" ? "8mm" : "2mm"};
+              }
+              @media print {
+                html, body {
+                  background-color: #ffffff !important;
+                  color: #0f172a !important;
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                }
+                .no-print, header, nav, footer, .modal-backdrop {
+                  display: none !important;
+                }
+              }
+            `}</style>
+          </div>,
+          document.body
+        )}
     </Modal>
   );
 }

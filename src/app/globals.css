@@ -126,8 +126,8 @@ body {
     width: 100% !important;
   }
 
-  /* CRITICAL: Hide entire application tree and background dashboard */
-  body > *:not([data-print-portal="true"]):not(.print-standalone-container) {
+  /* CRITICAL: When a print portal is active, hide the background app tree and show only the portal */
+  body:has(> [data-print-portal="true"]) > *:not([data-print-portal="true"]) {
     display: none !important;
   }
 

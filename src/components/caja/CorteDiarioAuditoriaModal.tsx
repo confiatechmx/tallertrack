@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   FileSpreadsheet,
@@ -87,7 +88,8 @@ export function CorteDiarioAuditoriaModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+    <>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in no-print">
       <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header Superior */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80">
@@ -590,5 +592,134 @@ export function CorteDiarioAuditoriaModal({
         </div>
       </div>
     </div>
+    {typeof document !== "undefined" &&
+      resumen &&
+      createPortal(
+        <div data-print-portal="true" className="hidden print:block bg-white text-slate-900 p-8 text-xs font-sans">
+          <div className="border-b-2 border-slate-900 pb-3 mb-4 flex justify-between items-start">
+            <div>
+              <h1 className="text-base font-black uppercase tracking-tight">
+                Corte Diario y Auditoría de Caja — {nombreTaller}
+              </h1>
+              <p className="text-[11px] text-slate-600 mt-0.5">
+                Apertura: {resumen.fecha_apertura ? new Date(resumen.fecha_apertura).toLocaleString("es-MX") : "-"} | Estatus: {resumen.estado || "CERRADO"}
+              </p>
+            </div>
+            <div className="text-right font-mono text-[10px] text-slate-500">
+              Impreso: {new Date().toLocaleString("es-MX")}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-4 gap-3 mb-4">
+            <div className="border border-slate-300 rounded-lg p-2.5">
+              <span className="text-[10px] font-bold uppercase text-slate-500 block">Ventas Brutas</span>
+              <span className="text-sm font-black text-slate-900">
+                ${(resumen.fiscal?.ventas_brutas || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+            <div className="border border-slate-300 rounded-lg p-2.5">
+              <span className="text-[10px] font-bold uppercase text-slate-500 block">Comisiones Retenidas</span>
+              <span className="text-sm font-black text-amber-800">
+                -${(resumen.fiscal?.comisiones_retenidas || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+            <div className="border border-slate-300 rounded-lg p-2.5">
+              <span className="text-[10px] font-bold uppercase text-slate-500 block">Costos Refacciones</span>
+              <span className="text-sm font-black text-blue-900">
+                -${(resumen.fiscal?.costos_refacciones || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+            <div className="border border-slate-300 rounded-lg p-2.5">
+              <span className="text-[10px] font-bold uppercase text-slate-500 block">Ganancia Neta Total</span>
+              <span className="text-sm font-black text-emerald-800">
+                ${(resumen.fiscal?.ganancia_neta_total || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="border border-slate-300 rounded-lg p-3">
+              <span className="text-[10px] font-bold uppercase text-slate-600 block">Ganancia en Cuentas Fiscales (CFDI / SAT)</span>
+              <span className="text-base font-black text-slate-900">
+                ${(resumen.fiscal?.ganancia_fiscal || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+            <div className="border border-slate-300 rounded-lg p-3">
+              <span className="text-[10px] font-bold uppercase text-slate-600 block">Ganancia Neta Operativa</span>
+              <span className="text-base font-black text-slate-900">
+                ${(resumen.fiscal?.ganancia_despues_de_fiscal || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+          </div>
+
+          <div className="border border-slate-300 rounded-lg p-3 mb-4">
+            <h4 className="font-bold uppercase text-[10px] text-slate-700 mb-2">Arqueo de Efectivo de Mostrador</h4>
+            <div className="grid grid-cols-4 gap-2">
+              <div><span className="text-slate-500 block text-[10px]">Saldo Teórico:</span><strong>${(resumen.efectivo?.saldo_teorico || 0).toFixed(2)}</strong></div>
+              <div><span className="text-slate-500 block text-[10px]">Efectivo Declarado:</span><strong>${(resumen.efectivo?.cierre_declarado ?? 0).toFixed(2)}</strong></div>
+              <div><span className="text-slate-500 block text-[10px]">Diferencia:</span><strong>${(resumen.efectivo?.diferencia || 0).toFixed(2)}</strong></div>
+              <div><span className="text-slate-500 block text-[10px]">Remesa Retirada:</span><strong>${(resumen.efectivo?.remesa_retirada || 0).toFixed(2)}</strong></div>
+            </div>
+          </div>
+
+          {resumen.bancos && resumen.bancos.length > 0 && (
+            <div className="border border-slate-300 rounded-lg p-3 mb-4">
+              <h4 className="font-bold uppercase text-[10px] text-slate-700 mb-2">Cuentas SPEI (Bancos)</h4>
+              <table className="w-full text-left border-collapse text-[11px]">
+                <thead>
+                  <tr className="border-b border-slate-200 text-slate-500">
+                    <th className="py-1">Cuenta / Alias</th>
+                    <th className="py-1">Banco</th>
+                    <th className="py-1">Tipo</th>
+                    <th className="py-1 text-right">Operaciones</th>
+                    <th className="py-1 text-right">Total ($)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {resumen.bancos.map((b) => (
+                    <tr key={b.cuenta_id} className="border-b border-slate-100">
+                      <td className="py-1 font-semibold">{b.alias}</td>
+                      <td className="py-1">{b.banco}</td>
+                      <td className="py-1">{b.es_fiscal ? "FISCAL" : "OPERATIVA"}</td>
+                      <td className="py-1 text-right">{b.conteo}</td>
+                      <td className="py-1 text-right font-bold">${(b.total || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {resumen.tarjetas?.desglose && resumen.tarjetas.desglose.length > 0 && (
+            <div className="border border-slate-300 rounded-lg p-3 mb-4">
+              <h4 className="font-bold uppercase text-[10px] text-slate-700 mb-2">Terminales de Tarjeta y MSI</h4>
+              <table className="w-full text-left border-collapse text-[11px]">
+                <thead>
+                  <tr className="border-b border-slate-200 text-slate-500">
+                    <th className="py-1">Método / Terminal</th>
+                    <th className="py-1">Esquema</th>
+                    <th className="py-1 text-right">Bruto ($)</th>
+                    <th className="py-1 text-right">Comisión ($)</th>
+                    <th className="py-1 text-right">Neto ($)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {resumen.tarjetas.desglose.map((t, idx) => (
+                    <tr key={idx} className="border-b border-slate-100">
+                      <td className="py-1 font-semibold">{t.metodo}</td>
+                      <td className="py-1">{t.plazo_msi ? `${t.plazo_msi} MSI` : "1 Exhibición"}</td>
+                      <td className="py-1 text-right">${(t.bruto || 0).toFixed(2)}</td>
+                      <td className="py-1 text-right">-${(t.comision || 0).toFixed(2)}</td>
+                      <td className="py-1 text-right font-bold">${(t.neto || 0).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>,
+        document.body
+      )}
+    </>
   );
 }
