@@ -134,21 +134,50 @@ export function TicketCierreModal({
   const teorico = cierreData.resumenTeorico?.fondo1 ? cierreData.resumenTeorico : (resumenCalculado || cierreData.resumenTeorico);
   const primaryColor = empresa?.color_primario || "#1C3EFF";
 
+  // Teóricos F1 y F2 robustos ante snapshots de historial o cierres recientes
+  const f1Apertura = Number(teorico?.fondo1?.apertura || 0);
+  const f1Entradas = Number(teorico?.fondo1?.entradasEfectivoPOS || 0);
+  const f1Salidas = Number(teorico?.fondo1?.salidasGastos || 0);
+  const f1TraspasosNetos = Number((teorico?.fondo1?.traspasosRecibidos || 0) - (teorico?.fondo1?.traspasosEnviados || 0));
+  const teoricoF1Calculado = f1Apertura + f1Entradas - f1Salidas + f1TraspasosNetos;
+  const teoricoF1 = Number(cierreData.teoricoF1 != null ? cierreData.teoricoF1 : teoricoF1Calculado);
+
+  const f2Apertura = Number(teorico?.fondo2?.apertura ?? cierreData.fondo2_apertura ?? f2Declarado ?? 0);
+  const f2TraspasosNetos = -Number(teorico?.fondo2?.traspasosEnviados || 0);
+  const teoricoF2Calculado = f2Apertura + f2TraspasosNetos;
+  const teoricoF2 = Number(cierreData.teoricoF2 != null ? cierreData.teoricoF2 : (teoricoF2Calculado || f2Declarado));
+
+  const [exportingExcel, setExportingExcel] = useState(false);
+
   const handlePrint = () => {
     window.print();
   };
 
   // Exportar Excel Nativo con Diseño Editorial (exceljs)
   const handleExportExcel = async () => {
-    await ReportesExportService.exportarCorteExcelElegante({
-      empresaNombre: empresa?.nombre_comercial || empresaNombre,
-      sucursalNombre: sucursal?.nombre || sucursalNombre,
-      cajeroNombre,
-      fechaTurno: fechaStr,
-      turnoId: cierreData.turno_id,
-      cierreData: { ...cierreData, resumenTeorico: teorico },
-      detalleTurno,
-    });
+    try {
+      setExportingExcel(true);
+      const targetTurnoId = cierreData.turno_id || cierreData.turnoId;
+      let finalDetalle = detalleTurno;
+      if (!finalDetalle && targetTurnoId) {
+        finalDetalle = await CajaTurnoService.obtenerDetalleTurnoCompleto(targetTurnoId);
+        setDetalleTurno(finalDetalle);
+      }
+
+      await ReportesExportService.exportarCorteExcelElegante({
+        empresaNombre: empresa?.nombre_comercial || empresaNombre,
+        sucursalNombre: sucursal?.nombre || sucursalNombre,
+        cajeroNombre,
+        fechaTurno: fechaStr,
+        turnoId: targetTurnoId,
+        cierreData: { ...cierreData, teoricoF1, teoricoF2, resumenTeorico: teorico },
+        detalleTurno: finalDetalle,
+      });
+    } catch (err) {
+      console.error("Error al exportar reporte Excel:", err);
+    } finally {
+      setExportingExcel(false);
+    }
   };
 
   const handleWhatsAppShare = () => {
@@ -458,7 +487,7 @@ export function TicketCierreModal({
               <div>
                 <span className="text-slate-500 block text-[10px]">Teórico en Sistema:</span>
                 <span className="font-bold tabular-nums font-mono text-slate-800">
-                  ${Number(cierreData.teoricoF1 || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                  ${teoricoF1.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                 </span>
               </div>
               <div className="text-right">
@@ -491,7 +520,7 @@ export function TicketCierreModal({
                 <div>
                   <span className="text-slate-500 block text-[10px]">Saldo Apertura:</span>
                   <span className="font-bold tabular-nums font-mono text-slate-800">
-                    ${Number(teorico?.fondo2?.apertura || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                    ${f2Apertura.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                   </span>
                 </div>
                 <div>
@@ -507,7 +536,7 @@ export function TicketCierreModal({
               <div>
                 <span className="text-slate-500 block text-[10px]">Teórico Reserva:</span>
                 <span className="font-bold tabular-nums font-mono text-slate-800">
-                  ${Number(cierreData.teoricoF2 || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                  ${teoricoF2.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                 </span>
               </div>
               <div className="text-right">
@@ -1010,12 +1039,17 @@ export function TicketCierreModal({
           <div className="flex items-center gap-2 ml-auto">
             <button
               type="button"
+              disabled={exportingExcel}
               onClick={handleExportExcel}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 text-xs font-bold transition-colors cursor-pointer shadow-2xs disabled:opacity-50"
               title="Descargar libro de Excel formateado (.xlsx)"
             >
-              <FileSpreadsheet size={14} className="text-emerald-700" />
-              <span>Descargar Reporte en Excel</span>
+              {exportingExcel ? (
+                <Loader2 size={14} className="text-emerald-700 animate-spin" />
+              ) : (
+                <FileSpreadsheet size={14} className="text-emerald-700" />
+              )}
+              <span>{exportingExcel ? "Generando Excel..." : "Descargar Reporte en Excel"}</span>
             </button>
 
             <button

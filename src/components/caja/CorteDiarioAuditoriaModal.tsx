@@ -24,6 +24,7 @@ import {
 import {
   CajaTurnoService,
   ResumenCorteDiarioAuditoria,
+  TurnoDetalleCompleto,
 } from "@/services/cajaTurnoService";
 import { ReportesExportService } from "@/services/reportesExportService";
 
@@ -44,6 +45,8 @@ export function CorteDiarioAuditoriaModal({
 }: CorteDiarioAuditoriaModalProps) {
   const [loading, setLoading] = useState(true);
   const [resumen, setResumen] = useState<ResumenCorteDiarioAuditoria | null>(null);
+  const [detalleTurno, setDetalleTurno] = useState<TurnoDetalleCompleto | null>(null);
+  const [exportingExcel, setExportingExcel] = useState(false);
   const [activeTab, setActiveTab] = useState<"resumen" | "bancos" | "tarjetas" | "proveedores" | "kpis">("resumen");
   const [auditing, setAuditing] = useState(false);
   const [auditSuccess, setAuditSuccess] = useState(false);
@@ -56,14 +59,83 @@ export function CorteDiarioAuditoriaModal({
 
   const cargarResumen = async () => {
     setLoading(true);
-    const data = await CajaTurnoService.obtenerResumenCorteDiarioAuditoria(turnoId);
-    setResumen(data);
-    setLoading(false);
+    try {
+      const [data, detalle] = await Promise.all([
+        CajaTurnoService.obtenerResumenCorteDiarioAuditoria(turnoId),
+        CajaTurnoService.obtenerDetalleTurnoCompleto(turnoId),
+      ]);
+      setResumen(data);
+      setDetalleTurno(detalle);
+    } catch (err) {
+      console.error("Error al cargar auditoría del turno:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (!resumen) return;
-    ReportesExportService.exportarCorteExcel(resumen, [], nombreTaller);
+    try {
+      setExportingExcel(true);
+      let finalDetalle = detalleTurno;
+      if (!finalDetalle && turnoId) {
+        finalDetalle = await CajaTurnoService.obtenerDetalleTurnoCompleto(turnoId);
+        setDetalleTurno(finalDetalle);
+      }
+
+      const fechaStr = resumen.fecha_cierre
+        ? new Date(resumen.fecha_cierre).toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })
+        : new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" });
+
+      if (finalDetalle && finalDetalle.ventas.length > 0) {
+        await ReportesExportService.exportarCorteExcelElegante({
+          empresaNombre: nombreTaller,
+          sucursalNombre: "Cova Culiacán",
+          cajeroNombre: "Cajero en Turno",
+          fechaTurno: fechaStr,
+          turnoId,
+          cierreData: {
+            declaradoF1: resumen.efectivo?.cierre_declarado ?? 0,
+            declaradoF2: 0,
+            diferenciaF1: resumen.efectivo?.diferencia ?? 0,
+            diferenciaF2: 0,
+            remesa: resumen.efectivo?.remesa_retirada ?? 0,
+            fondoSiguiente: resumen.efectivo?.fondo_siguiente ?? 0,
+            teoricoF1: resumen.efectivo?.saldo_teorico ?? 0,
+            teoricoF2: 0,
+            resumenTeorico: {
+              fondo1: {
+                apertura: resumen.efectivo?.apertura_declarada ?? 0,
+                entradasEfectivoPOS: resumen.efectivo?.entradas_ventas ?? 0,
+                salidasGastos: resumen.efectivo?.salidas_gastos ?? 0,
+                traspasosRecibidos: 0,
+                traspasosEnviados: 0,
+              },
+              fondo2: { apertura: 0, traspasosEnviados: 0 },
+              bancosSPEI: (resumen.bancos || []).map((b) => ({
+                alias: b.alias,
+                banco: b.banco,
+                conteo: b.conteo,
+                total: b.total,
+              })),
+              tarjetasTPV: {
+                conteo: resumen.tarjetas?.conteo || 0,
+                total: resumen.tarjetas?.total_bruto || 0,
+                comisionesRetenidas: resumen.tarjetas?.total_comisiones || 0,
+                netoAcreditado: (resumen.tarjetas?.total_bruto || 0) - (resumen.tarjetas?.total_comisiones || 0),
+              },
+            },
+          },
+          detalleTurno: finalDetalle,
+        });
+      } else {
+        await ReportesExportService.exportarCorteExcel(resumen, [], nombreTaller);
+      }
+    } catch (err) {
+      console.error("Error al exportar libro Excel:", err);
+    } finally {
+      setExportingExcel(false);
+    }
   };
 
   const handlePrintPDF = () => {
@@ -86,6 +158,42 @@ export function CorteDiarioAuditoriaModal({
   };
 
   if (!isOpen) return null;
+
+  const ventasBrutas =
+    resumen?.fiscal?.ventas_brutas ??
+    (resumen as any)?.kpis?.ventas_brutas ??
+    detalleTurno?.totales?.totalVentas ??
+    0;
+
+  const comisiones =
+    resumen?.fiscal?.comisiones_retenidas ??
+    (resumen as any)?.kpis?.comisiones_pasarelas ??
+    resumen?.tarjetas?.total_comisiones ??
+    0;
+
+  const costos =
+    resumen?.fiscal?.costos_refacciones ??
+    (resumen as any)?.kpis?.costos_refacciones_compras ??
+    resumen?.proveedores?.total_pagado_caja_chica ??
+    detalleTurno?.totales?.totalCostos ??
+    0;
+
+  const gananciaNeta =
+    resumen?.fiscal?.ganancia_neta_total ??
+    (resumen as any)?.kpis?.ganancia_bruta_taller ??
+    (ventasBrutas - comisiones - costos);
+
+  const gananciaFiscal =
+    resumen?.fiscal?.ganancia_fiscal ??
+    resumen?.fiscal?.total_fiscal_facturado ??
+    (resumen?.bancos || [])
+      .filter((b) => b.es_fiscal)
+      .reduce((acc, b) => acc + Number(b.total || 0), 0);
+
+  const gananciaOperativa =
+    resumen?.fiscal?.ganancia_despues_de_fiscal ??
+    resumen?.fiscal?.total_no_fiscal_operativo ??
+    (gananciaNeta - gananciaFiscal);
 
   return (
     <>
@@ -120,12 +228,17 @@ export function CorteDiarioAuditoriaModal({
 
           <div className="flex items-center gap-2">
             <button
+              disabled={exportingExcel}
               onClick={handleExportExcel}
-              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
               title="Descargar libro Excel de 3 pestañas"
             >
-              <FileSpreadsheet className="w-4 h-4" />
-              Exportar Excel
+              {exportingExcel ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <FileSpreadsheet className="w-4 h-4" />
+              )}
+              {exportingExcel ? "Generando Excel..." : "Exportar Excel"}
             </button>
             <button
               onClick={handlePrintPDF}
@@ -195,7 +308,7 @@ export function CorteDiarioAuditoriaModal({
                         Ventas Brutas
                       </span>
                       <p className="text-lg font-bold text-slate-900 mt-1">
-                        ${(resumen.fiscal?.ventas_brutas || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                        ${ventasBrutas.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                       </p>
                       <span className="text-[10px] text-slate-400">Total cobrado al cliente</span>
                     </div>
@@ -205,7 +318,7 @@ export function CorteDiarioAuditoriaModal({
                         <Percent className="w-3 h-3" /> Comisiones Retenidas
                       </span>
                       <p className="text-lg font-bold text-amber-900 mt-1">
-                        -${(resumen.fiscal?.comisiones_retenidas || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                        -${comisiones.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                       </p>
                       <span className="text-[10px] text-amber-700/80">Absorbidas por taller</span>
                     </div>
@@ -215,7 +328,7 @@ export function CorteDiarioAuditoriaModal({
                         Costos Refacciones
                       </span>
                       <p className="text-lg font-bold text-blue-900 mt-1">
-                        -${(resumen.fiscal?.costos_refacciones || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                        -${costos.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                       </p>
                       <span className="text-[10px] text-blue-700/80">Compras a proveedores</span>
                     </div>
@@ -225,7 +338,7 @@ export function CorteDiarioAuditoriaModal({
                         Ganancia Neta Total
                       </span>
                       <p className="text-lg font-bold text-emerald-900 mt-1">
-                        ${(resumen.fiscal?.ganancia_neta_total || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                        ${gananciaNeta.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                       </p>
                       <span className="text-[10px] text-emerald-600 font-medium">Utilidad real del día</span>
                     </div>
@@ -243,7 +356,7 @@ export function CorteDiarioAuditoriaModal({
                           Ganancias en Cuentas Fiscales (CFDI / SAT)
                         </span>
                         <p className="text-xl font-black text-white mt-1">
-                          ${(resumen.fiscal?.ganancia_fiscal || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                          ${gananciaFiscal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                         </p>
                         <p className="text-[11px] text-slate-300 mt-1">
                           Transferencias y cobros entrados a cuentas fiscales (ej. BBVA / BanBajío)
@@ -255,7 +368,7 @@ export function CorteDiarioAuditoriaModal({
                           Ganancia Neta Después de Fiscal (Operativa)
                         </span>
                         <p className="text-xl font-black text-white mt-1">
-                          ${(resumen.fiscal?.ganancia_despues_de_fiscal || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                          ${gananciaOperativa.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                         </p>
                         <p className="text-[11px] text-slate-300 mt-1">
                           Flujo remanente de cuentas operativas y efectivo de mostrador
@@ -614,25 +727,25 @@ export function CorteDiarioAuditoriaModal({
             <div className="border border-slate-300 rounded-lg p-2.5">
               <span className="text-[10px] font-bold uppercase text-slate-500 block">Ventas Brutas</span>
               <span className="text-sm font-black text-slate-900">
-                ${(resumen.fiscal?.ventas_brutas || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                ${ventasBrutas.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
               </span>
             </div>
             <div className="border border-slate-300 rounded-lg p-2.5">
               <span className="text-[10px] font-bold uppercase text-slate-500 block">Comisiones Retenidas</span>
               <span className="text-sm font-black text-amber-800">
-                -${(resumen.fiscal?.comisiones_retenidas || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                -${comisiones.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
               </span>
             </div>
             <div className="border border-slate-300 rounded-lg p-2.5">
               <span className="text-[10px] font-bold uppercase text-slate-500 block">Costos Refacciones</span>
               <span className="text-sm font-black text-blue-900">
-                -${(resumen.fiscal?.costos_refacciones || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                -${costos.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
               </span>
             </div>
             <div className="border border-slate-300 rounded-lg p-2.5">
               <span className="text-[10px] font-bold uppercase text-slate-500 block">Ganancia Neta Total</span>
               <span className="text-sm font-black text-emerald-800">
-                ${(resumen.fiscal?.ganancia_neta_total || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                ${gananciaNeta.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
               </span>
             </div>
           </div>
@@ -641,13 +754,13 @@ export function CorteDiarioAuditoriaModal({
             <div className="border border-slate-300 rounded-lg p-3">
               <span className="text-[10px] font-bold uppercase text-slate-600 block">Ganancia en Cuentas Fiscales (CFDI / SAT)</span>
               <span className="text-base font-black text-slate-900">
-                ${(resumen.fiscal?.ganancia_fiscal || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                ${gananciaFiscal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
               </span>
             </div>
             <div className="border border-slate-300 rounded-lg p-3">
               <span className="text-[10px] font-bold uppercase text-slate-600 block">Ganancia Neta Operativa</span>
               <span className="text-base font-black text-slate-900">
-                ${(resumen.fiscal?.ganancia_despues_de_fiscal || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                ${gananciaOperativa.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
               </span>
             </div>
           </div>
@@ -711,6 +824,41 @@ export function CorteDiarioAuditoriaModal({
                       <td className="py-1 text-right">${(t.bruto || 0).toFixed(2)}</td>
                       <td className="py-1 text-right">-${(t.comision || 0).toFixed(2)}</td>
                       <td className="py-1 text-right font-bold">${(t.neto || 0).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {detalleTurno && detalleTurno.ventas && detalleTurno.ventas.length > 0 && (
+            <div className="border border-slate-300 rounded-lg p-3 mb-4">
+              <div className="flex justify-between items-center mb-2">
+                <h4 className="font-bold uppercase text-[10px] text-slate-700">
+                  Desglose de Órdenes y Servicios Cobrados ({detalleTurno.totales.cantidadOrdenes} órdenes / {detalleTurno.totales.cantidadPartidas} partidas)
+                </h4>
+                <span className="text-[10px] text-slate-500">
+                  Refacciones: ${detalleTurno.totales.totalCostos.toLocaleString("es-MX", { minimumFractionDigits: 2 })} | Utilidad: ${detalleTurno.totales.utilidadEstimada.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <table className="w-full text-left border-collapse text-[10px]">
+                <thead>
+                  <tr className="border-b border-slate-300 text-slate-600 font-bold">
+                    <th className="py-1">No. Orden</th>
+                    <th className="py-1">Vehículo / Placas</th>
+                    <th className="py-1">Cliente</th>
+                    <th className="py-1">Método Pago</th>
+                    <th className="py-1 text-right">Monto ($)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detalleTurno.ventas.map((v) => (
+                    <tr key={v.ordenId} className="border-b border-slate-100">
+                      <td className="py-1 font-mono font-bold text-slate-900">{v.folioStr}</td>
+                      <td className="py-1">{v.vehiculoDesc} <span className="text-slate-500 font-mono">({v.placas})</span></td>
+                      <td className="py-1">{v.clienteNombre}</td>
+                      <td className="py-1">{v.metodoPago}</td>
+                      <td className="py-1 text-right font-mono font-bold">${v.totalVenta.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td>
                     </tr>
                   ))}
                 </tbody>

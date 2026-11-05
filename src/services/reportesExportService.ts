@@ -74,6 +74,19 @@ export const ReportesExportService = {
     const fondoSig = Number(cierreData?.fondoSiguiente || 0);
     const teorico = cierreData?.resumenTeorico;
 
+    // Teórico F1 y F2 con cálculo de contingencia si no fueron pasados pre-calculados
+    const f1Apertura = Number(teorico?.fondo1?.apertura || 0);
+    const f1Entradas = Number(teorico?.fondo1?.entradasEfectivoPOS || 0);
+    const f1Salidas = Number(teorico?.fondo1?.salidasGastos || 0);
+    const f1TraspasosNetos = Number((teorico?.fondo1?.traspasosRecibidos || 0) - (teorico?.fondo1?.traspasosEnviados || 0));
+    const teoricoF1Calculado = f1Apertura + f1Entradas - f1Salidas + f1TraspasosNetos;
+    const teoricoF1 = Number(cierreData?.teoricoF1 != null ? cierreData.teoricoF1 : teoricoF1Calculado);
+
+    const f2Apertura = Number(teorico?.fondo2?.apertura ?? cierreData?.fondo2_apertura ?? f2Declarado ?? 0);
+    const f2TraspasosNetos = -Number(teorico?.fondo2?.traspasosEnviados || 0);
+    const teoricoF2Calculado = f2Apertura + f2TraspasosNetos;
+    const teoricoF2 = Number(cierreData?.teoricoF2 != null ? cierreData.teoricoF2 : (teoricoF2Calculado || f2Declarado));
+
     const softBorder: Partial<ExcelJS.Borders> = {
       top: { style: "thin", color: { argb: "FFE2E8F0" } },
       bottom: { style: "thin", color: { argb: "FFE2E8F0" } },
@@ -379,11 +392,11 @@ export const ReportesExportService = {
     const r6 = wsCaja.getRow(6);
     r6.values = [
       "Fondo 1: Operativo (Mostrador)",
-      Number(teorico?.fondo1?.apertura || 0),
-      Number(teorico?.fondo1?.entradasEfectivoPOS || 0),
-      Number(teorico?.fondo1?.salidasGastos || 0),
-      Number((teorico?.fondo1?.traspasosRecibidos || 0) - (teorico?.fondo1?.traspasosEnviados || 0)),
-      Number(cierreData?.teoricoF1 || 0),
+      f1Apertura,
+      f1Entradas,
+      f1Salidas,
+      f1TraspasosNetos,
+      teoricoF1,
       f1Declarado,
       difF1,
       Math.abs(difF1) <= 10 ? "Cuadrado" : difF1 > 0 ? "Sobrante" : "Faltante",
@@ -411,11 +424,11 @@ export const ReportesExportService = {
     const r7 = wsCaja.getRow(7);
     r7.values = [
       "Fondo 2: Reserva (Caja Fuerte)",
-      Number(teorico?.fondo2?.apertura || 0),
+      f2Apertura,
       0,
       0,
-      -Number(teorico?.fondo2?.traspasosEnviados || 0),
-      Number(cierreData?.teoricoF2 || 0),
+      f2TraspasosNetos,
+      teoricoF2,
       f2Declarado,
       difF2,
       Math.abs(difF2) <= 10 ? "Cuadrado" : difF2 > 0 ? "Sobrante" : "Faltante",
@@ -541,7 +554,16 @@ export const ReportesExportService = {
     const rTotGen = wsCaja.getRow(cRow);
     rTotGen.getCell(1).value = "TOTAL GENERAL DE COBROS FACTURADOS EN EL TURNO:";
     rTotGen.getCell(1).font = { name: "Segoe UI", size: 11, bold: true, color: { argb: "FF0F172A" } };
-    rTotGen.getCell(4).value = Number(teorico?.totalVentasTurno || detalleTurno.totales.totalVentas || 0);
+    const totalCobrosCalculado =
+      Number(teorico?.totalVentasTurno || 0) ||
+      Number(detalleTurno?.totales?.totalVentas || 0) ||
+      (
+        Number(teorico?.fondo1?.entradasEfectivoPOS || 0) +
+        (teorico?.bancosSPEI || []).reduce((acc: number, b: any) => acc + Number(b.total || 0), 0) +
+        Number(teorico?.tarjetasTPV?.total || 0) +
+        Number(teorico?.bnpl?.total || 0)
+      );
+    rTotGen.getCell(4).value = totalCobrosCalculado;
     rTotGen.getCell(4).numFmt = '"$"#,##0.00';
     rTotGen.getCell(4).font = { name: "Segoe UI", size: 12, bold: true, color: { argb: "FF064E3B" } };
     rTotGen.height = 26;
@@ -724,14 +746,31 @@ export const ReportesExportService = {
     _ventas: VentaItemReporte[] = [],
     nombreTaller = "Cova"
   ) {
+    const totalVentasCalc = Number(
+      resumen.fiscal?.ventas_brutas ??
+      (resumen as any)?.kpis?.ventas_brutas ??
+      0
+    );
+    const totalCostosCalc = Number(
+      resumen.fiscal?.costos_refacciones ??
+      (resumen as any)?.kpis?.costos_refacciones_compras ??
+      resumen.proveedores?.total_pagado_caja_chica ??
+      0
+    );
+    const utilidadCalc = Number(
+      resumen.fiscal?.ganancia_neta_total ??
+      (resumen as any)?.kpis?.ganancia_bruta_taller ??
+      (totalVentasCalc - totalCostosCalc)
+    );
+
     // Convierte el resumen a la firma elegante
     const detalleTurno: TurnoDetalleCompleto = {
       ventas: [],
       gastos: [],
       totales: {
-        totalVentas: Number(resumen.fiscal?.ventas_brutas || 0),
-        totalCostos: Number(resumen.fiscal?.costos_refacciones || 0),
-        utilidadEstimada: Number(resumen.fiscal?.ganancia_neta_total || 0),
+        totalVentas: totalVentasCalc,
+        totalCostos: totalCostosCalc,
+        utilidadEstimada: utilidadCalc,
         margenEstimadoPorcentaje: 0,
         totalGastos: Number(resumen.efectivo?.salidas_gastos || 0),
         cantidadOrdenes: 0,
