@@ -506,7 +506,7 @@ export default function ReportesPage() {
         </div>
 
         {/* Filter Controls */}
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5 no-print">
           {/* Branch Filter */}
           {sucursales && sucursales.length > 1 && (
             <div className="flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 shadow-2xs text-xs font-semibold">

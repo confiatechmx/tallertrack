@@ -3,6 +3,7 @@ import TenantBrandLogo from "@/components/brand/TenantBrandLogo";
 import { groupItemsByOperation } from "@/lib/services/serviceOperationsEngine";
 
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTenant } from "@/context/TenantContext";
 import {
   Printer,
@@ -927,45 +928,39 @@ export function OrderPrintSheet({
         </div>
       )}
 
-      {/* Unified Print & Screen Document (Single Mount to prevent duplicate hook fibers) */}
-      <div id="printable-order-sheet" className="print:block">
+      {/* Screen Preview */}
+      <div id="printable-order-sheet" className="no-print">
         {sheetDocument}
       </div>
 
-      <style>{`
-        @media print {
-          @page {
-            size: letter portrait;
-            margin: 0;
-          }
-          html, body {
-            background-color: #ffffff !important;
-            color: #0f172a !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-          body * {
-            visibility: hidden;
-          }
-          #printable-order-sheet, #printable-order-sheet * {
-            visibility: visible;
-          }
-          #printable-order-sheet {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: white !important;
-          }
-          .no-print, header, nav, footer, .modal-backdrop {
-            display: none !important;
-          }
-        }
-      `}</style>
+      {/* Dedicated Print Portal at document.body level (escapes .no-print Modal container) */}
+      {mounted &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div data-print-portal="true" className="hidden print:block fixed inset-0 bg-white z-[9999] p-0 m-0">
+            {sheetDocument}
+            <style>{`
+              @page {
+                size: letter portrait;
+                margin: 0;
+              }
+              @media print {
+                html, body {
+                  background-color: #ffffff !important;
+                  color: #0f172a !important;
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                }
+                .no-print, header, nav, footer, .modal-backdrop {
+                  display: none !important;
+                }
+              }
+            `}</style>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
