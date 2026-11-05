@@ -157,6 +157,10 @@ export function CorteCiegoModal({
 
       onSuccess({
         ...res,
+        turno_id: turnoActivo.id,
+        turnoId: turnoActivo.id,
+        teoricoF1,
+        teoricoF2,
         declaradoF1: totalF1Declarado,
         declaradoF2: totalF2Declarado,
         diferenciaF1,
@@ -503,6 +507,23 @@ export function CorteCiegoModal({
                     <p className="text-[11px] text-slate-400 mt-0.5">
                       Cotejar contra el cierre de lote de Clip / Mercado Pago
                     </p>
+
+                    {resumenTeorico?.tarjetasTPV?.desglose && resumenTeorico.tarjetasTPV.desglose.length > 0 && (
+                      <div className="mt-2.5 pt-2 border-t border-slate-100 space-y-1">
+                        {resumenTeorico.tarjetasTPV.desglose.map((d: any, dIdx: number) => (
+                          <div key={dIdx} className="flex items-center justify-between text-[11px]">
+                            <span className="text-slate-600 font-medium truncate max-w-[200px]">
+                              {d.metodo} ({d.modalidad})
+                            </span>
+                            <span className="font-bold text-slate-900 font-mono">
+                              ${Number(d.bruto).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+
                   </div>
                 </div>
 
@@ -528,7 +549,7 @@ export function CorteCiegoModal({
                     </span>
                     <p className="text-[11px] text-slate-400 mt-0.5">
                       Dispuesto en plataforma financiera
-                    </p>
+
                   </div>
                 </div>
               </div>

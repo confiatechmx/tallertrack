@@ -91,6 +91,18 @@ export interface ResumenTurnoTeorico {
   tarjetasTPV: {
     total: number;
     conteo: number;
+    totalComisiones?: number;
+    totalNeto?: number;
+    desglose?: Array<{
+      metodo: string;
+      proveedor: string;
+      plazo_msi: number | null;
+      modalidad: string;
+      bruto: number;
+      comision: number;
+      neto: number;
+      conteo: number;
+    }>;
   };
   bnpl: {
     total: number;
@@ -187,6 +199,19 @@ export interface TurnoVentaPartida {
   evidenciaUrl?: string;
 }
 
+export interface TurnoVentaPagoDesglose {
+  id: string;
+  monto: number;
+  metodo: string;
+  metodoDetalle?: string;
+  referencia?: string;
+  bancoNombre?: string;
+  cuentaAlias?: string;
+  terminalNombre?: string;
+  plazoMsi?: number | null;
+  comisionMonto?: number;
+}
+
 export interface TurnoVentaOrden {
   ordenId: string;
   folio: number;
@@ -198,6 +223,7 @@ export interface TurnoVentaOrden {
   fechaPago: string;
   metodoPago: string;
   referencia: string;
+  pagosDesglose?: TurnoVentaPagoDesglose[];
   partidas: TurnoVentaPartida[];
   totalVenta: number;
   totalCostos: number;
@@ -706,13 +732,60 @@ export const CajaTurnoService = {
       };
     });
 
-    // Tarjetas TPV
+    // Tarjetas TPV y Pasarelas con desglose
     const pagosTPV = pagos.filter((p) =>
       ["Tarjeta", "Terminal", "TPV", "Mercado Pago", "Stripe"].includes(p.proveedor_pago)
     );
+
+    const desgloseMap = new Map<string, {
+      metodo: string;
+      proveedor: string;
+      plazo_msi: number | null;
+      modalidad: string;
+      bruto: number;
+      comision: number;
+      neto: number;
+      conteo: number;
+    }>();
+
+    pagosTPV.forEach((p) => {
+      const prov = p.proveedor_pago || "Terminal";
+      const msi = p.plazo_msi ? Number(p.plazo_msi) : null;
+      const modalidad = msi && msi > 0 ? `${msi} MSI` : "Contado / 1 Pago";
+      const key = `${prov}_${msi || 0}_${p.tenant_metodo_pago_id || ""}_${p.metodo_detalle || ""}`;
+      const nombreMetodo = p.metodo_detalle || (msi ? `${prov} (${msi} Meses Sin Intereses)` : `${prov} Tarjeta`);
+
+      const current = desgloseMap.get(key) || {
+        metodo: nombreMetodo,
+        proveedor: prov,
+        plazo_msi: msi,
+        modalidad,
+        bruto: 0,
+        comision: 0,
+        neto: 0,
+        conteo: 0,
+      };
+
+      const monto = Number(p.monto_total || 0);
+      const comision = Number(p.comision_monto || p.comision_pasarela || 0);
+      current.bruto += monto;
+      current.comision += comision;
+      current.neto += (monto - comision);
+      current.conteo += 1;
+      desgloseMap.set(key, current);
+    });
+
+    const desgloseTPV = Array.from(desgloseMap.values());
+    const totalTPVBruto = pagosTPV.reduce((acc, p) => acc + Number(p.monto_total || 0), 0);
+    const totalTPVComisiones = desgloseTPV.reduce((acc, d) => acc + d.comision, 0);
+    const totalTPVNeto = totalTPVBruto - totalTPVComisiones;
+
     const tarjetasTPV = {
-      total: pagosTPV.reduce((acc, p) => acc + Number(p.monto_total || 0), 0),
+      total: totalTPVBruto,
       conteo: pagosTPV.length,
+      totalComisiones: totalTPVComisiones,
+      totalNeto: totalTPVNeto,
+      desglose: desgloseTPV,
     };
 
     // BNPL
@@ -967,7 +1040,12 @@ export const CajaTurnoService = {
           fecha_pago,
           estatus,
           deleted_at,
-          caja_turno_id
+          caja_turno_id,
+          cuenta_bancaria_id,
+          plazo_msi,
+          tenant_metodo_pago_id,
+          cuentas_bancarias:cuenta_bancaria_id ( id, banco, numero_cuenta, alias ),
+          tenant_metodos_pago:tenant_metodo_pago_id ( id, nombre, proveedor, plazo_msi )
         `)
         .in("estatus", ["Aprobado", "COMPLETADO"])
         .is("deleted_at", null);
@@ -1079,7 +1157,46 @@ export const CajaTurnoService = {
           (acc, p) => acc + Number(p.monto_total || 0),
           0
         );
-        const metodos = Array.from(new Set(pagosList.map((p) => p.proveedor_pago))).join(", ");
+
+        // Desglose individual de cada pago
+        const pagosDesglose: TurnoVentaPagoDesglose[] = pagosList.map((p) => {
+          const cta = p.cuentas_bancarias;
+          const tenantMetodo = p.tenant_metodos_pago;
+          const bancoNombre = cta?.banco || (p.proveedor_pago === "Transferencia" ? "SPEI" : undefined);
+          const aliasMatch = p.metodo_detalle?.match(/SPEI\s*\(([^)]+)\)/i);
+          const cuentaAlias = cta?.alias || (aliasMatch ? aliasMatch[1] : cta?.numero_cuenta);
+          const terminalNombre = tenantMetodo?.nombre || (p.plazo_msi ? `${p.proveedor_pago} (${p.plazo_msi} MSI)` : p.proveedor_pago);
+
+          return {
+            id: p.id,
+            monto: Number(p.monto_total || 0),
+            metodo: p.proveedor_pago || "Efectivo",
+            metodoDetalle: p.metodo_detalle,
+            referencia: p.referencia,
+            bancoNombre,
+            cuentaAlias,
+            terminalNombre,
+            plazoMsi: p.plazo_msi ? Number(p.plazo_msi) : null,
+            comisionMonto: Number(p.comision_monto || 0),
+          };
+        });
+
+        // Metodo legible para resumen
+        let metodoPagoResumen = "Efectivo";
+        if (pagosList.length > 1) {
+          metodoPagoResumen = `Multimétodo (${pagosList.map((p) => p.proveedor_pago).join(" + ")})`;
+        } else if (pagosList.length === 1) {
+          const p = pagosList[0];
+          if (p.proveedor_pago === "Transferencia" || p.proveedor_pago === "SPEI") {
+            const alias = pagosDesglose[0]?.cuentaAlias;
+            metodoPagoResumen = alias ? `Transferencia (${alias})` : "Transferencia SPEI";
+          } else if (["Tarjeta", "Terminal", "TPV", "Mercado Pago", "Stripe"].includes(p.proveedor_pago)) {
+            metodoPagoResumen = pagosDesglose[0]?.terminalNombre || `${p.proveedor_pago} Tarjeta`;
+          } else {
+            metodoPagoResumen = p.proveedor_pago || "Efectivo";
+          }
+        }
+
         const referencias = pagosList.map((p) => p.referencia).filter(Boolean).join(", ");
         const primerPagoFecha = pagosList[0]?.fecha_pago || turno.fecha_apertura;
 
@@ -1199,8 +1316,9 @@ export const CajaTurnoService = {
           vehiculoDesc,
           placas: v?.placas || "SIN PLACAS",
           fechaPago: primerPagoFecha,
-          metodoPago: metodos || "Efectivo",
+          metodoPago: metodoPagoResumen,
           referencia: referencias,
+          pagosDesglose,
           partidas,
           totalVenta: totalCobradoEnTurno,
           totalCostos: ordenCostos,

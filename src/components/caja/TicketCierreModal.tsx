@@ -78,12 +78,16 @@ export function TicketCierreModal({
 
   // Cargar detalle completo de ventas y gastos cuando se abre el modal
   useEffect(() => {
-    if (isOpen && cierreData?.turno_id) {
+    const targetTurnoId = cierreData?.turno_id || cierreData?.turnoId;
+    if (isOpen && targetTurnoId) {
       setLoadingDetalle(true);
-      CajaTurnoService.calcularResumenTeoricoTurno(cierreData.turno_id).then((resT) => {
+      if (cierreData?.resumenTeorico) {
+        setResumenCalculado(cierreData.resumenTeorico);
+      }
+      CajaTurnoService.calcularResumenTeoricoTurno(targetTurnoId).then((resT) => {
         if (resT) setResumenCalculado(resT);
       });
-      CajaTurnoService.obtenerDetalleTurnoCompleto(cierreData.turno_id)
+      CajaTurnoService.obtenerDetalleTurnoCompleto(targetTurnoId)
         .then((data) => {
           setDetalleTurno(data);
         })
@@ -91,7 +95,7 @@ export function TicketCierreModal({
           setLoadingDetalle(false);
         });
     }
-  }, [isOpen, cierreData?.turno_id]);
+  }, [isOpen, cierreData?.turno_id, cierreData?.turnoId]);
 
   // Atajo de teclado: Enter para imprimir rápidamente
   useEffect(() => {
@@ -277,7 +281,7 @@ export function TicketCierreModal({
                     <span className="text-slate-500 text-[11px]">
                       Cliente: <strong className="text-slate-700">{v.clienteNombre}</strong>
                     </span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${v.metodoPago.startsWith("Multimétodo") ? "bg-purple-50 text-purple-800 border-purple-200" : v.metodoPago.startsWith("Transferencia") ? "bg-blue-50 text-blue-800 border-blue-200" : v.metodoPago.includes("MSI") || v.metodoPago.includes("Tarjeta") || v.metodoPago.includes("Mercado Pago") ? "bg-indigo-50 text-indigo-800 border-indigo-200" : "bg-emerald-50 text-emerald-800 border-emerald-200"}`}>
                       {v.metodoPago}
                     </span>
                     <span className="font-mono font-black text-slate-900 tabular-nums">
@@ -285,6 +289,44 @@ export function TicketCierreModal({
                     </span>
                   </div>
                 </div>
+
+                {/* Desglose de pagos si es Multimétodo */}
+                {v.pagosDesglose && v.pagosDesglose.length > 1 && (
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1.5 pb-2 text-[11px] border-b border-slate-100">
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                      Desglose de Pago:
+                    </span>
+                    {v.pagosDesglose.map((pd, pIdx) => (
+                      <span
+                        key={pIdx}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono bg-slate-100 text-slate-800 border border-slate-200"
+                      >
+                        <span className="font-semibold text-slate-600">
+                          {pd.metodo}
+                          {pd.cuentaAlias ? ` (${pd.cuentaAlias})` : pd.plazoMsi ? ` (${pd.plazoMsi} MSI)` : ""}:
+                        </span>
+                        <span className="font-bold text-slate-950">
+                          ${pd.monto.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                        </span>
+                        {pd.referencia && (
+                          <span className="text-slate-400 font-sans text-[9px] ml-0.5">
+                            • Ref: {pd.referencia}
+                          </span>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Referencia si es 1 solo pago con cuenta bancaria o voucher */}
+                {v.pagosDesglose && v.pagosDesglose.length === 1 && v.pagosDesglose[0].referencia && (
+                  <div className="text-[10px] text-slate-400 pt-1 pb-1.5 border-b border-slate-100">
+                    <span>Referencia: <strong className="font-mono text-slate-600">{v.pagosDesglose[0].referencia}</strong></span>
+                    {v.pagosDesglose[0].bancoNombre && (
+                      <span className="ml-2">• Banco: <strong className="text-slate-600">{v.pagosDesglose[0].bancoNombre}</strong></span>
+                    )}
+                  </div>
+                )}
 
                 {/* Partidas de la Orden */}
                 <div className="pt-2 overflow-x-auto">
@@ -524,12 +566,94 @@ export function TicketCierreModal({
       {/* 3. Terminales TPV y Destino del Efectivo */}
       <div>
         <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 mb-2">
-          3. Terminales de Tarjeta y Destino del Efectivo
+          3. Terminales de Tarjeta (TPVs) y Destino del Efectivo
         </h2>
+        {/* Tabla Desglosada de Terminales TPV */}
+        <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs mb-3">
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-slate-50 border-b border-slate-200 text-[9.5px] uppercase font-bold text-slate-500">
+              <tr>
+                <th className="py-2.5 px-3.5 w-4/12">Terminal / Pasarela</th>
+                <th className="py-2.5 px-3.5 w-2/12">Modalidad</th>
+                <th className="py-2.5 px-3.5 text-center w-2/12">Transacciones</th>
+                <th className="py-2.5 px-3.5 text-right w-2/12">Comisión Absorbida</th>
+                <th className="py-2.5 px-3.5 text-right w-2/12">Monto Bruto</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-xs">
+              {teorico?.tarjetasTPV?.desglose && teorico.tarjetasTPV.desglose.length > 0 ? (
+                teorico.tarjetasTPV.desglose.map((t: any, idx: number) => (
+                  <tr key={idx} className="hover:bg-slate-50/50">
+                    <td className="py-2 px-3.5">
+                      <span className="font-bold text-slate-900 block">{t.metodo}</span>
+                      <span className="text-[10px] text-slate-400 block">{t.proveedor}</span>
+                    </td>
+                    <td className="py-2 px-3.5">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        t.plazo_msi ? "bg-purple-100 text-purple-900" : "bg-slate-100 text-slate-700"
+                      }`}>
+                        {t.modalidad}
+                      </span>
+                    </td>
+                    <td className="py-2 px-3.5 text-center font-bold text-slate-700 tabular-nums">
+                      {t.conteo} {t.conteo === 1 ? "voucher" : "vouchers"}
+                    </td>
+                    <td className="py-2 px-3.5 text-right font-medium text-rose-600 tabular-nums font-mono text-[11px]">
+                      {t.comision > 0 ? `-$${Number(t.comision).toLocaleString("es-MX", { minimumFractionDigits: 2 })}` : "$0.00"}
+                    </td>
+                    <td className="py-2 px-3.5 text-right font-bold tabular-nums font-mono text-slate-900">
+                      ${Number(t.bruto || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                ))
+              ) : Number(teorico?.tarjetasTPV?.total || 0) > 0 ? (
+                <tr className="hover:bg-slate-50/50">
+                  <td className="py-2 px-3.5 font-bold text-slate-900">Terminales de Cobro</td>
+                  <td className="py-2 px-3.5">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+                      Vouchers TPV
+                    </span>
+                  </td>
+                  <td className="py-2 px-3.5 text-center font-bold text-slate-700 tabular-nums">
+                    {teorico?.tarjetasTPV?.conteo || 0} vouchers
+                  </td>
+                  <td className="py-2 px-3.5 text-right font-medium text-slate-400 tabular-nums font-mono text-[11px]">
+                    $0.00
+                  </td>
+                  <td className="py-2 px-3.5 text-right font-bold tabular-nums font-mono text-slate-900">
+                    ${Number(teorico?.tarjetasTPV?.total || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                  </td>
+                </tr>
+              ) : (
+                <tr>
+                  <td colSpan={5} className="py-3 px-3.5 text-center text-slate-400">
+                    Sin cobros con tarjeta o terminal registrados en este turno
+                  </td>
+                </tr>
+              )}
+            </tbody>
+            {Number(teorico?.tarjetasTPV?.totalComisiones || 0) > 0 && (
+              <tfoot className="bg-slate-50/80 border-t border-slate-200 text-xs">
+                <tr>
+                  <td colSpan={3} className="py-2 px-3.5 font-bold text-slate-600 text-right">
+                    Comisiones Totales Absorbidas:
+                  </td>
+                  <td className="py-2 px-3.5 text-right font-bold text-rose-600 font-mono">
+                    -${Number(teorico?.tarjetasTPV?.totalComisiones || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                  </td>
+                  <td className="py-2 px-3.5 text-right font-bold text-slate-900 font-mono text-xs">
+                    Neto: ${Number(teorico?.tarjetasTPV?.totalNeto || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                  </td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
           <div className="border border-slate-200 p-3 rounded-xl bg-slate-50/60">
             <span className="text-[10px] text-slate-500 block uppercase font-bold">
-              Terminales Tarjeta
+              Total Tarjetas (Bruto)
             </span>
             <span className="font-bold text-slate-900 text-sm tabular-nums font-mono">
               ${Number(teorico?.tarjetasTPV?.total || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
@@ -795,6 +919,16 @@ export function TicketCierreModal({
       <div className="py-2 border-b border-dashed border-slate-300 text-[10px]">
         <div className="flex justify-between">
           <span>Terminales ({teorico?.tarjetasTPV?.conteo || 0}):</span>
+          {teorico?.tarjetasTPV?.desglose && teorico.tarjetasTPV.desglose.length > 0 && (
+            <div className="mt-1 space-y-0.5">
+              {teorico.tarjetasTPV.desglose.map((t: any, idx: number) => (
+                <div key={idx} className="text-[9px] text-slate-500 flex justify-between">
+                  <span>↳ {t.metodo} ({t.modalidad}):</span>
+                  <span>${Number(t.bruto).toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+          )}
           <span className="font-bold tabular-nums font-mono">
             ${Number(teorico?.tarjetasTPV?.total || 0).toFixed(2)}
           </span>
