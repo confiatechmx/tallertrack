@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useTenant } from "@/context/TenantContext";
 import { Loader2, Building2, UserCheck, Tag } from "lucide-react";
 
 export interface ClientFormData {
@@ -25,6 +26,7 @@ interface ClientFormProps {
 const PRESET_TAGS = ["vip", "flotilla", "frecuente", "credito", "corporativo"];
 
 export function ClientForm({ initialData, onSuccess, onCancel }: ClientFormProps) {
+  const { empresa } = useTenant();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -64,7 +66,7 @@ export function ClientForm({ initialData, onSuccess, onCancel }: ClientFormProps
     setLoading(true);
     setError("");
 
-    const payload = {
+    const payload: Record<string, any> = {
       nombre: formData.nombre.trim(),
       telefono: formData.telefono.trim(),
       correo: formData.correo.trim() || null,
@@ -85,6 +87,9 @@ export function ClientForm({ initialData, onSuccess, onCancel }: ClientFormProps
         .eq("id", initialData.id);
       dbError = updErr;
     } else {
+      if (empresa?.id) {
+        payload.empresa_id = empresa.id;
+      }
       const { error: insErr } = await supabase.from("clientes").insert(payload);
       dbError = insErr;
     }

@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { getTenantRedirectAfterLogin } from '@/lib/tenantServer'
+import { parseTenantFromHost } from '@/lib/tenantRouting'
 
 export async function login(formData: FormData) {
   const supabase = await createClient()
@@ -24,8 +25,6 @@ export async function login(formData: FormData) {
     redirect(`/login?message=${errorParam}${testDomainParam}`)
   }
 
-  revalidatePath('/', 'layout')
-
   if (authData?.user) {
     let host = ''
     try {
@@ -35,18 +34,76 @@ export async function login(formData: FormData) {
       // Sin headers activos
     }
 
+    const searchParamsObj = testDomain ? { test_domain: testDomain } : undefined
+    const tenantHost = parseTenantFromHost(host, searchParamsObj)
+
+    // Si el inicio de sesión ocurre desde un subdominio de tenant (ej. cova.tallertrack.com),
+    // validar que el usuario pertenezca a ese tenant o sea SuperAdmin
+    if (tenantHost.isTenantHost) {
+      const [{ data: domainRow }, { data: userPerfil }] = await Promise.all([
+        supabase
+          .from('tenant_domains')
+          .select('empresa_id')
+          .eq('domain', tenantHost.fullDomain)
+          .eq('verified', true)
+          .maybeSingle(),
+        supabase
+          .from('perfiles')
+          .select('empresa_id, rol')
+          .eq('id', authData.user.id)
+          .maybeSingle(),
+      ])
+
+      const hostEmpresaId = domainRow?.empresa_id || null
+      const isSuperAdmin =
+        userPerfil?.rol === 'SuperAdmin' || userPerfil?.rol === 'SUPERADMIN'
+
+      if (
+        hostEmpresaId &&
+        userPerfil?.empresa_id &&
+        !isSuperAdmin &&
+        userPerfil.empresa_id !== hostEmpresaId
+      ) {
+        await supabase.auth.signOut()
+        const errorParam = encodeURIComponent(
+          'Esta cuenta pertenece a otro taller. Ingresa con una cuenta autorizada para este taller.'
+        )
+        const testDomainParam = testDomain ? `&test_domain=${encodeURIComponent(testDomain)}` : ''
+        redirect(`/login?message=${errorParam}${testDomainParam}`)
+      }
+    }
+
+    revalidatePath('/', 'layout')
+
     const redirectUrl = await getTenantRedirectAfterLogin(
       authData.user.id,
       host,
-      testDomain ? { test_domain: testDomain } : undefined
+      searchParamsObj
     )
     redirect(redirectUrl)
   }
 
+  revalidatePath('/', 'layout')
   redirect('/tablero')
 }
 
 export async function loginDemo() {
+  let host = ''
+  try {
+    const headersList = await headers()
+    host = headersList.get('host') || ''
+  } catch {
+    // Sin headers activos
+  }
+
+  const tenantHost = parseTenantFromHost(host)
+  if (tenantHost.isTenantHost) {
+    const errorParam = encodeURIComponent(
+      'El modo Demo no está disponible en subdominios de talleres privados. Inicia sesión con tu cuenta.'
+    )
+    redirect(`/login?message=${errorParam}`)
+  }
+
   const supabase = await createClient()
 
   // Intento con credenciales oficiales TallerTrack

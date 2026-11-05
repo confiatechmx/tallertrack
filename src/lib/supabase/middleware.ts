@@ -67,35 +67,80 @@ export async function updateSession(request: NextRequest) {
 
   // 1. En subdominios de tenant (ej. cova.tallertrack.com o cova.localhost)
   if (tenantHost.isTenantHost) {
+    let activeUser = user
+
+    // Validación Zero-Trust: verificar que la sesión activa pertenezca realmente a este tenant (o sea SuperAdmin)
+    if (activeUser) {
+      const [{ data: domainRow }, { data: userPerfil }] = await Promise.all([
+        supabase
+          .from('tenant_domains')
+          .select('empresa_id')
+          .eq('domain', tenantHost.fullDomain)
+          .eq('verified', true)
+          .maybeSingle(),
+        supabase
+          .from('perfiles')
+          .select('empresa_id, rol')
+          .eq('id', activeUser.id)
+          .maybeSingle(),
+      ])
+
+      const hostEmpresaId = domainRow?.empresa_id || null
+      const isSuperAdmin =
+        userPerfil?.rol === 'SuperAdmin' || userPerfil?.rol === 'SUPERADMIN'
+
+      const isTenantMismatch = Boolean(
+        hostEmpresaId &&
+          userPerfil?.empresa_id &&
+          !isSuperAdmin &&
+          userPerfil.empresa_id !== hostEmpresaId
+      )
+
+      if (isTenantMismatch) {
+        // Cerrar inmediatamente la sesión cruzada (ej. sesión Demo de tallertrack.com al abrir cova.tallertrack.com)
+        await supabase.auth.signOut()
+        activeUser = null
+      }
+    }
+
+    // Helper para preservar cookies actualizadas/limpiadas al redirigir
+    const redirectWithCookies = (url: URL) => {
+      const redirectRes = NextResponse.redirect(url)
+      supabaseResponse.cookies.getAll().forEach((cookie) => {
+        redirectRes.cookies.set(cookie)
+      })
+      return redirectRes
+    }
+
     // Si entran a la raíz de su subdominio:
     if (pathname === '/') {
       const url = request.nextUrl.clone()
-      if (user) {
+      if (activeUser) {
         url.pathname = '/tablero'
       } else {
         url.pathname = '/login'
       }
-      return NextResponse.redirect(url)
+      return redirectWithCookies(url)
     }
 
-    // Si ya está autenticado y visita /login, enviar directo a su tablero
-    if (user && pathname === '/login') {
+    // Si ya está autenticado (en el tenant correcto) y visita /login, enviar directo a su tablero
+    if (activeUser && pathname === '/login') {
       const url = request.nextUrl.clone()
       url.pathname = '/tablero'
-      return NextResponse.redirect(url)
+      return redirectWithCookies(url)
     }
 
-    // Si no está autenticado y la ruta es protegida, enviar a /login
+    // Si no está autenticado (o su sesión cruzada fue revocada) y la ruta es protegida, enviar a /login
     const isPublicTenantRoute =
       pathname.startsWith('/login') ||
       pathname.startsWith('/auth') ||
       pathname.startsWith('/orden') ||
       pathname.startsWith('/api')
 
-    if (!user && !isPublicTenantRoute) {
+    if (!activeUser && !isPublicTenantRoute) {
       const url = request.nextUrl.clone()
       url.pathname = '/login'
-      return NextResponse.redirect(url)
+      return redirectWithCookies(url)
     }
 
     return supabaseResponse

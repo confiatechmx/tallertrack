@@ -244,21 +244,54 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
             email: user.email,
           };
           setPerfil(userProfile);
-          targetEmpresaId = perfData.empresa_id;
         }
+      } else {
+        setPerfil(null);
       }
 
-      // Si hay una sesión de impersonación activa, prevalece sobre el perfil
-      if (currentImpersonation?.targetEmpresaId) {
-        targetEmpresaId = currentImpersonation.targetEmpresaId;
-      } else if (domainInfo?.empresa_id) {
-        targetEmpresaId = domainInfo.empresa_id;
-      }
+      const isSuper =
+        userProfile?.rol === "SuperAdmin" || userProfile?.rol === "SUPERADMIN";
 
-      const hostCurrent = typeof window !== "undefined" ? window.location.hostname.toLowerCase() : "";
-      const isCovaHost = hostCurrent.includes("cova") || (domainInfo?.empresa?.subdominio === "cova");
-      if (isCovaHost && !currentImpersonation?.targetEmpresaId) {
-        targetEmpresaId = "b2ad09db-0a34-4876-9ca3-d584c40bd294";
+      if (userProfile) {
+        // Validación Zero-Trust en cliente: si el usuario NO es SuperAdmin y está en un subdominio
+        // que pertenece a otro taller, cerrar la sesión cruzada de inmediato y redirigir a /login
+        if (
+          !isSuper &&
+          domainInfo?.empresa_id &&
+          userProfile.empresa_id &&
+          userProfile.empresa_id !== domainInfo.empresa_id
+        ) {
+          await supabase.auth.signOut();
+          setPerfil(null);
+          if (typeof window !== "undefined") {
+            try {
+              localStorage.removeItem(CURRENT_EMPRESA_CACHE_KEY);
+            } catch {
+              // ignore
+            }
+            if (!window.location.pathname.startsWith("/login")) {
+              window.location.href = "/login";
+              return;
+            }
+          }
+        }
+
+        // El tenant activo para un usuario normal SIEMPRE es el de su propio perfil autenticado.
+        // Solo un SuperAdmin puede usar impersonación o cambiar de tenant por dominio.
+        if (isSuper) {
+          targetEmpresaId =
+            currentImpersonation?.targetEmpresaId ||
+            domainInfo?.empresa_id ||
+            userProfile.empresa_id;
+        } else {
+          targetEmpresaId = userProfile.empresa_id;
+        }
+      } else {
+        // Usuario no autenticado (ej. /login o vista pública de orden)
+        targetEmpresaId =
+          currentImpersonation?.targetEmpresaId ||
+          domainInfo?.empresa_id ||
+          null;
       }
 
       // Consultar empresa y sucursales
@@ -275,7 +308,9 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
       const { data: sucData } = await querySucursales;
 
       if (empData) {
-        const isCovaEmp = empData.id === "b2ad09db-0a34-4876-9ca3-d584c40bd294" || empData.subdominio === "cova" || isCovaHost;
+        const isCovaEmp =
+          empData.id === "b2ad09db-0a34-4876-9ca3-d584c40bd294" ||
+          empData.subdominio === "cova";
         const merged: EmpresaConfig = {
           ...DEFAULT_EMPRESA,
           ...empData,
@@ -314,9 +349,12 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
         activa: true,
       };
 
-      const finalSucList = (sucData && sucData.length > 0)
-        ? (sucData as Sucursal[])
-        : (isCovaHost || targetEmpresaId === "b2ad09db-0a34-4876-9ca3-d584c40bd294" ? [covaDefaultSucursal] : []);
+      const finalSucList =
+        sucData && sucData.length > 0
+          ? (sucData as Sucursal[])
+          : targetEmpresaId === "b2ad09db-0a34-4876-9ca3-d584c40bd294"
+            ? [covaDefaultSucursal]
+            : [];
 
       setSucursales(finalSucList);
       const savedBranch = typeof window !== "undefined" ? (localStorage.getItem("tallertrack_sucursal_id") || localStorage.getItem("autolisto_sucursal_id")) : null;

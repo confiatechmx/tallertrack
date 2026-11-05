@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useTenant } from "@/context/TenantContext";
 import { Loader2, Trash2, Car, Disc, Gauge } from "lucide-react";
 
 interface VehicleFormProps {
@@ -23,6 +24,7 @@ const COMMON_OEM_SIZES = [
 ];
 
 export function VehicleForm({ clientId, initialData, onSuccess, onCancel }: VehicleFormProps) {
+  const { empresa } = useTenant();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -57,12 +59,16 @@ export function VehicleForm({ clientId, initialData, onSuccess, onCancel }: Vehi
     setLoading(true);
     setError("");
 
-    const payload = {
+    const cleanPlacas = formData.placas
+      ? formData.placas.trim().replace(/\s+/g, "-").toUpperCase()
+      : null;
+
+    const payload: Record<string, any> = {
       cliente_id: clientId,
       marca: formData.marca.trim().toUpperCase(),
       modelo: formData.modelo.trim().toUpperCase(),
       anio: parseInt(formData.anio) || new Date().getFullYear(),
-      placas: formData.placas ? formData.placas.trim().replace(/\s+/g, "-").toUpperCase() : null,
+      placas: cleanPlacas && cleanPlacas !== "MOSTRADOR" ? cleanPlacas : null,
       vin: formData.vin ? formData.vin.trim().toUpperCase() : null,
       color: formData.color ? formData.color.trim() : null,
       kilometraje_actual: parseInt(formData.kilometraje_actual) || 0,
@@ -84,6 +90,9 @@ export function VehicleForm({ clientId, initialData, onSuccess, onCancel }: Vehi
         .eq("id", initialData.id);
       dbError = updErr;
     } else {
+      if (empresa?.id) {
+        payload.empresa_id = empresa.id;
+      }
       const { error: insErr } = await supabase.from("vehiculos").insert(payload);
       dbError = insErr;
     }

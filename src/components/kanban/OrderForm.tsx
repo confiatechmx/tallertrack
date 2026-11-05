@@ -112,24 +112,34 @@ export function OrderForm({
   useEffect(() => {
     async function loadInitialData() {
       setFetchingData(true);
-      const [{ data: clientsData }, { data: mechData }] = await Promise.all([
-        supabase
-          .from("clientes")
-          .select(
-            `
+
+      let clientsQuery = supabase
+        .from("clientes")
+        .select(
+          `
             id,
             nombre,
             telefono,
             vehiculos (id, marca, modelo, anio, placas, kilometraje_actual)
           `
-          )
-          .order("nombre", { ascending: true }),
-        supabase
-          .from("empleados")
-          .select("id, nombre, especialidad, rol")
-          .eq("rol", "Mecánico")
-          .eq("activo", true)
-          .order("nombre"),
+        )
+        .order("nombre", { ascending: true });
+
+      let mechQuery = supabase
+        .from("empleados")
+        .select("id, nombre, especialidad, rol")
+        .eq("rol", "Mecánico")
+        .eq("activo", true)
+        .order("nombre");
+
+      if (empresa?.id) {
+        clientsQuery = clientsQuery.eq("empresa_id", empresa.id);
+        mechQuery = mechQuery.eq("empresa_id", empresa.id);
+      }
+
+      const [{ data: clientsData }, { data: mechData }] = await Promise.all([
+        clientsQuery,
+        mechQuery,
       ]);
 
       if (clientsData) {
@@ -179,7 +189,7 @@ export function OrderForm({
       setFetchingData(false);
     }
     loadInitialData();
-  }, [initialClientId, initialVehicleId]);
+  }, [initialClientId, initialVehicleId, empresa?.id]);
 
   // Load unresolved trabajos_diferidos whenever selectedVehicleId changes
   useEffect(() => {
@@ -241,14 +251,18 @@ export function OrderForm({
       }
 
       // 1. Create client
+      const clientPayload: Record<string, any> = {
+        nombre: expressClientName.trim(),
+        telefono: expressClientPhone.trim(),
+        tags: ["Ingreso Express Mostrador"],
+      };
+      if (empresa?.id) {
+        clientPayload.empresa_id = empresa.id;
+      }
+
       const { data: newClient, error: clientErr } = await supabase
         .from("clientes")
-        .insert({
-          empresa_id: empresa?.id || null,
-          nombre: expressClientName.trim(),
-          telefono: expressClientPhone.trim(),
-          tags: ["Ingreso Express Mostrador"],
-        })
+        .insert(clientPayload)
         .select("id")
         .single();
 
@@ -259,16 +273,25 @@ export function OrderForm({
       }
 
       // 2. Create vehicle
+      const cleanPlacas = expressVehiclePlacas.trim().toUpperCase();
+      const normalizedPlacas =
+        cleanPlacas && cleanPlacas !== "MOSTRADOR" ? cleanPlacas : null;
+
+      const vehiclePayload: Record<string, any> = {
+        cliente_id: newClient.id,
+        marca: expressVehicleMarca.trim(),
+        modelo: expressVehicleModelo.trim(),
+        placas: normalizedPlacas,
+        anio: parseInt(expressVehicleAnio) || new Date().getFullYear(),
+        kilometraje_actual: kmIngreso || null,
+      };
+      if (empresa?.id) {
+        vehiclePayload.empresa_id = empresa.id;
+      }
+
       const { data: newVehicle, error: vehicleErr } = await supabase
         .from("vehiculos")
-        .insert({
-          cliente_id: newClient.id,
-          marca: expressVehicleMarca.trim(),
-          modelo: expressVehicleModelo.trim(),
-          placas: expressVehiclePlacas.trim().toUpperCase() || null,
-          anio: parseInt(expressVehicleAnio) || new Date().getFullYear(),
-          kilometraje_actual: kmIngreso || null,
-        })
+        .insert(vehiclePayload)
         .select("id")
         .single();
 
@@ -295,22 +318,27 @@ export function OrderForm({
       fecha_ingreso: new Date().toISOString(),
     };
 
+    const orderPayload: Record<string, any> = {
+      vehiculo_id: targetVehicleId,
+      sucursal_id: formData.sucursal_id || sucursalActiva?.id || sucursales[0]?.id || null,
+      mecanico_id: formData.mecanico_id || null,
+      bahia_rampa: formData.bahia_rampa || null,
+      prioridad: formData.prioridad || "normal",
+      nivel_gasolina: formData.nivel_gasolina,
+      kilometraje_ingreso: kmIngreso,
+      problema_reportado: formData.problema_reportado || formData.notas_recepcion || null,
+      notas_recepcion: formData.notas_recepcion || formData.problema_reportado || null,
+      checklist_recepcion: initialChecklist,
+      estado: initialEstado,
+      sub_estado: "Activa",
+    };
+    if (empresa?.id) {
+      orderPayload.empresa_id = empresa.id;
+    }
+
     const { data: createdOrder, error: dbError } = await supabase
       .from("ordenes_servicio")
-      .insert({
-        vehiculo_id: targetVehicleId,
-        sucursal_id: formData.sucursal_id || sucursalActiva?.id || sucursales[0]?.id || null,
-        mecanico_id: formData.mecanico_id || null,
-        bahia_rampa: formData.bahia_rampa || null,
-        prioridad: formData.prioridad || "normal",
-        nivel_gasolina: formData.nivel_gasolina,
-        kilometraje_ingreso: kmIngreso,
-        problema_reportado: formData.problema_reportado || formData.notas_recepcion || null,
-        notas_recepcion: formData.notas_recepcion || formData.problema_reportado || null,
-        checklist_recepcion: initialChecklist,
-        estado: initialEstado,
-        sub_estado: "Activa",
-      })
+      .insert(orderPayload)
       .select("id")
       .single();
 
@@ -340,6 +368,7 @@ export function OrderForm({
         const costoUnit = Math.round((precioVenta / (1 + margenDefault / 100)) * 100) / 100;
 
         await supabase.from("orden_servicio_refacciones").insert({
+          ...(empresa?.id ? { empresa_id: empresa.id } : {}),
           orden_servicio_id: createdOrder.id,
           nombre: item.concepto,
           numero_parte: "DIF-PEND",

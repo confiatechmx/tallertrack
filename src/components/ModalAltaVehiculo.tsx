@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/client';
+import { useTenant } from '@/context/TenantContext';
 import { X, Car, Check, Loader2 } from 'lucide-react';
 
 interface ModalAltaVehiculoProps {
@@ -19,6 +20,7 @@ export default function ModalAltaVehiculo({
   clienteId,
   clienteNombre
 }: ModalAltaVehiculoProps) {
+  const { empresa } = useTenant();
   const [loading, setLoading] = useState(false);
 
   // Form states
@@ -42,21 +44,28 @@ export default function ModalAltaVehiculo({
         return;
       }
 
+      const supabase = createClient();
+      const cleanPlacas = placas.toUpperCase().trim();
+      const vehiclePayload: Record<string, any> = {
+        cliente_id: clienteId,
+        marca: marca.trim(),
+        modelo: modelo.trim(),
+        anio: anio,
+        placas: cleanPlacas && cleanPlacas !== 'MOSTRADOR' ? cleanPlacas : null,
+        vin: vin.trim() || null,
+        kilometraje_actual: kilometraje,
+        presion_delantera_psi: 32,
+        presion_trasera_psi: 32,
+        medida_oem: '205/55 R16',
+      };
+      if (empresa?.id) {
+        vehiclePayload.empresa_id = empresa.id;
+      }
+
       // Create vehicle linked to the selected client
       const { data: vehicle, error: vErr } = await supabase
         .from('vehiculos')
-        .insert({
-          cliente_id: clienteId,
-          marca: marca.trim(),
-          modelo: modelo.trim(),
-          anio: anio,
-          placas: placas.toUpperCase().trim(),
-          vin: vin.trim() || null,
-          kilometraje_actual: kilometraje,
-          presion_delantera_psi: 32,
-          presion_trasera_psi: 32,
-          medida_oem: '205/55 R16'
-        })
+        .insert(vehiclePayload)
         .select()
         .single();
 
