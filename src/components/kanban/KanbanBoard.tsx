@@ -67,7 +67,7 @@ function SkeletonCard() {
 export function KanbanBoard() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { sucursalActiva, sucursales } = useTenant();
+  const { empresa, sucursalActiva, sucursales } = useTenant();
 
   const [columns] = useState(defaultColumns);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -170,8 +170,8 @@ export function KanbanBoard() {
           )
         `
         )
-        .order("folio", { ascending: false }),
-      supabase.from("empleados").select("id, nombre, color_avatar, rol").eq("activo", true),
+        .eq("empresa_id", empresa?.id || "b2ad09db-0a34-4876-9ca3-d584c40bd294").order("folio", { ascending: false }),
+      supabase.from("empleados").select("id, nombre, color_avatar, rol").eq("empresa_id", empresa?.id || "b2ad09db-0a34-4876-9ca3-d584c40bd294").eq("activo", true),
     ]);
 
     if (empData) {
@@ -263,7 +263,7 @@ export function KanbanBoard() {
       setOrders(formattedOrders);
     }
     setLoading(false);
-  }, [sucursales]);
+  }, [empresa?.id, sucursales]);
 
   useEffect(() => {
     fetchOrders();

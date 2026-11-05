@@ -177,7 +177,7 @@ export default function CajaPage() {
     concepto: "",
     monto: "",
     metodo: "Efectivo",
-    responsable: "Alejandro Villarreal",
+    responsable: "Eduardo",
     cajaFondoId: "",
     proveedorId: "",
     folioTicket: "",
@@ -308,12 +308,6 @@ export default function CajaPage() {
         `)
         .order("created_at", { ascending: false });
 
-      if (sucursalActiva) {
-        ordQuery = ordQuery.eq("sucursal_id", sucursalActiva.id);
-        pagosQuery = pagosQuery.eq("sucursal_id", sucursalActiva.id);
-        movQuery = movQuery.eq("sucursal_id", sucursalActiva.id);
-      }
-
       const isCova = (empresa?.subdominio === "cova") || (empresa?.nombre_comercial || "").toLowerCase().includes("cova") || (typeof window !== "undefined" && window.location.hostname.includes("cova"));
       const targetSucId =
         sucursalActiva?.id ||
@@ -322,6 +316,12 @@ export default function CajaPage() {
       const targetEmpresaId =
         empresa?.id ||
         (isCova ? "b2ad09db-0a34-4876-9ca3-d584c40bd294" : undefined);
+
+      if (targetSucId) {
+        ordQuery = ordQuery.eq("sucursal_id", targetSucId);
+        pagosQuery = pagosQuery.eq("sucursal_id", targetSucId);
+        movQuery = movQuery.eq("sucursal_id", targetSucId);
+      }
 
       const [ordRes, pagRes, movRes, empRes, cfgRes, shiftRes, fondosRes, bankRes, histRes, metodosRes] = await Promise.all([
         ordQuery,

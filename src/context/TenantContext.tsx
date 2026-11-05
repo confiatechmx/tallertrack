@@ -295,7 +295,7 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Consultar empresa y sucursales
-      let queryEmpresa = supabase.from("empresas").select("*");
+      let queryEmpresa = supabase.from("empresas").select("*").eq("id", targetEmpresaId || DEFAULT_EMPRESA.id);
       if (targetEmpresaId) {
         queryEmpresa = queryEmpresa.eq("id", targetEmpresaId);
       }

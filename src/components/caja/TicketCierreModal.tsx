@@ -55,6 +55,7 @@ export function TicketCierreModal({
   const [vista, setVista] = useState<VistaCorte>("VENTAS");
   const [mounted, setMounted] = useState(false);
   const [loadingDetalle, setLoadingDetalle] = useState(false);
+  const [resumenCalculado, setResumenCalculado] = useState<any>(null);
   const [detalleTurno, setDetalleTurno] = useState<TurnoDetalleCompleto>({
     ventas: [],
     gastos: [],
@@ -79,6 +80,9 @@ export function TicketCierreModal({
   useEffect(() => {
     if (isOpen && cierreData?.turno_id) {
       setLoadingDetalle(true);
+      CajaTurnoService.calcularResumenTeoricoTurno(cierreData.turno_id).then((resT) => {
+        if (resT) setResumenCalculado(resT);
+      });
       CajaTurnoService.obtenerDetalleTurnoCompleto(cierreData.turno_id)
         .then((data) => {
           setDetalleTurno(data);
@@ -123,7 +127,7 @@ export function TicketCierreModal({
   const difF2 = Number(cierreData.diferenciaF2 || 0);
   const remesa = Number(cierreData.remesa || 0);
   const fondoSig = Number(cierreData.fondoSiguiente || 0);
-  const teorico = cierreData.resumenTeorico;
+  const teorico = cierreData.resumenTeorico?.fondo1 ? cierreData.resumenTeorico : (resumenCalculado || cierreData.resumenTeorico);
   const primaryColor = empresa?.color_primario || "#1C3EFF";
 
   const handlePrint = () => {
@@ -138,7 +142,7 @@ export function TicketCierreModal({
       cajeroNombre,
       fechaTurno: fechaStr,
       turnoId: cierreData.turno_id,
-      cierreData,
+      cierreData: { ...cierreData, resumenTeorico: teorico },
       detalleTurno,
     });
   };

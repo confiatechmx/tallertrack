@@ -568,22 +568,48 @@ export const CajaTurnoService = {
     const f2Id = f2?.id;
 
     // 1. Pagos de ordenes durante el turno
-    const { data: pagosData } = await supabase
+    let pagosQ = supabase
       .from("pagos_orden")
       .select("*")
       .eq("sucursal_id", turno.sucursal_id)
       .in("estatus", ["Aprobado", "COMPLETADO"])
-      .is("deleted_at", null)
-      .gte("fecha_pago", turno.fecha_apertura);
+      .is("deleted_at", null);
+    if (turno.fecha_apertura) {
+      if (turno.fecha_cierre) {
+        pagosQ = pagosQ.or(
+          `caja_turno_id.eq.${turno.id},and(fecha_pago.gte.${turno.fecha_apertura},fecha_pago.lte.${turno.fecha_cierre})`
+        );
+      } else {
+        pagosQ = pagosQ.or(
+          `caja_turno_id.eq.${turno.id},fecha_pago.gte.${turno.fecha_apertura}`
+        );
+      }
+    } else {
+      pagosQ = pagosQ.eq("caja_turno_id", turno.id);
+    }
+    const { data: pagosData } = await pagosQ;
 
     const pagos = pagosData || [];
 
     // 2. Movimientos de caja chica (Gastos / Insumos / etc.)
-    const { data: movsData } = await supabase
+    let movsQ = supabase
       .from("caja_movimientos")
       .select("*")
-      .eq("sucursal_id", turno.sucursal_id)
-      .gte("created_at", turno.fecha_apertura);
+      .eq("sucursal_id", turno.sucursal_id);
+    if (turno.fecha_apertura) {
+      if (turno.fecha_cierre) {
+        movsQ = movsQ.or(
+          `caja_turno_id.eq.${turno.id},and(created_at.gte.${turno.fecha_apertura},created_at.lte.${turno.fecha_cierre})`
+        );
+      } else {
+        movsQ = movsQ.or(
+          `caja_turno_id.eq.${turno.id},created_at.gte.${turno.fecha_apertura}`
+        );
+      }
+    } else {
+      movsQ = movsQ.eq("caja_turno_id", turno.id);
+    }
+    const { data: movsData } = await movsQ;
 
     const movimientos = movsData || [];
 
@@ -603,7 +629,7 @@ export const CajaTurnoService = {
     const entradasExtrasF1 = movimientos
       .filter(
         (m) =>
-          ["Fondo Inicial", "Ingreso Extra", "Reposición de Fondo", "INGRESO"].includes(m.tipo) &&
+          ["Ingreso Extra", "Reposición de Fondo", "INGRESO"].includes(m.tipo) &&
           (!m.caja_fondo_id || m.caja_fondo_id === f1Id)
       )
       .reduce((sum, m) => sum + Number(m.monto || 0), 0);
@@ -721,6 +747,29 @@ export const CajaTurnoService = {
       totalVentasTurno,
       cantidadTransacciones: pagos.length,
     };
+  },
+
+  /**
+   * Calcula el resumen teórico de un turno a partir de su ID (útil para turnos cerrados en Historial)
+   */
+  async calcularResumenTeoricoTurno(turnoId: string): Promise<ResumenTurnoTeorico | null> {
+    try {
+      const { data: turno } = await supabase
+        .from("caja_turnos")
+        .select("*")
+        .eq("id", turnoId)
+        .maybeSingle();
+      if (!turno) return null;
+
+      const [fondos, cuentas] = await Promise.all([
+        this.obtenerFondos(turno.sucursal_id, turno.empresa_id),
+        this.obtenerCuentasBancarias(turno.empresa_id),
+      ]);
+      return await this.calcularResumenTeorico(turno as CajaTurno, fondos, cuentas);
+    } catch (err) {
+      console.error("Error al calcular resumen teórico por turnoId:", err);
+      return null;
+    }
   },
 
   /**
@@ -1142,7 +1191,9 @@ export const CajaTurnoService = {
         ventas.push({
           ordenId,
           folio: ord?.folio || 0,
-          folioStr: ord?.folio ? `#${ord.folio}` : `#${ordenId.substring(0, 6)}`,
+          folioStr: ord?.folio
+            ? `#${Number(ord.folio) >= 1000 ? Number(ord.folio) : 1000 + Number(ord.folio)}`
+            : `#${ordenId.substring(0, 6)}`,
           clienteNombre: c?.nombre || c?.nombre_completo || "Público General",
           clienteTelefono: c?.telefono || "-",
           vehiculoDesc,
