@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { NextRequest } from 'next/server'
 import { parseTenantFromHost, getTenantCookieDomain } from '../lib/tenantRouting'
 import { getTenantRedirectAfterLogin } from '../lib/tenantServer'
+import { updateSession } from '../lib/supabase/middleware'
 
 // Mock next/headers
 vi.mock('next/headers', () => ({
@@ -14,10 +16,18 @@ vi.mock('next/headers', () => ({
 // Mock Supabase Server Client
 const mockSupabase = {
   from: vi.fn(),
+  auth: {
+    getUser: vi.fn(),
+    signOut: vi.fn(),
+  },
 }
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(async () => mockSupabase),
+}))
+
+vi.mock('@supabase/ssr', () => ({
+  createServerClient: vi.fn(() => mockSupabase),
 }))
 
 describe('Tenant Subdomain & Domain Routing Engine', () => {
@@ -189,6 +199,104 @@ describe('Tenant Subdomain & Domain Routing Engine', () => {
 
       const redirectUrl = await getTenantRedirectAfterLogin('user-123', 'localhost:3000')
       expect(redirectUrl).toBe('/tablero?test_domain=cova.tallertrack.com')
+    })
+  })
+
+  describe('Zero-Trust Cross-Tenant Session Isolation in Middleware', () => {
+    beforeEach(() => {
+      vi.clearAllMocks()
+    })
+
+    it('revokes session and redirects to /login when a Demo user (Torque & Ruta) visits cova.tallertrack.com', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: { id: 'd0000000-0000-0000-0000-000000000001' } },
+      })
+      mockSupabase.auth.signOut.mockResolvedValue({ error: null })
+
+      mockSupabase.from.mockImplementation((table: string) => {
+        if (table === 'tenant_domains') {
+          return {
+            select: () => ({
+              eq: () => ({
+                eq: () => ({
+                  maybeSingle: async () => ({
+                    data: { empresa_id: 'b2ad09db-0a34-4876-9ca3-d584c40bd294' }, // Cova
+                  }),
+                }),
+              }),
+            }),
+          }
+        }
+        if (table === 'perfiles') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: {
+                    empresa_id: 'a0000000-0000-0000-0000-000000000001', // Demo (Torque & Ruta)
+                    rol: 'Administrador',
+                  },
+                }),
+              }),
+            }),
+          }
+        }
+        return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) }
+      })
+
+      const req = new NextRequest('https://cova.tallertrack.com/clientes', {
+        headers: { host: 'cova.tallertrack.com' },
+      })
+
+      const res = await updateSession(req)
+      expect(mockSupabase.auth.signOut).toHaveBeenCalledTimes(1)
+      expect(res.status).toBe(307)
+      expect(res.headers.get('location')).toBe('https://cova.tallertrack.com/login')
+    })
+
+    it('allows SuperAdmin to access any tenant subdomain without signing out', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: { id: '6864a8d9-88de-4d5c-ba65-df6a5d7b6137' } },
+      })
+
+      mockSupabase.from.mockImplementation((table: string) => {
+        if (table === 'tenant_domains') {
+          return {
+            select: () => ({
+              eq: () => ({
+                eq: () => ({
+                  maybeSingle: async () => ({
+                    data: { empresa_id: 'a0000000-0000-0000-0000-000000000001' },
+                  }),
+                }),
+              }),
+            }),
+          }
+        }
+        if (table === 'perfiles') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: {
+                    empresa_id: 'b2ad09db-0a34-4876-9ca3-d584c40bd294',
+                    rol: 'SuperAdmin',
+                  },
+                }),
+              }),
+            }),
+          }
+        }
+        return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) }
+      })
+
+      const req = new NextRequest('https://torqueyruta.tallertrack.com/clientes', {
+        headers: { host: 'torqueyruta.tallertrack.com' },
+      })
+
+      const res = await updateSession(req)
+      expect(mockSupabase.auth.signOut).not.toHaveBeenCalled()
+      expect(res.status).toBe(200)
     })
   })
 })

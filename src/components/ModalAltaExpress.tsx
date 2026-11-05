@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { supabase } from '@/lib/supabase';
-import { X, UserPlus, Car, Check, Loader2 } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
+import { useTenant } from '@/context/TenantContext';
+import { X, UserPlus, Check, Loader2 } from 'lucide-react';
 
 interface ModalAltaExpressProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface ModalAltaExpressProps {
 }
 
 export default function ModalAltaExpress({ isOpen, onClose, onSuccess }: ModalAltaExpressProps) {
+  const { empresa } = useTenant();
   const [loading, setLoading] = useState(false);
 
   // Form states
@@ -54,33 +56,46 @@ export default function ModalAltaExpress({ isOpen, onClose, onSuccess }: ModalAl
         return;
       }
 
+      const supabase = createClient();
+
+      const clientPayload: Record<string, any> = {
+        nombre: nombre.trim(),
+        telefono: cleanPhone,
+        correo: correo.trim() || null,
+      };
+      if (empresa?.id) {
+        clientPayload.empresa_id = empresa.id;
+      }
+
       // 1. Create client in Supabase
       const { data: client, error: cErr } = await supabase
         .from('clientes')
-        .insert({
-          nombre: nombre,
-          telefono: cleanPhone,
-          correo: correo || null
-        })
+        .insert(clientPayload)
         .select()
         .single();
 
       if (cErr) throw cErr;
 
+      const cleanPlacas = placas.toUpperCase().trim();
+      const vehiclePayload: Record<string, any> = {
+        cliente_id: client.id,
+        marca: marca.trim(),
+        modelo: modelo.trim(),
+        anio: anio,
+        placas: cleanPlacas && cleanPlacas !== 'MOSTRADOR' ? cleanPlacas : null,
+        kilometraje_actual: kilometraje,
+        presion_delantera_psi: 32,
+        presion_trasera_psi: 32,
+        medida_oem: '205/55 R16',
+      };
+      if (empresa?.id) {
+        vehiclePayload.empresa_id = empresa.id;
+      }
+
       // 2. Create vehicle linked to client
       const { data: vehicle, error: vErr } = await supabase
         .from('vehiculos')
-        .insert({
-          cliente_id: client.id,
-          marca: marca,
-          modelo: modelo,
-          anio: anio,
-          placas: placas.toUpperCase().trim(),
-          kilometraje_actual: kilometraje,
-          presion_delantera_psi: 32,
-          presion_trasera_psi: 32,
-          medida_oem: '205/55 R16'
-        })
+        .insert(vehiclePayload)
         .select()
         .single();
 

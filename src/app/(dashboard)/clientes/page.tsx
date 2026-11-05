@@ -19,6 +19,7 @@ import {
   UserCheck
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useTenant } from "@/context/TenantContext";
 import { Modal } from "@/components/ui/Modal";
 import { ClientForm, ClientFormData } from "@/components/clientes/ClientForm";
 import { VehicleForm } from "@/components/clientes/VehicleForm";
@@ -116,6 +117,7 @@ function SkeletonRow() {
 }
 
 export default function ClientesPage() {
+  const { empresa } = useTenant();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
@@ -131,11 +133,10 @@ export default function ClientesPage() {
     setLoading(true);
     const supabase = createClient();
 
-    const [{ data: clientData, error: clientError }, { data: deferredData }] = await Promise.all([
-      supabase
-        .from("clientes")
-        .select(
-          `
+    let clientQuery = supabase
+      .from("clientes")
+      .select(
+        `
           id,
           nombre,
           telefono,
@@ -160,12 +161,22 @@ export default function ClientesPage() {
             presion_trasera_psi
           )
         `
-        )
-        .order("fecha_registro", { ascending: false }),
-      supabase
-        .from("trabajos_diferidos")
-        .select("id, vehiculo_id, cliente_id, concepto, severidad, costo_estimado, resuelto")
-        .eq("resuelto", false),
+      )
+      .order("fecha_registro", { ascending: false });
+
+    let deferredQuery = supabase
+      .from("trabajos_diferidos")
+      .select("id, vehiculo_id, cliente_id, concepto, severidad, costo_estimado, resuelto")
+      .eq("resuelto", false);
+
+    if (empresa?.id) {
+      clientQuery = clientQuery.eq("empresa_id", empresa.id);
+      deferredQuery = deferredQuery.eq("empresa_id", empresa.id);
+    }
+
+    const [{ data: clientData, error: clientError }, { data: deferredData }] = await Promise.all([
+      clientQuery,
+      deferredQuery,
     ]);
 
     if (clientError) {
@@ -204,7 +215,7 @@ export default function ClientesPage() {
       setClients(formatted);
     }
     setLoading(false);
-  }, []);
+  }, [empresa?.id]);
 
   useEffect(() => {
     fetchClients();
@@ -466,7 +477,7 @@ export default function ClientesPage() {
                             {waPhone && (
                               <a
                                 href={`https://wa.me/${waPhone}?text=${encodeURIComponent(
-                                  `Hola ${client.nombre}, te contactamos de Cova Centro Automotriz.`
+                                  `Hola ${client.nombre}, te contactamos de ${empresa?.nombre_comercial || "nuestro taller"}.`
                                 )}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
