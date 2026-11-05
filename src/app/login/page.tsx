@@ -7,12 +7,12 @@ import {
   Play,
   Wrench,
   ShieldCheck,
-  Building2,
   Lock,
 } from "lucide-react";
 import TallerTrackLogo from "@/components/brand/TallerTrackLogo";
 import TenantBrandLogo from "@/components/brand/TenantBrandLogo";
 import { resolveTenantServer } from "@/lib/tenantServer";
+import { parseTenantFromHost } from "@/lib/tenantRouting";
 
 export default async function LoginPage({
   searchParams,
@@ -22,10 +22,16 @@ export default async function LoginPage({
   const resolvedParams = await searchParams;
   const headersList = await headers();
   const host = headersList.get("host") || "";
+  const hostInfo = parseTenantFromHost(host, resolvedParams);
   const tenant = await resolveTenantServer(host, resolvedParams);
+  const isTenantPortal = Boolean(tenant || hostInfo.isTenantHost);
 
   const primaryColor = tenant?.empresa?.color_primario || "#2563EB";
-  const brandName = tenant?.empresa?.nombre_comercial || "TallerTrack";
+  const brandName =
+    tenant?.empresa?.nombre_comercial ||
+    (hostInfo.subdomain
+      ? hostInfo.subdomain.charAt(0).toUpperCase() + hostInfo.subdomain.slice(1)
+      : "TallerTrack");
 
   return (
     <div className="min-h-screen w-full bg-[#0F172A] flex flex-col lg:flex-row">
@@ -49,7 +55,7 @@ export default async function LoginPage({
             <TallerTrackLogo variant="dark" size="lg" />
           )}
 
-          {tenant ? (
+          {isTenantPortal ? (
             <a
               href="https://tallertrack.com"
               target="_blank"
@@ -71,18 +77,18 @@ export default async function LoginPage({
         <div className="relative z-10 max-w-lg space-y-8 my-auto py-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            {tenant ? `Portal Dedicado • ${brandName}` : "Control Integral de Taller y Llantera"}
+            {isTenantPortal ? `Portal Dedicado • ${brandName}` : "Control Integral de Taller y Llantera"}
           </div>
 
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight font-heading">
-            {tenant
+            {isTenantPortal
               ? `Centro de mando operativo de ${brandName}.`
               : "El sistema operativo para talleres mecánicos y llanteras de alto rendimiento."}
           </h1>
 
           <p className="text-sm text-slate-300 leading-relaxed font-normal">
-            {tenant
-              ? tenant.empresa?.eslogan ||
+            {isTenantPortal
+              ? tenant?.empresa?.eslogan ||
                 "Control integral de órdenes de servicio, recepción vehicular con evidencia fotográfica (DVI), inventario de neumáticos y cortes de caja."
               : "Controla tus bahías en tiempo real, envía inspecciones digitales (DVI) por WhatsApp con aprobación en 1 clic, calcula márgenes de refacciones y liquida comisiones de mecánicos con total transparencia."}
           </p>
@@ -126,9 +132,11 @@ export default async function LoginPage({
         <div className="relative z-10 flex items-center justify-between text-xs text-slate-500 border-t border-slate-800/80 pt-6">
           <span className="flex items-center gap-1.5">
             <ShieldCheck size={14} className="text-emerald-500" />
-            {tenant ? `Aislamiento Multi-Tenant • ${tenant.domain}` : "Aislamiento de Datos Multi-Tenant (RLS)"}
+            {isTenantPortal
+              ? `Aislamiento Multi-Tenant • ${tenant?.domain || hostInfo.fullDomain}`
+              : "Aislamiento de Datos Multi-Tenant (RLS)"}
           </span>
-          <span>{tenant ? "Culiacán, Sin. • México" : "México"}</span>
+          <span>{isTenantPortal ? "Culiacán, Sin. • México" : "México"}</span>
         </div>
       </div>
 
@@ -148,7 +156,7 @@ export default async function LoginPage({
             <TallerTrackLogo variant="light" size="md" />
           )}
 
-          {!tenant && (
+          {!isTenantPortal && (
             <Link
               href="/"
               className="text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1"
@@ -165,14 +173,14 @@ export default async function LoginPage({
               Iniciar Sesión
             </h2>
             <p className="text-xs text-slate-500">
-              {tenant
+              {isTenantPortal
                 ? `Ingresa con tus credenciales asignadas para ${brandName}.`
                 : "Ingresa al centro de mando operativo de tu taller o llantera."}
             </p>
           </div>
 
-          {/* 1-Click Instant Demo Card (ONLY shown on generic TallerTrack platform, NOT on tenant subdomains) */}
-          {!tenant && (
+          {/* 1-Click Instant Demo Card (ONLY shown on generic TallerTrack platform, NEVER on tenant subdomains) */}
+          {!isTenantPortal && (
             <>
               <div className="bg-white border-2 border-blue-600/90 rounded-2xl p-5 shadow-sm space-y-3 relative overflow-hidden">
                 <div className="absolute top-0 right-0 bg-blue-600 text-white text-[9px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-bl-lg">
@@ -229,7 +237,11 @@ export default async function LoginPage({
                 id="email"
                 name="email"
                 type="email"
-                placeholder={tenant ? `usuario@${tenant.empresa?.subdominio || 'taller'}.com` : "tu-correo@taller.com"}
+                placeholder={
+                  isTenantPortal
+                    ? `usuario@${tenant?.empresa?.subdominio || hostInfo.subdomain || "taller"}.com`
+                    : "tu-correo@taller.com"
+                }
                 autoComplete="email"
                 required
                 className="border border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 rounded-xl bg-white text-xs p-3 w-full transition-all text-slate-900 outline-none"
@@ -258,13 +270,13 @@ export default async function LoginPage({
 
             <button
               formAction={login}
-              style={tenant ? { backgroundColor: primaryColor } : undefined}
+              style={isTenantPortal ? { backgroundColor: primaryColor } : undefined}
               className={`w-full ${
-                tenant ? "hover:opacity-95" : "bg-slate-900 hover:bg-slate-800"
+                isTenantPortal ? "hover:opacity-95" : "bg-slate-900 hover:bg-slate-800"
               } text-white rounded-xl px-4 py-2.5 text-xs font-semibold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-2`}
             >
               <Lock size={13} />
-              {tenant ? `Ingresar a ${brandName}` : "Iniciar Sesión"}
+              {isTenantPortal ? `Ingresar a ${brandName}` : "Iniciar Sesión"}
             </button>
 
             {resolvedParams?.message && (
@@ -276,7 +288,7 @@ export default async function LoginPage({
 
           {/* Footer note */}
           <div className="text-center text-xs text-slate-400">
-            {tenant ? (
+            {isTenantPortal ? (
               <span>
                 Acceso restringido a personal de{" "}
                 <strong className="text-slate-600">{brandName}</strong>. En caso de dudas, contacta a tu administrador.

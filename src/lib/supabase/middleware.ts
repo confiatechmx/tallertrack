@@ -63,6 +63,34 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
+  // Si no hay sesión válida pero el navegador envió cookies sb-* obsoletas/revocadas, limpiarlas
+  if (!user) {
+    const staleAuthCookies = request.cookies
+      .getAll()
+      .filter((c) => c.name.startsWith('sb-'))
+    if (staleAuthCookies.length > 0) {
+      staleAuthCookies.forEach((c) => {
+        supabaseResponse.cookies.set(c.name, '', { path: '/', maxAge: 0 })
+        if (cookieDomain) {
+          supabaseResponse.cookies.set(c.name, '', {
+            path: '/',
+            domain: cookieDomain,
+            maxAge: 0,
+          })
+        }
+      })
+    }
+  }
+
+  // Helper para preservar cookies actualizadas/limpiadas al redirigir
+  const redirectWithCookies = (url: URL) => {
+    const redirectRes = NextResponse.redirect(url)
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      redirectRes.cookies.set(cookie)
+    })
+    return redirectRes
+  }
+
   const pathname = request.nextUrl.pathname
 
   // 1. En subdominios de tenant (ej. cova.tallertrack.com o cova.localhost)
@@ -101,15 +129,6 @@ export async function updateSession(request: NextRequest) {
         await supabase.auth.signOut()
         activeUser = null
       }
-    }
-
-    // Helper para preservar cookies actualizadas/limpiadas al redirigir
-    const redirectWithCookies = (url: URL) => {
-      const redirectRes = NextResponse.redirect(url)
-      supabaseResponse.cookies.getAll().forEach((cookie) => {
-        redirectRes.cookies.set(cookie)
-      })
-      return redirectRes
     }
 
     // Si entran a la raíz de su subdominio:
@@ -157,14 +176,14 @@ export async function updateSession(request: NextRequest) {
   if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    return NextResponse.redirect(url)
+    return redirectWithCookies(url)
   }
 
   // Si ya tiene sesión activa en el sitio principal y visita /login, mandarlo al dashboard
   if (user && pathname === '/login') {
     const url = request.nextUrl.clone()
     url.pathname = '/tablero'
-    return NextResponse.redirect(url)
+    return redirectWithCookies(url)
   }
 
   return supabaseResponse

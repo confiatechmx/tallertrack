@@ -10,7 +10,7 @@ import { parseTenantFromHost } from '@/lib/tenantRouting'
 export async function login(formData: FormData) {
   const supabase = await createClient()
 
-  const email = (formData.get('email') as string) || ''
+  const email = ((formData.get('email') as string) || '').trim()
   const password = (formData.get('password') as string) || ''
   const testDomain = (formData.get('test_domain') as string) || undefined
 

@@ -56,18 +56,22 @@ export const tenantDomainService = {
         if (cached) {
           try {
             const parsed = JSON.parse(cached) as TenantDomainInfo
-            if (parsed.custom_theme?.app_title && typeof document !== 'undefined') {
-              document.title = `${parsed.custom_theme.app_title} | TallerTrack`
+            if (parsed && parsed.empresa?.id) {
+              if (parsed.custom_theme?.app_title && typeof document !== 'undefined') {
+                document.title = `${parsed.custom_theme.app_title} | TallerTrack`
+              }
+              if (parsed.custom_theme?.primary_color || parsed.custom_theme?.sidebar_color) {
+                applyThemeCssVariables(
+                  parsed.custom_theme.primary_color || '#2563EB',
+                  parsed.custom_theme.sidebar_color || '#0F172A'
+                )
+              }
+              const fav = parsed.custom_theme?.favicon_url || parsed.custom_theme?.logo_url || parsed.empresa?.logo_url
+              if (fav) this.aplicarFavicon(fav)
+              return parsed
+            } else {
+              sessionStorage.removeItem(cacheKey)
             }
-            if (parsed.custom_theme?.primary_color || parsed.custom_theme?.sidebar_color) {
-              applyThemeCssVariables(
-                parsed.custom_theme.primary_color || '#2563EB',
-                parsed.custom_theme.sidebar_color || '#0F172A'
-              )
-            }
-            const fav = parsed.custom_theme?.favicon_url || parsed.custom_theme?.logo_url || parsed.empresa?.logo_url
-            if (fav) this.aplicarFavicon(fav)
-            return parsed
           } catch (e) {
             console.warn('Error leyendo cache de dominio:', e)
           }
@@ -87,7 +91,7 @@ export const tenantDomainService = {
 
       if (!error && data) {
         const result = data as unknown as TenantDomainInfo
-        if (typeof sessionStorage !== 'undefined') {
+        if (typeof sessionStorage !== 'undefined' && result.empresa?.id) {
           sessionStorage.setItem(cacheKey, JSON.stringify(result))
         }
 
