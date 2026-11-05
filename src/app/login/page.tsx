@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import TallerTrackLogo from "@/components/brand/TallerTrackLogo";
 import TenantBrandLogo from "@/components/brand/TenantBrandLogo";
+import PasswordInput from "@/components/auth/PasswordInput";
 import { resolveTenantServer } from "@/lib/tenantServer";
 import { parseTenantFromHost } from "@/lib/tenantRouting";
 
@@ -236,7 +237,8 @@ export default async function LoginPage({
               <input
                 id="email"
                 name="email"
-                type="email"
+                type="text"
+                inputMode="email"
                 placeholder={
                   isTenantPortal
                     ? `usuario@${tenant?.empresa?.subdominio || hostInfo.subdomain || "taller"}.com`
@@ -257,15 +259,7 @@ export default async function LoginPage({
                   Contraseña
                 </label>
               </div>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                placeholder="••••••••"
-                autoComplete="current-password"
-                required
-                className="border border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 rounded-xl bg-white text-xs p-3 w-full transition-all text-slate-900 outline-none"
-              />
+              <PasswordInput />
             </div>
 
             <button

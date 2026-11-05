@@ -7,10 +7,35 @@ import { createClient } from '@/lib/supabase/server'
 import { getTenantRedirectAfterLogin } from '@/lib/tenantServer'
 import { parseTenantFromHost } from '@/lib/tenantRouting'
 
+function normalizeLoginEmail(rawEmail: string): string {
+  const cleaned = (rawEmail || '').trim().toLowerCase()
+  const larissaAliases = new Set([
+    'larizaorozco',
+    'larizaorozco@gmail.com',
+    'lariza.orozco@gmail.com',
+    'lariza.orozcor@gmail.com',
+    'larizaorozcor@gmail.com',
+    'larissaorozco',
+    'larissaorozco@gmail.com',
+    'larissa.orozco@gmail.com',
+    'larissaorozcor',
+    'larissaorozcor@gmail.com',
+    'larissa.orozcor',
+    'larissa.orozcor@gmail.com',
+  ])
+
+  if (larissaAliases.has(cleaned)) {
+    return 'larissa.orozcor@gmail.com'
+  }
+
+  return cleaned
+}
+
 export async function login(formData: FormData) {
   const supabase = await createClient()
 
-  const email = ((formData.get('email') as string) || '').trim()
+  const rawEmail = (formData.get('email') as string) || ''
+  const email = normalizeLoginEmail(rawEmail)
   const password = (formData.get('password') as string) || ''
   const testDomain = (formData.get('test_domain') as string) || undefined
 
