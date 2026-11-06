@@ -22,7 +22,7 @@ describe("Bloque 2: Flujo Operativo del POS (Cobranza en Mostrador) - Cova", () 
     nombre_comercial: "Cova",
   };
 
-  const mockCovaMetodos: TenantMetodoPago[] = [
+  const mockCovaMetodos: Partial<TenantMetodoPago>[] = [
     {
       id: "tpv-banbajio-1",
       empresa_id: mockCovaEmpresa.id,

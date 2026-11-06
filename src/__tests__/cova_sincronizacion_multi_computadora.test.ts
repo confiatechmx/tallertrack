@@ -20,7 +20,7 @@ describe("Bloque 6: Sincronización Multi-Computadora en Tiempo Real (Mostrador 
       };
 
       const mockSupabase = {
-        channel: vi.fn(() => mockChannel),
+        channel: vi.fn((_name?: string) => mockChannel),
       };
 
       // Simular registro en caja/page.tsx
