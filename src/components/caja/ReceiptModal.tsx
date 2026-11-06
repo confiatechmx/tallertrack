@@ -212,7 +212,7 @@ export function ReceiptModal({
       `💰 Monto Pagado: ${montoCobrado.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN\n` +
       (cashGiven ? `💵 Efectivo Recibido: ${cashGiven.toLocaleString("es-MX", { minimumFractionDigits: 2 })}\n` : "") +
       (changeDue ? `🪙 Cambio Entregado: ${changeDue.toLocaleString("es-MX", { minimumFractionDigits: 2 })}\n` : "") +
-      (Number(payment?.descuento_aplicado || order?.descuento_efectivo_monto || 0) > 0 ? `✨ Descuento Promoción Efectivo: -${Number(payment?.descuento_aplicado || order?.descuento_efectivo_monto).toLocaleString("es-MX", { minimumFractionDigits: 2 })}\n` : "") +
+
       `🏁 Saldo Pendiente: ${saldo.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN\n` +
       `--------------------------------\n` +
       `🔗 Ver comprobante digital:\n${comprobanteDigitalUrl}\n` +
@@ -488,14 +488,7 @@ export function ReceiptModal({
                 ${total.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
               </span>
             </div>
-            {Number(payment?.descuento_aplicado || order?.descuento_efectivo_monto || 0) > 0 && (
-              <div className="flex justify-between text-emerald-800 font-bold text-[10px]">
-                <span>Descuento Promoción Efectivo:</span>
-                <span className="tabular-nums font-black">
-                  -${Number(payment?.descuento_aplicado || order?.descuento_efectivo_monto).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                </span>
-              </div>
-            )}
+
             <div className="flex justify-between font-bold text-slate-700 border-t border-slate-200 pt-1.5 text-[10.5px]">
               <span>Saldo Restante por Liquidar:</span>
               <span className={`tabular-nums ${saldo > 0 ? "text-amber-700 font-black" : "text-emerald-700 font-black"}`}>
@@ -735,12 +728,7 @@ export function ReceiptModal({
           <span>Método:</span>
           <span className="font-semibold text-slate-900">{payment?.metodo_detalle || payment?.proveedor_pago || "Efectivo"}</span>
         </div>
-        {Number(payment?.descuento_aplicado || order?.descuento_efectivo_monto || 0) > 0 && (
-          <div className="flex justify-between text-[10px] text-emerald-800 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">
-            <span>Descuento Promoción Efectivo:</span>
-            <span className="font-mono">-${Number(payment?.descuento_aplicado || order?.descuento_efectivo_monto).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
-          </div>
-        )}
+
         {payment?.referencia && (
           <div className="flex justify-between text-[10px] text-slate-500 font-mono">
             <span>Ref:</span>

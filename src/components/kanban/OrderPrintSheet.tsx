@@ -170,12 +170,8 @@ export function OrderPrintSheet({
   );
   const descuentoEfectivoMonto = Number(order?.descuento_efectivo_monto || 0);
 
-  // For Cotización: cash promotional price
-  const precioEfectivoCotizado =
-    descuentoEfectivoHabilitado && descuentoEfectivoPct > 0
-      ? Math.round((granTotal * (1 - descuentoEfectivoPct / 100)) * 100) / 100
-      : granTotal;
-  const ahorroEfectivoCotizado = Math.max(0, granTotal - precioEfectivoCotizado);
+  // Precios según forma de pago
+  const precioTarjetaCotizado = Math.round(granTotal * 1.043 * 100) / 100;
 
   const totalPagado = pagosAprobados.reduce((acc: number, p: any) => acc + Number(p.monto_total || 0), 0);
   const totalDescuentosEnPagos = pagosAprobados.reduce(
@@ -623,18 +619,19 @@ export function OrderPrintSheet({
               </div>
             )}
 
-            {/* En Cotización: Destacar ahorro en efectivo */}
-            {docType === "cotizacion" && descuentoEfectivoHabilitado && descuentoEfectivoPct > 0 && (
-              <div className="p-2 bg-emerald-50 border border-emerald-300 rounded-lg text-emerald-950">
-                <div className="flex items-center gap-1 font-bold text-[9.5px] text-emerald-900">
-                  <Sparkles size={11} className="text-emerald-700" />
-                  <span>PRECIO PREFERENCIAL EN EFECTIVO (-{descuentoEfectivoPct}%):</span>
+            {/* En Cotización: Opciones según forma de pago */}
+            {docType === "cotizacion" && (
+              <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800">
+                <span className="font-bold uppercase tracking-wider text-[9px] text-slate-600 block mb-1">
+                  Precios según forma de pago
+                </span>
+                <div className="flex justify-between items-center py-0.5 text-[10px]">
+                  <span className="text-slate-600">• Efectivo / Transferencia:</span>
+                  <span className="font-mono font-bold text-slate-900">${granTotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN</span>
                 </div>
-                <div className="text-xs font-black text-emerald-800 tabular-nums mt-0.5">
-                  ${precioEfectivoCotizado.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
-                </div>
-                <div className="text-[8.5px] text-emerald-700">
-                  Ahorro de ${ahorroEfectivoCotizado.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN pagando en efectivo en caja.
+                <div className="flex justify-between items-center py-0.5 text-[10px] border-t border-slate-200 mt-0.5 pt-0.5">
+                  <span className="text-slate-600">• Pago con Tarjeta:</span>
+                  <span className="font-mono font-bold text-slate-900">${precioTarjetaCotizado.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN</span>
                 </div>
               </div>
             )}
@@ -661,13 +658,7 @@ export function OrderPrintSheet({
               </span>
             </div>
 
-            {/* Descuento promoción efectivo si aplica */}
-            {docType === "nota_venta" && totalDescuentoEfectivo > 0 && (
-              <div className="flex justify-between text-[10px] text-emerald-800 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">
-                <span>Descuento Efectivo ({descuentoEfectivoPct}%):</span>
-                <span className="tabular-nums">-${totalDescuentoEfectivo.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
-              </div>
-            )}
+
 
             {docType === "nota_venta" ? (
               <>

@@ -1,50 +1,26 @@
 import { describe, it, expect } from "vitest";
 
-describe("Validaciones de Descuento en Efectivo y Diferenciación Cotización vs Nota", () => {
-  describe("Descuento en Efectivo Configurable por Tenant (Cova Tires: 3%)", () => {
-    it("debe calcular correctamente el 3% de descuento preferencial en efectivo", () => {
+describe("Validaciones de Precios según Forma de Pago y Diferenciación Cotización vs Nota", () => {
+  describe("Esquema Dual de Precios (Efectivo/SPEI Base vs Tarjeta +4.3%)", () => {
+    it("debe mantener el precio base para pagos en efectivo y transferencias SPEI", () => {
       const subtotalConIva = 1000.0;
-      const descuentoEfectivoActivo = true;
-      const porcentajeDescuento = 3.0; // 3%
-
-      const descuentoCalculado = descuentoEfectivoActivo
-        ? (subtotalConIva * porcentajeDescuento) / 100
-        : 0;
-
-      const totalAPagar = subtotalConIva - descuentoCalculado;
-
-      expect(descuentoCalculado).toBe(30.0);
-      expect(totalAPagar).toBe(970.0);
-    });
-
-    it("no debe aplicar descuento si la opción de tenant está desactivada", () => {
-      const subtotalConIva = 1000.0;
-      const descuentoEfectivoActivo = false;
-      const porcentajeDescuento = 3.0;
-
-      const descuentoCalculado = descuentoEfectivoActivo
-        ? (subtotalConIva * porcentajeDescuento) / 100
-        : 0;
-
-      const totalAPagar = subtotalConIva - descuentoCalculado;
-
-      expect(descuentoCalculado).toBe(0);
-      expect(totalAPagar).toBe(1000.0);
-    });
-
-    it("solo aplica para método de pago EFECTIVO, no para tarjeta ni transferencia", () => {
-      const subtotalConIva = 5000.0;
-      const tasaDescuento = 3.0;
-
-      const calcularTotal = (metodo: string) => {
-        const esEfectivo = metodo === "efectivo";
-        const desc = esEfectivo ? (subtotalConIva * tasaDescuento) / 100 : 0;
-        return subtotalConIva - desc;
+      const calcularTotal = (metodo: "efectivo" | "transferencia" | "tarjeta") => {
+        if (metodo === "tarjeta") {
+          return Math.round(subtotalConIva * 1.043 * 100) / 100;
+        }
+        return subtotalConIva;
       };
 
-      expect(calcularTotal("efectivo")).toBe(4850.0);
-      expect(calcularTotal("tarjeta")).toBe(5000.0);
-      expect(calcularTotal("transferencia")).toBe(5000.0);
+      expect(calcularTotal("efectivo")).toBe(1000.0);
+      expect(calcularTotal("transferencia")).toBe(1000.0);
+      expect(calcularTotal("tarjeta")).toBe(1043.0);
+    });
+
+    it("el precio con tarjeta corresponde a un +4.3% exacto sin registrarse como multa o recargo", () => {
+      const base = 5000.0;
+      const precioTarjeta = Math.round(base * 1.043 * 100) / 100;
+
+      expect(precioTarjeta).toBe(5215.0);
     });
   });
 
@@ -111,7 +87,7 @@ describe("Validaciones de Descuento en Efectivo y Diferenciación Cotización vs
       expect(partidasDiferidas.map((p) => p.nombre)).toEqual(["Balanceo de 4 Ruedas", "Bujes de Horquilla"]);
     });
 
-    it("debe ser resiliente a orden nula o indefinida en cálculo de saldos y descuentos (Null Safety en render)", () => {
+    it("debe ser resiliente a orden nula o indefinida en cálculo de saldos y opciones de pago (Null Safety en render)", () => {
       const order: any = null;
       const pagosList: any[] = [];
       const granTotal = 0;

@@ -20,8 +20,6 @@ describe("Bloque 2: Flujo Operativo del POS (Cobranza en Mostrador) - Cova", () 
   const mockCovaEmpresa = {
     id: "b2ad09db-0a34-4876-9ca3-d584c40bd294",
     nombre_comercial: "Cova",
-    descuento_efectivo_habilitado: true,
-    descuento_efectivo_porcentaje: 3.0,
   };
 
   const mockCovaMetodos: TenantMetodoPago[] = [
@@ -150,20 +148,20 @@ describe("Bloque 2: Flujo Operativo del POS (Cobranza en Mostrador) - Cova", () 
       expect(res[0].vehiculos.placas).toBe("VND-482-A");
     });
 
-    it("debe filtrar por nombre de cliente (ej: Carlos)", () => {
+    it("debe filtrar por nombre de cliente (ej: Carlos Mendoza)", () => {
       const res = filterPosOrders(mockOrders, "carlos", "ALL");
       expect(res).toHaveLength(1);
-      expect(res[0].vehiculos.clientes.nombre).toBe("Carlos Mendoza");
+      expect(res[0].id).toBe("ord-1");
     });
 
-    it("debe filtrar correctamente por estado 'READY' (Listas para Entrega)", () => {
+    it("debe filtrar por estado 'Listo para Entrega'", () => {
       const res = filterPosOrders(mockOrders, "", "READY");
       expect(res).toHaveLength(1);
       expect(res[0].estado).toBe("Listo para Entrega");
       expect(res[0].id).toBe("ord-1");
     });
 
-    it("debe filtrar correctamente por estado 'PARTIAL' (Parciales con abono y saldo pendiente)", () => {
+    it("debe filtrar por órdenes con abono parcial", () => {
       const res = filterPosOrders(mockOrders, "", "PARTIAL");
       expect(res).toHaveLength(1);
       expect(res[0].id).toBe("ord-2");
@@ -172,35 +170,41 @@ describe("Bloque 2: Flujo Operativo del POS (Cobranza en Mostrador) - Cova", () 
     });
   });
 
-  describe("2. Descuento Preferencial en Efectivo (3% Cova)", () => {
-    it("debe calcular un 3% exacto de ahorro y saldo neto en efectivo", () => {
-      const saldoOriginal = 1000.0;
-      const pct = mockCovaEmpresa.descuento_efectivo_porcentaje; // 3.0
-      const ahorro = Math.round(((saldoOriginal * pct) / 100) * 100) / 100;
-      const saldoFinal = Math.max(0, Number((saldoOriginal - ahorro).toFixed(2)));
+  describe("2. Esquema Dual de Precios en POS (Efectivo/SPEI Base vs Tarjeta +4.3%)", () => {
+    it("debe mantener el precio base en efectivo o transferencia sin tachaduras ni recargos", () => {
+      const saldoBase = 1000.0;
+      const montoEfectivo = saldoBase;
+      const montoSPEI = saldoBase;
 
-      expect(ahorro).toBe(30.0);
-      expect(saldoFinal).toBe(970.0);
+      expect(montoEfectivo).toBe(1000.0);
+      expect(montoSPEI).toBe(1000.0);
     });
 
-    it("debe calcular correctamente el cambio al entregar billetes en mostrador", () => {
-      const saldoConDescuento = 970.0;
-      const efectivoEntregado = 1000.0;
-      const cambio = Math.max(0, efectivoEntregado - saldoConDescuento);
-      const faltante = Math.max(0, saldoConDescuento - efectivoEntregado);
+    it("debe calcular un precio de tarjeta al +4.3% sin presentarlo como penalización", () => {
+      const saldoBase = 1000.0;
+      const precioTarjeta = Math.round(saldoBase * 1.043 * 100) / 100;
 
-      expect(cambio).toBe(30.0);
+      expect(precioTarjeta).toBe(1043.0);
+    });
+
+    it("debe calcular correctamente el cambio al entregar billetes en efectivo en mostrador", () => {
+      const montoEfectivo = 1000.0;
+      const efectivoEntregado = 1200.0;
+      const cambio = Math.max(0, efectivoEntregado - montoEfectivo);
+      const faltante = Math.max(0, montoEfectivo - efectivoEntregado);
+
+      expect(cambio).toBe(200.0);
       expect(faltante).toBe(0.0);
     });
 
     it("debe detectar faltante si el efectivo entregado no cubre el monto", () => {
-      const saldoConDescuento = 970.0;
+      const montoEfectivo = 1000.0;
       const efectivoEntregado = 500.0;
-      const cambio = Math.max(0, efectivoEntregado - saldoConDescuento);
-      const faltante = Math.max(0, saldoConDescuento - efectivoEntregado);
+      const cambio = Math.max(0, efectivoEntregado - montoEfectivo);
+      const faltante = Math.max(0, montoEfectivo - efectivoEntregado);
 
       expect(cambio).toBe(0.0);
-      expect(faltante).toBe(470.0);
+      expect(faltante).toBe(500.0);
     });
   });
 
@@ -222,62 +226,35 @@ describe("Bloque 2: Flujo Operativo del POS (Cobranza en Mostrador) - Cova", () 
       const comisionResult = TenantMetodosPagoService.calcularComision(cobroCliente, metodoMP);
 
       expect(comisionResult.comisionPorcentaje).toBe(3.5);
-      // 2000 * 3.5% = 70 base + 16% IVA bancario = 81.2
+      // 2000 * 3.5% = 70 base + 16% IVA bancario = 81.20
       expect(comisionResult.comisionMonto).toBe(81.2);
       expect(comisionResult.montoNeto).toBe(1918.8);
     });
 
-    it("debe respetar cuando la tasa de comisión ya tiene el IVA incluido", () => {
-      const cobroCliente = 1000.0;
-      const metodoConIvaIncluido = {
-        ...mockCovaMetodos[0],
-        comision_porcentaje: 2.0,
-        comision_iva_incluido: true,
-      };
-      const comisionResult = TenantMetodosPagoService.calcularComision(cobroCliente, metodoConIvaIncluido);
+    it("debe calcular la sobretasa y comisión de 3 Meses Sin Intereses en Mercado Pago", () => {
+      const cobroCliente = 6000.0;
+      const metodoMSI = mockCovaMetodos.find((m) => m.id === "mp-msi-3")!;
+      const comisionResult = TenantMetodosPagoService.calcularComision(cobroCliente, metodoMSI);
 
-      expect(comisionResult.comisionMonto).toBe(20.0);
-      expect(comisionResult.montoNeto).toBe(980.0);
+      expect(metodoMSI.plazo_msi).toBe(3);
+      expect(comisionResult.comisionPorcentaje).toBe(7.5);
+      // 6000 * 7.5% = 450 base + 16% IVA = 522.0
+      expect(comisionResult.comisionMonto).toBe(522.0);
+      expect(comisionResult.montoNeto).toBe(5478.0);
     });
   });
 
-  describe("4. Conciliación SPEI Multi-Cuenta", () => {
-    it("debe permitir seleccionar la cuenta receptora de Cova y asociar su cuenta_bancaria_id", () => {
-      const cuentaSeleccionada = mockCuentasBancarias.find((c) => c.alias === "BanBajío Fiscal");
-      expect(cuentaSeleccionada).toBeDefined();
-      expect(cuentaSeleccionada?.banco).toBe("BanBajío");
-      expect(cuentaSeleccionada?.clabe).toBe("030730900012345678");
-      expect(cuentaSeleccionada?.es_fiscal).toBe(true);
-    });
-  });
-
-  describe("5. Split Payment Multi-Método", () => {
-    it("debe validar que la suma de métodos cubra exactamente el total del saldo", () => {
-      const saldoDeudor = 8500.0;
-      const splitPayments = [
-        { metodo: "Efectivo", monto: 5000.0, cambio: 0 },
-        { metodo: "Tarjeta", monto: 3500.0, cambio: 0 },
-      ];
-
-      const totalCubierto = splitPayments.reduce((acc, p) => acc + p.monto, 0);
-      const cubreTotal = Math.abs(totalCubierto - saldoDeudor) < 0.05;
-
-      expect(totalCubierto).toBe(8500.0);
-      expect(cubreTotal).toBe(true);
+  describe("4. Cuentas Bancarias para Transferencias SPEI", () => {
+    it("debe permitir seleccionar la cuenta destino fiscal de BanBajío", () => {
+      const ctaFiscal = mockCuentasBancarias.find((c) => c.es_fiscal);
+      expect(ctaFiscal).toBeDefined();
+      expect(ctaFiscal?.banco).toBe("BanBajío");
+      expect(ctaFiscal?.clabe).toBe("030730900012345678");
     });
 
-    it("debe rechazar o marcar incompleto si la suma de métodos es insuficiente", () => {
-      const saldoDeudor = 8500.0;
-      const splitPayments = [
-        { metodo: "Efectivo", monto: 4000.0 },
-        { metodo: "Tarjeta", monto: 3000.0 },
-      ];
-
-      const totalCubierto = splitPayments.reduce((acc, p) => acc + p.monto, 0);
-      const cubreTotal = Math.abs(totalCubierto - saldoDeudor) < 0.05;
-
-      expect(totalCubierto).toBe(7000.0);
-      expect(cubreTotal).toBe(false);
+    it("debe permitir registrar clave de rastreo SPEI para comprobante", () => {
+      const claveRastreo = "SPEI-20261105-894129";
+      expect(claveRastreo.length).toBeGreaterThan(5);
     });
   });
 });

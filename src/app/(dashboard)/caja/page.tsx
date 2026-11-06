@@ -539,30 +539,27 @@ export default function CajaPage() {
     return ordenes.find((o) => o.id === posSelectedOrderId) || null;
   }, [ordenes, posSelectedOrderId]);
 
-  // Cálculos de Descuento en Efectivo (Cova Tires: 3%)
-  const pctDescEfectivo = Number(empresa?.descuento_efectivo_porcentaje || 0);
-  const tieneDescuentoEfectivoConfigurado = Boolean(empresa?.descuento_efectivo_habilitado && pctDescEfectivo > 0);
-  const ahorroEfectivo = (tieneDescuentoEfectivoConfigurado && aplicarDescuentoEfectivo && activeOrder && selectedMethod === "Efectivo")
-    ? Math.round(((activeOrder.saldo * pctDescEfectivo) / 100) * 100) / 100
-    : 0;
-  const saldoFinalEfectivo = activeOrder
-    ? Math.max(0, Number((activeOrder.saldo - ahorroEfectivo).toFixed(2)))
-    : 0;
+  // Esquema de Precios según Forma de Pago (Efectivo/SPEI vs Tarjeta +4.3%)
+  const saldoBase = activeOrder ? Number(activeOrder.saldo || 0) : 0;
+  const esMetodoTarjeta = selectedMethod === "TPV" || selectedMethod === "Stripe";
+  const precioTarjetaCalculado = Math.round(saldoBase * 1.043 * 100) / 100;
+  const saldoSegunMetodo = esMetodoTarjeta ? precioTarjetaCalculado : saldoBase;
 
-  // Actualizar monto a cobrar por defecto cuando cambia la orden, método o toggle de descuento
+  // Actualizar monto a cobrar por defecto cuando cambia la orden o el método
   useEffect(() => {
     if (activeOrder) {
-      if (selectedMethod === "Efectivo" && tieneDescuentoEfectivoConfigurado && aplicarDescuentoEfectivo) {
-        setPaymentAmount(saldoFinalEfectivo > 0 ? saldoFinalEfectivo.toFixed(2) : "0.00");
-      } else {
-        setPaymentAmount(activeOrder.saldo > 0 ? activeOrder.saldo.toFixed(2) : "0.00");
-      }
+      const saldoBase = Number(activeOrder.saldo || 0);
+      const esTarjeta = selectedMethod === "TPV" || selectedMethod === "Stripe";
+      const montoSegunMetodo = esTarjeta
+        ? Math.round(saldoBase * 1.043 * 100) / 100
+        : saldoBase;
+      setPaymentAmount(montoSegunMetodo > 0 ? montoSegunMetodo.toFixed(2) : "0.00");
       setCashGiven("");
       setTpvReference("");
       setSpeiRastreo("");
       setQrCodeUrl(null);
     }
-  }, [activeOrder, selectedMethod, aplicarDescuentoEfectivo, saldoFinalEfectivo, tieneDescuentoEfectivoConfigurado]);
+  }, [activeOrder, selectedMethod]);
 
   // Load BNPL Simulation whenever method or provider changes
   useEffect(() => {
@@ -759,10 +756,8 @@ export default function CajaPage() {
 
       if (selectedMethod === "Efectivo") {
         dbProvider = "Efectivo";
-        finalAhorro = ahorroEfectivo;
-        detalle = finalAhorro > 0
-          ? `Efectivo en Mostrador (Descuento Promoción ${pctDescEfectivo}%: -${finalAhorro.toFixed(2)} • Entregó: ${cashGivenNum.toLocaleString("es-MX")} • Cambio: ${changeDue.toLocaleString("es-MX")})`
-          : `Efectivo en Mostrador (Entregó: ${cashGivenNum.toLocaleString("es-MX")} • Cambio: ${changeDue.toLocaleString("es-MX")})`;
+        finalAhorro = 0;
+        detalle = `Efectivo en Mostrador (Entregó: ${cashGivenNum.toLocaleString("es-MX")} • Cambio: ${changeDue.toLocaleString("es-MX")})`;
       } else if (selectedMethod === "TPV") {
         if (!metodoPagoConfigObj) {
           metodoPagoConfigObj = tenantMetodos.find((m) => ["TARJETA_CREDITO", "MSI", "DEBITO", "TPV"].includes(m.tipo?.toUpperCase() || ""));
@@ -824,7 +819,7 @@ export default function CajaPage() {
           monto_neto: Number(Math.max(0, amountNum - comisionMonto).toFixed(2)),
           plazo_msi: metodoPagoConfigObj?.plazo_msi || null,
           tenant_metodo_pago_id: metodoPagoConfigObj?.id || null,
-          descuento_aplicado: finalAhorro > 0 ? finalAhorro : null,
+          descuento_aplicado: null,
           fecha_pago: new Date().toISOString(),
           cuenta_bancaria_id: selectedMethod === "SPEI" ? selectedCuentaBancariaId || null : null,
           caja_turno_id: turnoActivo?.id || null,
@@ -837,13 +832,11 @@ export default function CajaPage() {
 
       const nuevoPagado = activeOrder.pagado + amountNum;
       const nuevoEstatus =
-        (nuevoPagado + finalAhorro) >= activeOrder.granTotal - 0.5 ? "Pagado" : "Parcial";
+        (amountNum >= (saldoSegunMetodo - 0.5) || nuevoPagado >= (activeOrder.granTotal - 0.5))
+          ? "Pagado"
+          : "Parcial";
 
       const ordUpdate: any = { estatus_pago: nuevoEstatus };
-      if (finalAhorro > 0) {
-        ordUpdate.descuento_efectivo_porcentaje = pctDescEfectivo;
-        ordUpdate.descuento_efectivo_monto = finalAhorro;
-      }
 
       await supabase
         .from("ordenes_servicio")
@@ -854,11 +847,9 @@ export default function CajaPage() {
       setReceiptOrder({
         ...activeOrder,
         pagado: nuevoPagado,
-        saldo: (nuevoEstatus === "Pagado" || (nuevoPagado + finalAhorro) >= activeOrder.granTotal - 0.5)
-          ? 0
-          : Math.max(0, activeOrder.granTotal - nuevoPagado - finalAhorro),
+        saldo: nuevoEstatus === "Pagado" ? 0 : Math.max(0, activeOrder.granTotal - nuevoPagado),
         estatus_pago: nuevoEstatus,
-        descuento_efectivo_monto: finalAhorro,
+        descuento_efectivo_monto: 0,
       });
       setReceiptPayment(newPago);
       setReceiptPayments(undefined);
@@ -1463,12 +1454,12 @@ export default function CajaPage() {
                       >
                         <div className="flex items-center justify-between">
                           <Banknote size={18} className="text-emerald-600" />
-                          <span className="text-[9px] font-bold uppercase text-emerald-700 bg-emerald-100 px-1 py-0.2 rounded">
-                            Sin comisión
+                          <span className="text-[10px] font-bold font-mono text-emerald-800 bg-emerald-100/80 px-1.5 py-0.2 rounded">
+                            ${saldoBase.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                           </span>
                         </div>
                         <span className="font-bold text-xs text-slate-900 mt-1">Efectivo</span>
-                        <span className="text-[10px] text-slate-500">Gaveta</span>
+                        <span className="text-[10px] text-slate-500">Precio base en gaveta</span>
                       </button>
 
                       {/* 2. Tarjeta TPV */}
@@ -1483,12 +1474,12 @@ export default function CajaPage() {
                       >
                         <div className="flex items-center justify-between">
                           <CreditCard size={18} className="text-primary" />
-                          <span className="text-[9px] font-bold uppercase text-slate-500 bg-slate-100 px-1 py-0.2 rounded">
-                            Point
+                          <span className="text-[10px] font-bold font-mono text-slate-800 bg-slate-100 px-1.5 py-0.2 rounded">
+                            ${precioTarjetaCalculado.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                           </span>
                         </div>
                         <span className="font-bold text-xs text-slate-900 mt-1">Tarjeta</span>
-                        <span className="text-[10px] text-slate-500">Terminal TPV</span>
+                        <span className="text-[10px] text-slate-500">Precio con terminal TPV</span>
                       </button>
 
                       {/* 3. Transferencia SPEI */}
@@ -1503,12 +1494,12 @@ export default function CajaPage() {
                       >
                         <div className="flex items-center justify-between">
                           <Landmark size={18} className="text-blue-600" />
-                          <span className="text-[9px] font-bold uppercase text-blue-700 bg-blue-100 px-1 py-0.2 rounded">
-                            Directo
+                          <span className="text-[10px] font-bold font-mono text-blue-800 bg-blue-100/80 px-1.5 py-0.2 rounded">
+                            ${saldoBase.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                           </span>
                         </div>
                         <span className="font-bold text-xs text-slate-900 mt-1">SPEI</span>
-                        <span className="text-[10px] text-slate-500">Transferencia</span>
+                        <span className="text-[10px] text-slate-500">Precio transferencia</span>
                       </button>
                     </div>
 
@@ -1636,27 +1627,6 @@ export default function CajaPage() {
                       {/* 1. EFECTIVO EN VENTANILLA */}
                       {selectedMethod === "Efectivo" && (
                         <div className="flex flex-col gap-3">
-                          {/* Banner de Descuento en Efectivo (Promo Cova) */}
-                          {tieneDescuentoEfectivoConfigurado && activeOrder && (
-                            <div className="p-2.5 bg-emerald-50 border border-emerald-300 rounded-xl flex items-center justify-between gap-2 shadow-2xs">
-                              <div className="flex items-center gap-2">
-                                <Sparkles className="w-4 h-4 text-emerald-700 shrink-0" />
-                                <span className="text-xs font-bold text-emerald-950">
-                                  Precio Promocional en Efectivo (-{pctDescEfectivo}%): ahorra ${ahorroEfectivo.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
-                                </span>
-                              </div>
-                              <label className="flex items-center gap-1.5 text-xs font-bold text-emerald-900 cursor-pointer bg-white/90 px-2 py-0.5 rounded-lg border border-emerald-300 shrink-0">
-                                <input
-                                  type="checkbox"
-                                  checked={aplicarDescuentoEfectivo}
-                                  onChange={(e) => setAplicarDescuentoEfectivo(e.target.checked)}
-                                  className="w-3.5 h-3.5 text-emerald-600 rounded"
-                                />
-                                Aplicar
-                              </label>
-                            </div>
-                          )}
-
                           {/* Billetes rápidos */}
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-[11px] text-slate-400 font-semibold mr-1">Billetes:</span>
