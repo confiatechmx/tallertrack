@@ -185,6 +185,8 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   // Labor state
   const [isAddingService, setIsAddingService] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState("");
+  const [serviceCustomNombre, setServiceCustomNombre] = useState("");
+  const [guardarEnCatalogo, setGuardarEnCatalogo] = useState(false);
   const [serviceMechanicId, setServiceMechanicId] = useState("");
   const [servicePrice, setServicePrice] = useState<string>("");
   const [serviceHours, setServiceHours] = useState<string>("1.0");
@@ -365,7 +367,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
             clientes ( id, nombre, telefono, correo, rfc, empresa )
           ),
           orden_servicio_servicios (
-            id, servicio_id, mecanico_id, cantidad, horas_labor, precio_cobrado, comision_porcentaje, estatus_aprobacion, notas, paquete_operacion, es_cortesia, garantia_especifica,
+            id, servicio_id, concepto_personalizado, mecanico_id, cantidad, horas_labor, precio_cobrado, comision_porcentaje, estatus_aprobacion, notas, paquete_operacion, es_cortesia, garantia_especifica,
             servicios_taller ( id, nombre, codigo_sku, categoria, horas_estimadas, precio, garantia_meses, condicion_promo )
           ),
           orden_servicio_refacciones (
@@ -1052,8 +1054,10 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
     setSelectedServiceId(srvId);
     const srv = availableServices.find((s) => s.id === srvId);
     if (srv) {
+      setServiceCustomNombre(srv.nombre);
       setServicePrice(String(srv.precio || 0));
       setServiceHours(String(srv.horas_estimadas || 1.0));
+      if (srv.categoria) setServicePackage(srv.categoria);
     }
     const mech = mechanics.find((m) => m.id === (serviceMechanicId || order?.mecanico_id));
     if (mech?.comision_porcentaje) {
@@ -1062,24 +1066,60 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   };
 
   const handleAddService = async () => {
-    if (!selectedServiceId) return;
-    const service = availableServices.find((s) => s.id === selectedServiceId);
-    if (!service) return;
+    const finalNombre = serviceCustomNombre.trim() || availableServices.find((s) => s.id === selectedServiceId)?.nombre;
+    if (!finalNombre) {
+      toast.error("Ingresa el nombre o concepto de la mano de obra");
+      return;
+    }
+
     setAddingServiceLoading(true);
 
-    const finalPrice = serviceIsCortesia ? 0.0 : (parseFloat(servicePrice) || Number(service.precio || 0));
+    let activeServiceId = selectedServiceId;
+    const isCova = (empresa?.subdominio === "cova") || (empresa?.nombre_comercial || "").toLowerCase().includes("cova");
+    const targetEmpId = order?.empresa_id || empresa?.id || (isCova ? "b2ad09db-0a34-4876-9ca3-d584c40bd294" : "a0000000-0000-0000-0000-000000000001");
+
+    const finalPrice = serviceIsCortesia ? 0.0 : (parseFloat(servicePrice) || 0);
+    const finalHours = parseFloat(serviceHours) || 1.0;
+    const finalPackage = servicePackage || "Mantenimiento y Servicios Generales";
+
+    // Si el usuario eligió guardar en catálogo y no existía en availableServices
+    if (guardarEnCatalogo && !activeServiceId) {
+      try {
+        const { data: newCatalogSrv } = await supabase
+          .from("servicios_taller")
+          .insert({
+            nombre: finalNombre,
+            precio: finalPrice,
+            horas_estimadas: finalHours,
+            categoria: finalPackage,
+            empresa_id: targetEmpId,
+            activo: true,
+          })
+          .select("id")
+          .single();
+
+        if (newCatalogSrv) {
+          activeServiceId = newCatalogSrv.id;
+          const { data: refreshedSrvs } = await supabase.from("servicios_taller").select("*").eq("activo", true).order("nombre");
+          if (refreshedSrvs) setAvailableServices(refreshedSrvs);
+        }
+      } catch (catErr) {
+        console.warn("Guardando servicio directo en orden:", catErr);
+      }
+    }
 
     const payload = {
       orden_servicio_id: orderId,
-      servicio_id: service.id,
+      servicio_id: activeServiceId || null,
+      concepto_personalizado: finalNombre,
       mecanico_id: serviceMechanicId || order.mecanico_id || null,
       cantidad: 1,
-      horas_labor: parseFloat(serviceHours) || Number(service.horas_estimadas || 1),
+      horas_labor: finalHours,
       precio_cobrado: finalPrice,
       comision_porcentaje: parseFloat(serviceCommission) || 15,
       estatus_aprobacion: "Aprobado",
       notas: serviceNotes.trim() || null,
-      paquete_operacion: servicePackage || (service.categoria?.includes("Llantas") ? "Llantas y Ruedas" : "Mantenimiento y Servicios Generales"),
+      paquete_operacion: finalPackage,
       es_cortesia: serviceIsCortesia,
     };
 
@@ -1087,7 +1127,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
       .from("orden_servicio_servicios")
       .insert(payload)
       .select(
-        "id, servicio_id, mecanico_id, cantidad, horas_labor, precio_cobrado, comision_porcentaje, estatus_aprobacion, notas, paquete_operacion, es_cortesia, garantia_especifica, servicios_taller(id, nombre, codigo_sku, categoria, horas_estimadas, precio, garantia_meses, condicion_promo)"
+        "id, servicio_id, concepto_personalizado, mecanico_id, cantidad, horas_labor, precio_cobrado, comision_porcentaje, estatus_aprobacion, notas, paquete_operacion, es_cortesia, garantia_especifica, servicios_taller(id, nombre, codigo_sku, categoria, horas_estimadas, precio, garantia_meses, condicion_promo)"
       )
       .single();
 
@@ -1098,9 +1138,14 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
       }));
       setIsAddingService(false);
       setSelectedServiceId("");
+      setServiceCustomNombre("");
       setServiceNotes("");
       setServiceIsCortesia(false);
+      setGuardarEnCatalogo(false);
+      toast.success("Mano de obra agregada a la orden");
       onUpdate();
+    } else if (error) {
+      toast.error(error.message || "Error al agregar servicio");
     }
     setAddingServiceLoading(false);
   };
@@ -2102,28 +2147,41 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
-        <div className="sm:col-span-4">
-          <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-            Servicio del Catálogo
+        <div className="sm:col-span-5">
+          <label className="block text-[10px] font-bold uppercase text-slate-700 mb-1">
+            Concepto / Mano de Obra * (Libre o Catálogo)
           </label>
-          <select
-            value={selectedServiceId}
-            onChange={(e) => handleSelectCatalogService(e.target.value)}
-            className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 text-slate-900"
-          >
-            <option value="">Seleccionar servicio...</option>
-            {availableServices.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.codigo_sku ? `[${s.codigo_sku}] ` : ""}
-                {s.nombre} — ${Number(s.precio).toLocaleString("es-MX")}
-              </option>
-            ))}
-          </select>
+          <input
+            type="text"
+            required
+            placeholder="Ej. Torneado de flecha, Ajuste de mordazas, Diagnóstico..."
+            value={serviceCustomNombre}
+            onChange={(e) => {
+              setServiceCustomNombre(e.target.value);
+              setSelectedServiceId("");
+            }}
+            className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2.5 text-slate-900 font-bold focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+          />
+          <div className="flex items-center gap-1.5 mt-1">
+            <span className="text-[10px] text-slate-400 font-semibold">O sugerencia:</span>
+            <select
+              value={selectedServiceId}
+              onChange={(e) => handleSelectCatalogService(e.target.value)}
+              className="text-[10.5px] h-6 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded px-1.5 text-slate-700 cursor-pointer font-medium max-w-[210px] truncate"
+            >
+              <option value="">Elegir del catálogo...</option>
+              {availableServices.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.nombre} (${Number(s.precio).toLocaleString("es-MX")})
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        <div className="sm:col-span-3">
+        <div className="sm:col-span-2">
           <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-            Paquete / Operación
+            Paquete
           </label>
           <select
             value={servicePackage}
@@ -2222,17 +2280,30 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
           onChange={(e) => setServiceNotes(e.target.value)}
           className="w-full sm:flex-1 h-8 text-xs bg-white border border-slate-300 rounded-md px-2.5 text-slate-800"
         />
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-3 shrink-0">
+          <label className="flex items-center gap-1.5 text-[10.5px] text-slate-600 font-semibold cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={guardarEnCatalogo}
+              onChange={(e) => setGuardarEnCatalogo(e.target.checked)}
+              className="w-3.5 h-3.5 text-blue-600 rounded cursor-pointer"
+            />
+            Guardar en catálogo
+          </label>
           <button
             type="button"
-            onClick={() => setIsAddingService(false)}
+            onClick={() => {
+              setIsAddingService(false);
+              setServiceCustomNombre("");
+              setSelectedServiceId("");
+            }}
             className="px-3 h-8 text-xs font-medium text-slate-600 hover:text-slate-900 cursor-pointer"
           >
             Cancelar
           </button>
           <button
             type="button"
-            disabled={!selectedServiceId || addingServiceLoading}
+            disabled={(!serviceCustomNombre.trim() && !selectedServiceId) || addingServiceLoading}
             onClick={handleAddService}
             className="px-4 h-8 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold disabled:opacity-50 cursor-pointer"
           >
@@ -3164,7 +3235,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                   const qty = Number(s.cantidad || 1);
                                   const unit = Number(s.precio_cobrado || 0);
                                   const sub = unit * qty;
-                                  const srvName = s.servicios_taller?.nombre || s.nombre || "Servicio";
+                                  const srvName = s.concepto_personalizado || s.servicios_taller?.nombre || s.nombre || "Servicio";
                                   const isCortesia = s.es_cortesia || unit === 0;
                                   const isDeferred = s.estatus_aprobacion === "Diferido";
                                   const isEditing = editingServiceId === s.id;
@@ -3387,7 +3458,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                               <td className="py-2.5 px-3">
                                 <div className="flex items-center gap-1.5 flex-wrap">
                                   <span className="font-semibold text-slate-900">
-                                    {row.servicios_taller?.nombre || "Servicio"}
+                                    {row.concepto_personalizado || row.servicios_taller?.nombre || "Servicio"}
                                   </span>
                                   {row.paquete_operacion && (
                                     <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 text-slate-700 border border-slate-200">

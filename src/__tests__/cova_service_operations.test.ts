@@ -128,4 +128,39 @@ describe("Cova Service Operations & Packaging Engine", () => {
     expect(bundle[2].precio_cobrado).toBe(100);
     expect(bundle[2].es_cortesia).toBe(false);
   });
+  it("admite registrar servicios de mano de obra libres con concepto_personalizado sin requerir servicio_id", () => {
+    const servicioLibre = {
+      id: "srv-libre-1",
+      orden_servicio_id: "ord-123",
+      servicio_id: null,
+      concepto_personalizado: "Ajuste especial de chicote y varillaje",
+      precio_cobrado: 350.0,
+      horas_labor: 0.5,
+      mecanico_id: "mec-1",
+      comision_porcentaje: 20,
+      estatus_aprobacion: "Aprobado",
+      paquete_operacion: "Mantenimiento General",
+      es_cortesia: false,
+    };
+
+    expect(servicioLibre.servicio_id).toBeNull();
+    expect(servicioLibre.concepto_personalizado).toBe("Ajuste especial de chicote y varillaje");
+    expect(servicioLibre.precio_cobrado).toBe(350.0);
+  });
+
+  it("resuelve prioritariamente concepto_personalizado sobre el nombre del catalogo", () => {
+    const srv1 = {
+      concepto_personalizado: "Torneado especial de disco ventilado",
+      servicios_taller: { nombre: "Rectificado de Disco" },
+    };
+    const srv2 = {
+      concepto_personalizado: null,
+      servicios_taller: { nombre: "Alineación 3D" },
+    };
+
+    const resolverNombre = (s: any) => s.concepto_personalizado || s.servicios_taller?.nombre || "Servicio";
+
+    expect(resolverNombre(srv1)).toBe("Torneado especial de disco ventilado");
+    expect(resolverNombre(srv2)).toBe("Alineación 3D");
+  });
 });

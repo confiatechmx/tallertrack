@@ -232,6 +232,7 @@ export default function CajaPage() {
           vehiculos ( id, marca, modelo, anio, placas, kilometraje_actual, clientes ( id, nombre, telefono, correo, rfc ) ),
           orden_servicio_servicios (
             id,
+            concepto_personalizado,
             precio_cobrado,
             horas_labor,
             mecanico_id,
@@ -1070,7 +1071,7 @@ export default function CajaPage() {
             o.vehiculos?.placas || ""
           })`,
           servicioNombre:
-            s.servicios_taller?.nombre || "Servicio de Mano de Obra",
+            s.concepto_personalizado || s.servicios_taller?.nombre || "Servicio de Mano de Obra",
           categoria: s.servicios_taller?.categoria || "General",
           mecanicoId: mecObj.id,
           mecanicoNombre: mecObj.nombre,

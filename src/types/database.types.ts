@@ -1673,6 +1673,7 @@ export type Database = {
         Row: {
           cantidad: number | null
           comision_porcentaje: number | null
+          concepto_personalizado: string | null
           created_at: string | null
           empresa_id: string
           es_cortesia: boolean | null
@@ -1685,11 +1686,12 @@ export type Database = {
           orden_servicio_id: string
           paquete_operacion: string | null
           precio_cobrado: number
-          servicio_id: string
+          servicio_id: string | null
         }
         Insert: {
           cantidad?: number | null
           comision_porcentaje?: number | null
+          concepto_personalizado?: string | null
           created_at?: string | null
           empresa_id?: string
           es_cortesia?: boolean | null
@@ -1702,11 +1704,12 @@ export type Database = {
           orden_servicio_id: string
           paquete_operacion?: string | null
           precio_cobrado: number
-          servicio_id: string
+          servicio_id?: string | null
         }
         Update: {
           cantidad?: number | null
           comision_porcentaje?: number | null
+          concepto_personalizado?: string | null
           created_at?: string | null
           empresa_id?: string
           es_cortesia?: boolean | null
@@ -1719,7 +1722,7 @@ export type Database = {
           orden_servicio_id?: string
           paquete_operacion?: string | null
           precio_cobrado?: number
-          servicio_id?: string
+          servicio_id?: string | null
         }
         Relationships: [
           {
