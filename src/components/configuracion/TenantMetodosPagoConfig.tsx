@@ -290,6 +290,26 @@ export function TenantMetodosPagoConfig({ empresaId, sucursalId }: TenantMetodos
     }
   };
 
+  const handleUpdateMetodoAjuste = async (id: string, nuevoAjustePct: number) => {
+    setSavingId(id);
+    setMetodos((prev) =>
+      prev.map((m) =>
+        m.id === id ? { ...m, ajuste_porcentaje: nuevoAjustePct } : m
+      )
+    );
+    try {
+      await TenantMetodosPagoService.actualizarMetodo(id, {
+        ajuste_porcentaje: nuevoAjustePct,
+      });
+      toast.success("Porcentaje de precio / ajuste actualizado.");
+    } catch (err) {
+      console.error("Error al guardar ajuste de precio:", err);
+      toast.error("Error al guardar ajuste de precio.");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   const handleToggleMetodoActivo = async (id: string, currentVal: boolean) => {
     const newVal = !currentVal;
     setMetodos((prev) =>
@@ -761,7 +781,7 @@ export function TenantMetodosPagoConfig({ empresaId, sucursalId }: TenantMetodos
             Terminales de Tarjeta y Meses Sin Intereses (MSI)
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            Configura la tasa porcentual (%) y la cuota fija por transacción ($ MXN) que la pasarela retiene (ej. 2.9% + $5.00 MXN). Este cálculo es 100% administrativo para la conciliación de remesas y depósito bancario real; no altera el total cobrado al cliente en mostrador.
+            Configura el porcentaje de precio aplicado al cliente para cada método de pago (autogestionable, ej. 4.30% para tarjeta o sobretasa para MSI), así como las comisiones bancarias retenidas por la pasarela en trastienda.
           </p>
         </div>
 
@@ -796,8 +816,33 @@ export function TenantMetodosPagoConfig({ empresaId, sucursalId }: TenantMetodos
                 </div>
 
                 {isCardOrMSI && (
-                  <div className="flex flex-wrap items-center gap-2.5">
-                    {/* Tasa Porcentual */}
+                  <div className="flex flex-wrap items-center gap-3">
+                    {/* Porcentaje de Precio / Ajuste al Cliente (Autogestionable) */}
+                    <div className="flex items-center gap-1.5 p-1 bg-blue-50/60 rounded-lg border border-blue-200/70">
+                      <span className="text-[10.5px] font-bold text-blue-900">Precio cliente:</span>
+                      <div className="flex items-center w-20 relative">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          disabled={!m.activo}
+                          value={m.ajuste_porcentaje ?? 0}
+                          onChange={(e) =>
+                            handleUpdateMetodoAjuste(
+                              m.id,
+                              parseFloat(e.target.value) || 0
+                            )
+                          }
+                          className="w-full h-7 px-1.5 pr-5 text-xs font-black text-blue-900 bg-white border border-blue-300 rounded text-right focus:ring-1 focus:ring-blue-500"
+                        />
+                        <span className="absolute right-1.5 text-xs font-black text-blue-600">%</span>
+                      </div>
+                    </div>
+
+                    <div className="h-5 w-px bg-slate-200 hidden sm:block" />
+
+                    {/* Tasa Porcentual Comision Pasarela */}
                     <div className="flex items-center gap-1.5">
                       <span className="text-[11px] font-bold text-slate-500">Tasa:</span>
                       <div className="flex items-center w-24 relative">

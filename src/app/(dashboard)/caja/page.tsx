@@ -539,27 +539,52 @@ export default function CajaPage() {
     return ordenes.find((o) => o.id === posSelectedOrderId) || null;
   }, [ordenes, posSelectedOrderId]);
 
-  // Esquema de Precios según Forma de Pago (Efectivo/SPEI vs Tarjeta +4.3%)
+  // Esquema de Precios Autogestionable por Tenant según Método de Pago
   const saldoBase = activeOrder ? Number(activeOrder.saldo || 0) : 0;
-  const esMetodoTarjeta = selectedMethod === "TPV" || selectedMethod === "Stripe";
-  const precioTarjetaCalculado = Math.round(saldoBase * 1.043 * 100) / 100;
-  const saldoSegunMetodo = esMetodoTarjeta ? precioTarjetaCalculado : saldoBase;
+  const tarjetaDefaultPct = Number(empresa?.tarjeta_ajuste_porcentaje ?? 4.3);
 
-  // Actualizar monto a cobrar por defecto cuando cambia la orden o el método
+  const metodoPagoSeleccionado = useMemo(() => {
+    if (selectedTenantMetodoId) {
+      return tenantMetodos.find((m) => m.id === selectedTenantMetodoId) || null;
+    }
+    if (selectedMethod === "TPV") {
+      return (
+        tenantMetodos.find((m) => ["TARJETA_CREDITO", "MSI", "DEBITO", "TPV"].includes(m.tipo?.toUpperCase() || "")) ||
+        null
+      );
+    }
+    return null;
+  }, [tenantMetodos, selectedTenantMetodoId, selectedMethod]);
+
+  const ajustePorcentajeMetodo = useMemo(() => {
+    if (metodoPagoSeleccionado?.ajuste_porcentaje !== undefined && metodoPagoSeleccionado?.ajuste_porcentaje !== null) {
+      return Number(metodoPagoSeleccionado.ajuste_porcentaje);
+    }
+    if (selectedMethod === "TPV" || selectedMethod === "Stripe") {
+      return tarjetaDefaultPct;
+    }
+    return 0;
+  }, [metodoPagoSeleccionado, selectedMethod, tarjetaDefaultPct]);
+
+  const precioTarjetaCalculado = Math.round(saldoBase * (1 + (tarjetaDefaultPct / 100)) * 100) / 100;
+  const saldoSegunMetodo = ajustePorcentajeMetodo > 0
+    ? Math.round(saldoBase * (1 + (ajustePorcentajeMetodo / 100)) * 100) / 100
+    : saldoBase;
+
+  // Actualizar monto a cobrar por defecto cuando cambia la orden, método o terminal seleccionada
   useEffect(() => {
     if (activeOrder) {
-      const saldoBase = Number(activeOrder.saldo || 0);
-      const esTarjeta = selectedMethod === "TPV" || selectedMethod === "Stripe";
-      const montoSegunMetodo = esTarjeta
-        ? Math.round(saldoBase * 1.043 * 100) / 100
-        : saldoBase;
-      setPaymentAmount(montoSegunMetodo > 0 ? montoSegunMetodo.toFixed(2) : "0.00");
+      const base = Number(activeOrder.saldo || 0);
+      const monto = ajustePorcentajeMetodo > 0
+        ? Math.round(base * (1 + (ajustePorcentajeMetodo / 100)) * 100) / 100
+        : base;
+      setPaymentAmount(monto > 0 ? monto.toFixed(2) : "0.00");
       setCashGiven("");
       setTpvReference("");
       setSpeiRastreo("");
       setQrCodeUrl(null);
     }
-  }, [activeOrder, selectedMethod]);
+  }, [activeOrder, selectedMethod, ajustePorcentajeMetodo]);
 
   // Load BNPL Simulation whenever method or provider changes
   useEffect(() => {
@@ -1726,7 +1751,7 @@ export default function CajaPage() {
                                     .filter((m) => ["TARJETA_CREDITO", "MSI", "DEBITO", "TPV"].includes(m.tipo?.toUpperCase() || ""))
                                     .map((m) => (
                                       <option key={m.id} value={m.id}>
-                                        {m.nombre} ({Number(m.comision_porcentaje)}%{Number(m.comision_fija || 0) > 0 ? ` + ${m.comision_fija}` : ""})
+                                        {m.nombre} {Number(m.ajuste_porcentaje || 0) > 0 ? `• Precio (+${m.ajuste_porcentaje}%)` : ""}
                                       </option>
                                     ))}
                                 </select>

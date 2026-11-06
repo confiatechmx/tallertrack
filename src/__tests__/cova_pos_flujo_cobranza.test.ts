@@ -31,6 +31,7 @@ describe("Bloque 2: Flujo Operativo del POS (Cobranza en Mostrador) - Cova", () 
       proveedor: "Terminal TPV BanBajío",
       comision_porcentaje: 2.0,
       comision_fija: 0,
+      ajuste_porcentaje: 4.3,
       activo: true,
     },
     {
@@ -41,6 +42,7 @@ describe("Bloque 2: Flujo Operativo del POS (Cobranza en Mostrador) - Cova", () 
       proveedor: "Mercado Pago",
       comision_porcentaje: 3.5,
       comision_fija: 0,
+      ajuste_porcentaje: 4.3,
       activo: true,
     },
     {
@@ -52,6 +54,7 @@ describe("Bloque 2: Flujo Operativo del POS (Cobranza en Mostrador) - Cova", () 
       plazo_msi: 3,
       comision_porcentaje: 7.5,
       comision_fija: 0,
+      ajuste_porcentaje: 7.5,
       activo: true,
     },
   ];
@@ -180,11 +183,29 @@ describe("Bloque 2: Flujo Operativo del POS (Cobranza en Mostrador) - Cova", () 
       expect(montoSPEI).toBe(1000.0);
     });
 
-    it("debe calcular un precio de tarjeta al +4.3% sin presentarlo como penalización", () => {
+    it("debe calcular el precio de tarjeta utilizando el ajuste porcentual autogestionable del método", () => {
       const saldoBase = 1000.0;
-      const precioTarjeta = Math.round(saldoBase * 1.043 * 100) / 100;
+      const metodoTPV = mockCovaMetodos.find((m) => m.id === "tpv-banbajio-1")!;
+      const precioCalculado = TenantMetodosPagoService.calcularPrecioSegunMetodo(saldoBase, metodoTPV);
 
-      expect(precioTarjeta).toBe(1043.0);
+      expect(precioCalculado).toBe(1043.0);
+    });
+
+    it("permite al tenant configurar un porcentaje personalizado por método (ej. 7.5% para 3 MSI)", () => {
+      const saldoBase = 2000.0;
+      const metodoMSI = mockCovaMetodos.find((m) => m.id === "mp-msi-3")!;
+      const precioMSI = TenantMetodosPagoService.calcularPrecioSegunMetodo(saldoBase, metodoMSI);
+
+      // 2000 * 1.075 = 2150.0
+      expect(precioMSI).toBe(2150.0);
+    });
+
+    it("aplica porcentaje fallback si el método no tiene porcentaje individual definido", () => {
+      const saldoBase = 1000.0;
+      const metodoSinAjuste = { id: "otro", nombre: "Terminal Genérica" };
+      const precioConFallback = TenantMetodosPagoService.calcularPrecioSegunMetodo(saldoBase, metodoSinAjuste, 5.0);
+
+      expect(precioConFallback).toBe(1050.0);
     });
 
     it("debe calcular correctamente el cambio al entregar billetes en efectivo en mostrador", () => {

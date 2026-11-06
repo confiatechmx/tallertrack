@@ -130,4 +130,22 @@ export const TenantMetodosPagoService = {
       montoNeto,
     };
   },
+
+  /**
+   * Calcula el precio al cliente según el porcentaje de ajuste autogestionable para el método de pago.
+   * Si el método tiene ajuste_porcentaje configurado, lo aplica; si no, utiliza el porcentaje fallback.
+   */
+  calcularPrecioSegunMetodo(
+    saldoBase: number,
+    metodo?: Partial<TenantMetodoPago> | null,
+    porcentajeFallback: number = 0
+  ): number {
+    if (saldoBase <= 0) return 0;
+    const porcentaje =
+      metodo?.ajuste_porcentaje !== undefined && metodo?.ajuste_porcentaje !== null
+        ? Number(metodo.ajuste_porcentaje)
+        : porcentajeFallback;
+    if (porcentaje <= 0) return saldoBase;
+    return Math.round(saldoBase * (1 + porcentaje / 100) * 100) / 100;
+  },
 };

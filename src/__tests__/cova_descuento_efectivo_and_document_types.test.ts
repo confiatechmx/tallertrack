@@ -1,12 +1,13 @@
 import { describe, it, expect } from "vitest";
 
 describe("Validaciones de Precios según Forma de Pago y Diferenciación Cotización vs Nota", () => {
-  describe("Esquema Dual de Precios (Efectivo/SPEI Base vs Tarjeta +4.3%)", () => {
+  describe("Esquema Dual de Precios Autogestionable por Tenant (Efectivo/SPEI Base vs Tarjeta)", () => {
     it("debe mantener el precio base para pagos en efectivo y transferencias SPEI", () => {
       const subtotalConIva = 1000.0;
+      const porcentajeTarjetaAutogestionado = 4.3;
       const calcularTotal = (metodo: "efectivo" | "transferencia" | "tarjeta") => {
         if (metodo === "tarjeta") {
-          return Math.round(subtotalConIva * 1.043 * 100) / 100;
+          return Math.round(subtotalConIva * (1 + porcentajeTarjetaAutogestionado / 100) * 100) / 100;
         }
         return subtotalConIva;
       };
@@ -16,11 +17,12 @@ describe("Validaciones de Precios según Forma de Pago y Diferenciación Cotizac
       expect(calcularTotal("tarjeta")).toBe(1043.0);
     });
 
-    it("el precio con tarjeta corresponde a un +4.3% exacto sin registrarse como multa o recargo", () => {
+    it("el tenant puede autogestionar y personalizar el porcentaje de tarjeta (ej: 5.0% o 3.8%)", () => {
       const base = 5000.0;
-      const precioTarjeta = Math.round(base * 1.043 * 100) / 100;
+      const porcentajePersonalizado = 5.0;
+      const precioTarjeta = Math.round(base * (1 + porcentajePersonalizado / 100) * 100) / 100;
 
-      expect(precioTarjeta).toBe(5215.0);
+      expect(precioTarjeta).toBe(5250.0);
     });
   });
 

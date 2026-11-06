@@ -1228,6 +1228,7 @@ export type Database = {
           rfc: string | null
           sitio_web: string | null
           subdominio: string | null
+          tarjeta_ajuste_porcentaje: number
           tasa_iva: number | null
           telefono: string | null
           terminos_condiciones: string | null
@@ -1255,6 +1256,7 @@ export type Database = {
           rfc?: string | null
           sitio_web?: string | null
           subdominio?: string | null
+          tarjeta_ajuste_porcentaje?: number
           tasa_iva?: number | null
           telefono?: string | null
           terminos_condiciones?: string | null
@@ -1282,6 +1284,7 @@ export type Database = {
           rfc?: string | null
           sitio_web?: string | null
           subdominio?: string | null
+          tarjeta_ajuste_porcentaje?: number
           tasa_iva?: number | null
           telefono?: string | null
           terminos_condiciones?: string | null
@@ -2554,6 +2557,7 @@ export type Database = {
       tenant_metodos_pago: {
         Row: {
           activo: boolean
+          ajuste_porcentaje: number
           caja_fondo_id: string | null
           color: string | null
           comision_fija: number
@@ -2575,6 +2579,7 @@ export type Database = {
         }
         Insert: {
           activo?: boolean
+          ajuste_porcentaje?: number
           caja_fondo_id?: string | null
           color?: string | null
           comision_fija?: number
@@ -2596,6 +2601,7 @@ export type Database = {
         }
         Update: {
           activo?: boolean
+          ajuste_porcentaje?: number
           caja_fondo_id?: string | null
           color?: string | null
           comision_fija?: number

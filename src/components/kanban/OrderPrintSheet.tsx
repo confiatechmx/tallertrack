@@ -170,8 +170,9 @@ export function OrderPrintSheet({
   );
   const descuentoEfectivoMonto = Number(order?.descuento_efectivo_monto || 0);
 
-  // Precios según forma de pago
-  const precioTarjetaCotizado = Math.round(granTotal * 1.043 * 100) / 100;
+  // Precios según forma de pago autogestionable por tenant
+  const tarjetaAjustePct = Number(activeEmpresa?.tarjeta_ajuste_porcentaje ?? 4.3);
+  const precioTarjetaCotizado = Math.round(granTotal * (1 + (tarjetaAjustePct / 100)) * 100) / 100;
 
   const totalPagado = pagosAprobados.reduce((acc: number, p: any) => acc + Number(p.monto_total || 0), 0);
   const totalDescuentosEnPagos = pagosAprobados.reduce(
