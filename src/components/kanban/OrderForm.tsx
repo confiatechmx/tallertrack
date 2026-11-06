@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useTenant } from "@/context/TenantContext";
+import { TenantEstacionesService } from "@/services/tenantEstacionesService";
 import {
   Loader2,
   Car,
@@ -40,12 +41,13 @@ export interface OrderFormProps {
   initialDiferidoId?: string | null;
 }
 
-const BAHIAS_TALLER = [
-  "Rampa 1 (Alineación)",
-  "Rampa 2 (Frenos / Susp.)",
-  "Rampa 3 (Mecánica Gral.)",
-  "Rampa 4 (Servicio Rápido)",
-  "Bahía Diagnóstico",
+const DEFAULT_COVA_ESTACIONES = [
+  "Fosa de diagnóstico",
+  "Rampa frenera 1",
+  "Rampa frenera 2",
+  "Portería",
+  "Comodín 1",
+  "Comodín 2",
 ];
 
 export function OrderForm({
@@ -81,11 +83,12 @@ export function OrderForm({
 
   const [selectedClientId, setSelectedClientId] = useState(initialClientId || "");
   const [selectedVehicleId, setSelectedVehicleId] = useState(initialVehicleId || "");
+  const [estaciones, setEstaciones] = useState<string[]>(DEFAULT_COVA_ESTACIONES);
 
   const [formData, setFormData] = useState({
     sucursal_id: sucursalActiva?.id || "",
     mecanico_id: "",
-    bahia_rampa: "Rampa 4 (Servicio Rápido)",
+    bahia_rampa: "Fosa de diagnóstico",
     prioridad: "normal",
     kilometraje_ingreso: "",
     nivel_gasolina: "1/2",
@@ -97,7 +100,7 @@ export function OrderForm({
     setTipoRecepcion(tipo);
     setFormData((prev) => ({
       ...prev,
-      bahia_rampa: tipo === "express" ? "Rampa 4 (Servicio Rápido)" : "Bahía Diagnóstico",
+      bahia_rampa: tipo === "express" ? (estaciones[1] || "Rampa frenera 1") : (estaciones[0] || "Fosa de diagnóstico"),
     }));
   };
 
@@ -728,7 +731,7 @@ export function OrderForm({
               onChange={handleChange}
               className={inputClasses}
             >
-              {BAHIAS_TALLER.map((b) => (
+              {estaciones.map((b) => (
                 <option key={b} value={b}>
                   {b}
                 </option>

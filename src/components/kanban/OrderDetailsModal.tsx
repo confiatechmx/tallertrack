@@ -103,13 +103,13 @@ const PROVEEDORES_REFACCIONES = [
   "Brembo México",
 ];
 
-const BAHIAS_TALLER = [
-  "Rampa 1 (Alineación)",
-  "Rampa 2 (Frenos / Susp.)",
-  "Rampa 3 (Mecánica Gral.)",
-  "Rampa 4 (Servicio Rápido)",
-  "Bahía Diagnóstico",
-  "Patio Entrega",
+const DEFAULT_COVA_ESTACIONES = [
+  "Fosa de diagnóstico",
+  "Rampa frenera 1",
+  "Rampa frenera 2",
+  "Portería",
+  "Comodín 1",
+  "Comodín 2",
 ];
 
 const CHECKLIST_ITEMS = [
@@ -294,6 +294,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   const [recProblema, setRecProblema] = useState("");
   const [recDiagnostico, setRecDiagnostico] = useState("");
   const [recBahia, setRecBahia] = useState("");
+  const [estacionesList, setEstacionesList] = useState<string[]>(DEFAULT_COVA_ESTACIONES);
   const [recKilometraje, setRecKilometraje] = useState<string>("");
   const [recGasolina, setRecGasolina] = useState("1/2");
   const [recChecklist, setRecChecklist] = useState<Record<string, boolean>>({
@@ -4926,7 +4927,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                       className="w-full h-8 text-xs bg-white border border-slate-300 rounded px-2"
                     >
                       <option value="">Sin asignar</option>
-                      {BAHIAS_TALLER.map((b) => (
+                      {estacionesList.map((b) => (
                         <option key={b} value={b}>
                           {b}
                         </option>

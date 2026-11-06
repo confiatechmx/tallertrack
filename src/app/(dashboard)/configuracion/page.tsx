@@ -29,14 +29,16 @@ import {
   Upload,
   Receipt,
   RotateCcw,
+  Layers,
 } from "lucide-react";
 import { toast } from "sonner";
 import TenantBrandLogo from "@/components/brand/TenantBrandLogo";
 import CustomDomainModal from "@/components/hq/CustomDomainModal";
 import { TenantMetodosPagoConfig } from "@/components/configuracion/TenantMetodosPagoConfig";
+import { TenantEstacionesConfig } from "@/components/configuracion/TenantEstacionesConfig";
 import { TenantUsuariosConfigSection } from "@/components/configuracion/TenantUsuariosConfigSection";
 
-type ConfigTab = "Marca" | "Empresa" | "Sucursales" | "Personal" | "Pagos";
+type ConfigTab = "Marca" | "Empresa" | "Sucursales" | "Estaciones" | "Personal" | "Pagos";
 
 const INITIAL_FORM_EMPRESA = {
   nombre_comercial: "",
@@ -398,6 +400,18 @@ function ConfiguracionContent() {
         </button>
 
         <button
+          onClick={() => setActiveTab("Estaciones")}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === "Estaciones"
+              ? "bg-white text-slate-900 shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Layers size={15} className="text-teal-600" />
+          4. Estaciones de Trabajo
+        </button>
+
+        <button
           onClick={() => setActiveTab("Personal")}
           className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
             activeTab === "Personal"
@@ -406,7 +420,7 @@ function ConfiguracionContent() {
           }`}
         >
           <Users size={15} className="text-purple-600" />
-          4. Personal & Accesos
+          5. Personal & Accesos
         </button>
 
         <button
@@ -418,7 +432,7 @@ function ConfiguracionContent() {
           }`}
         >
           <Landmark size={15} className="text-amber-600" />
-          5. Métodos de Pago & Cuentas
+          6. Métodos de Pago & Cuentas
         </button>
       </div>
 
@@ -915,7 +929,19 @@ function ConfiguracionContent() {
         )}
 
         {/* ========================================================= */}
-        {/* TAB 5: MÉTODOS DE PAGO & CUENTAS BANCARIAS                */}
+        {/* TAB 4: ESTACIONES DE TRABAJO EN PISO (FOSAS / RAMPAS)      */}
+        {/* ========================================================= */}
+        {activeTab === "Estaciones" && (
+          <div className="max-w-4xl mx-auto space-y-6">
+            <TenantEstacionesConfig
+              empresaId={tenantEmpresa?.id || "b2ad09db-0a34-4876-9ca3-d584c40bd294"}
+              sucursalId={sucursalActiva?.id}
+            />
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* TAB 6: MÉTODOS DE PAGO & CUENTAS BANCARIAS                */}
         {/* ========================================================= */}
         {activeTab === "Pagos" && (
           <div className="max-w-4xl mx-auto space-y-6">

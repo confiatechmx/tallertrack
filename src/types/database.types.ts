@@ -2513,6 +2513,63 @@ export type Database = {
           },
         ]
       }
+      tenant_estaciones_trabajo: {
+        Row: {
+          activo: boolean
+          codigo: string | null
+          created_at: string
+          descripcion: string | null
+          empresa_id: string
+          id: string
+          nombre: string
+          orden: number
+          sucursal_id: string | null
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          codigo?: string | null
+          created_at?: string
+          descripcion?: string | null
+          empresa_id: string
+          id?: string
+          nombre: string
+          orden?: number
+          sucursal_id?: string | null
+          tipo?: string
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          codigo?: string | null
+          created_at?: string
+          descripcion?: string | null
+          empresa_id?: string
+          id?: string
+          nombre?: string
+          orden?: number
+          sucursal_id?: string | null
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_estaciones_trabajo_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_estaciones_trabajo_sucursal_id_fkey"
+            columns: ["sucursal_id"]
+            isOneToOne: false
+            referencedRelation: "sucursales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_kpi_categorias: {
         Row: {
           activo: boolean
