@@ -253,6 +253,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
     estatusGarantia?: string;
   } | null>(null);
   const [attachingPartForEvidence, setAttachingPartForEvidence] = useState<any | null>(null);
+  const [isRegistrarTicketModalOpen, setIsRegistrarTicketModalOpen] = useState(false);
 
   // Tires state
   const [isAddingTire, setIsAddingTire] = useState(false);
@@ -3523,7 +3524,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
 
               {/* 2. REFACCIONES SOBRE PEDIDO / BUYOUTS (CON CALCULADORA DE MARGEN) */}
               <div className="bg-white border border-slate-200 rounded-lg shadow-2xs overflow-hidden">
-                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <Package size={15} className="text-indigo-600" />
                     <div>
@@ -3532,14 +3533,105 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                       </h3>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsAddingPart(!isAddingPart)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors cursor-pointer"
-                  >
-                    <Calculator size={13} /> + Cotizar Refacción Externa
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {partsList.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAttachingPartForEvidence(null);
+                          setIsRegistrarTicketModalOpen(true);
+                        }}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
+                        title="Subir 1 ticket que ampare varias refacciones con su foto y garantía"
+                      >
+                        <FileText size={13} /> + Registrar Ticket de Compra
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingPart(!isAddingPart)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      <Calculator size={13} /> + Cotizar Refacción Externa
+                    </button>
+                  </div>
                 </div>
+
+                {/* Resumen de Tickets de Compra Vinculados en esta Orden */}
+                {(() => {
+                  const ticketsMap = new Map<string, {
+                    folio: string;
+                    proveedor: string;
+                    garantia: string;
+                    evidenciaUrl: string | null;
+                    piezasCount: number;
+                    totalCosto: number;
+                    compraData: any;
+                  }>();
+
+                  partsList.forEach((p: any) => {
+                    const folio = p.compras_proveedores?.folio_ticket_nota || p.folio_ticket_nota;
+                    if (folio) {
+                      const key = p.compra_proveedor_id || folio;
+                      const existing = ticketsMap.get(key) || {
+                        folio,
+                        proveedor: p.compras_proveedores?.proveedores?.nombre_comercial || p.proveedor || "Proveedor",
+                        garantia: p.garantia_especifica || (p.compras_proveedores?.meses_garantia ? `${p.compras_proveedores.meses_garantia} meses` : "Garantía"),
+                        evidenciaUrl: p.compras_proveedores?.evidencia_url || p.evidencia_url || null,
+                        piezasCount: 0,
+                        totalCosto: 0,
+                        compraData: p.compras_proveedores,
+                      };
+                      existing.piezasCount += 1;
+                      existing.totalCosto += Number(p.costo_unitario || 0) * Number(p.cantidad || 1);
+                      ticketsMap.set(key, existing);
+                    }
+                  });
+
+                  const tickets = Array.from(ticketsMap.values());
+                  if (tickets.length === 0) return null;
+
+                  return (
+                    <div className="px-4 py-2 bg-slate-50/70 border-b border-slate-200/80 flex flex-wrap items-center gap-2">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                        <ShieldCheck size={12} className="text-emerald-600" /> Tickets de Compra ({tickets.length}):
+                      </span>
+                      {tickets.map((t, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            if (t.evidenciaUrl) {
+                              setSelectedTicketEvidence({
+                                evidenciaUrl: t.evidenciaUrl,
+                                folio: t.folio,
+                                proveedorNombre: t.proveedor,
+                                descripcion: `${t.piezasCount} piezas amparadas`,
+                                monto: t.totalCosto,
+                                fechaCompra: t.compraData?.fecha_compra || new Date().toISOString().split("T")[0],
+                                fechaVencimientoGarantia: t.compraData?.fecha_vencimiento_garantia,
+                                estatusGarantia: t.compraData?.estatus_garantia || "VIGENTE",
+                              });
+                            }
+                          }}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border transition-all ${
+                            t.evidenciaUrl
+                              ? "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100 cursor-pointer"
+                              : "bg-slate-100 text-slate-700 border-slate-200"
+                          }`}
+                          title="Ver ticket de compra y póliza de garantía"
+                        >
+                          <FileText size={11} className={t.evidenciaUrl ? "text-emerald-600" : "text-slate-400"} />
+                          <span>{t.proveedor} • #{t.folio}</span>
+                          <span className="text-[10px] text-emerald-700 font-mono">(${t.totalCosto.toFixed(2)})</span>
+                          <span className="px-1 py-0.2 rounded text-[9px] bg-white/70 text-slate-600 font-bold">
+                            {t.piezasCount} {t.piezasCount === 1 ? "pieza" : "piezas"}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })()}
 
                 {isAddingPart && renderPartForm()}
 
@@ -5520,39 +5612,51 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
           />
         )}
 
-        {/* Modal para Vincular Comprobante de Compra y Garantía a la Refacción */}
-        {attachingPartForEvidence && (
+        {/* Modal para Vincular Comprobante de Compra y Garantía a las Refacciones (Multirrefacción / Lote) */}
+        {(attachingPartForEvidence || isRegistrarTicketModalOpen) && (
           <ProveedorEvidenceModal
-            isOpen={!!attachingPartForEvidence}
-            onClose={() => setAttachingPartForEvidence(null)}
+            isOpen={!!attachingPartForEvidence || isRegistrarTicketModalOpen}
+            onClose={() => {
+              setAttachingPartForEvidence(null);
+              setIsRegistrarTicketModalOpen(false);
+            }}
             empresaId={empresa?.id || ""}
             sucursalId={sucursalActiva?.id}
             ordenServicioId={orderId}
-            defaultDescripcion={`${attachingPartForEvidence.nombre}${
-              attachingPartForEvidence.numero_parte ? ` (P/N: ${attachingPartForEvidence.numero_parte})` : ""
-            }`}
-            defaultMonto={
-              Number(attachingPartForEvidence.costo_unitario || 0) *
-              Number(attachingPartForEvidence.cantidad || 1)
+            refaccionesDisponibles={partsList}
+            preselectedRefaccionId={attachingPartForEvidence?.id}
+            defaultDescripcion={
+              attachingPartForEvidence
+                ? `${attachingPartForEvidence.nombre}${
+                    attachingPartForEvidence.numero_parte ? ` (P/N: ${attachingPartForEvidence.numero_parte})` : ""
+                  }`
+                : `Compra de refacciones - Orden #${order?.numero_orden || ""}`
             }
-            onCompraRegistrada={async (compra) => {
-              if (attachingPartForEvidence?.id) {
-                await supabase
-                  .from("orden_servicio_refacciones")
-                  .update({
-                    compra_proveedor_id: compra.id,
-                    garantia_especifica: `${compra.meses_garantia} meses - Nota #${compra.folio_ticket_nota}`,
-                  })
-                  .eq("id", attachingPartForEvidence.id);
+            defaultMonto={
+              attachingPartForEvidence
+                ? Number(attachingPartForEvidence.costo_unitario || 0) *
+                  Number(attachingPartForEvidence.cantidad || 1)
+                : 0
+            }
+            onCompraRegistrada={async (compra, refaccionIds) => {
+              const idsToUpdate = refaccionIds && refaccionIds.length > 0
+                ? refaccionIds
+                : attachingPartForEvidence?.id
+                ? [attachingPartForEvidence.id]
+                : [];
 
+              if (idsToUpdate.length > 0) {
                 setOrder((prev: any) => ({
                   ...prev,
                   orden_servicio_refacciones: (prev.orden_servicio_refacciones || []).map((p: any) =>
-                    p.id === attachingPartForEvidence.id
+                    idsToUpdate.includes(p.id)
                       ? {
                           ...p,
                           compra_proveedor_id: compra.id,
-                          garantia_especifica: `${compra.meses_garantia} meses - Nota #${compra.folio_ticket_nota}`,
+                          proveedor_id: compra.proveedor_id || p.proveedor_id,
+                          folio_ticket_nota: compra.folio_ticket_nota,
+                          evidencia_url: compra.evidencia_url || p.evidencia_url,
+                          garantia_especifica: `${compra.meses_garantia || 1} meses - Nota #${compra.folio_ticket_nota}`,
                           compras_proveedores: compra,
                         }
                       : p
@@ -5560,6 +5664,8 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                 }));
               }
               setAttachingPartForEvidence(null);
+              setIsRegistrarTicketModalOpen(false);
+              toast.success(`Ticket #${compra.folio_ticket_nota} vinculado a ${idsToUpdate.length} refacciones`);
               onUpdate();
             }}
           />

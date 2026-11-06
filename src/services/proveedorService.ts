@@ -307,6 +307,76 @@ export const ProveedorService = {
   },
 
   /**
+   * Obtiene las compras / tickets de proveedor registrados para una orden de trabajo específica
+   */
+  async obtenerComprasPorOrden(
+    ordenServicioId: string
+  ): Promise<{ data: any[]; error: string | null }> {
+    try {
+      const { data, error } = await supabase
+        .from("compras_proveedores")
+        .select(`
+          *,
+          proveedores (
+            id,
+            nombre_comercial,
+            telefono,
+            whatsapp,
+            dias_credito
+          )
+        `)
+        .eq("orden_servicio_id", ordenServicioId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return { data: data || [], error: null };
+    } catch (err: any) {
+      console.error("Error al obtener compras de la orden:", err);
+      return { data: [], error: err.message || "Error al consultar compras de la orden" };
+    }
+  },
+
+  /**
+   * Vincula en bloque múltiples refacciones a un ticket de compra de proveedor
+   */
+  async vincularRefaccionesATicket(
+    compra: {
+      id: string;
+      proveedor_id?: string;
+      folio_ticket_nota: string;
+      fuente_pago?: string;
+      evidencia_url?: string | null;
+      meses_garantia?: number;
+    },
+    refaccionIds: string[]
+  ): Promise<{ success: boolean; error: string | null }> {
+    if (!compra?.id || !refaccionIds || refaccionIds.length === 0) {
+      return { success: true, error: null };
+    }
+    try {
+      const updatePayload: Record<string, any> = {
+        compra_proveedor_id: compra.id,
+        folio_ticket_nota: compra.folio_ticket_nota,
+        garantia_especifica: `${compra.meses_garantia || 1} meses - Nota #${compra.folio_ticket_nota}`,
+      };
+      if (compra.proveedor_id) updatePayload.proveedor_id = compra.proveedor_id;
+      if (compra.fuente_pago) updatePayload.fuente_pago = compra.fuente_pago;
+      if (compra.evidencia_url) updatePayload.evidencia_url = compra.evidencia_url;
+
+      const { error } = await supabase
+        .from("orden_servicio_refacciones")
+        .update(updatePayload)
+        .in("id", refaccionIds);
+
+      if (error) throw error;
+      return { success: true, error: null };
+    } catch (err: any) {
+      console.error("Error al vincular refacciones a ticket:", err);
+      return { success: false, error: err.message || "Error al vincular refacciones" };
+    }
+  },
+
+  /**
    * Obtiene el resumen de cuentas por pagar (CxP)
    */
   async obtenerResumenCxP(empresaId: string): Promise<ResumenCxP> {

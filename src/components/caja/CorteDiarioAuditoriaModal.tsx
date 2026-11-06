@@ -185,14 +185,14 @@ export function CorteDiarioAuditoriaModal({
 
   const gananciaFiscal =
     resumen?.fiscal?.ganancia_fiscal ??
-    resumen?.fiscal?.total_fiscal_facturado ??
+    (resumen?.fiscal as any)?.total_fiscal_facturado ??
     (resumen?.bancos || [])
       .filter((b) => b.es_fiscal)
       .reduce((acc, b) => acc + Number(b.total || 0), 0);
 
   const gananciaOperativa =
     resumen?.fiscal?.ganancia_despues_de_fiscal ??
-    resumen?.fiscal?.total_no_fiscal_operativo ??
+    (resumen?.fiscal as any)?.total_no_fiscal_operativo ??
     (gananciaNeta - gananciaFiscal);
 
   return (

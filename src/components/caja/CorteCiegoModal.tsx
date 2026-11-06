@@ -549,7 +549,7 @@ export function CorteCiegoModal({
                     </span>
                     <p className="text-[11px] text-slate-400 mt-0.5">
                       Dispuesto en plataforma financiera
-
+                    </p>
                   </div>
                 </div>
               </div>
