@@ -26,6 +26,7 @@ export interface EmpresaConfig {
   terminos_condiciones: string | null;
   descuento_efectivo_habilitado?: boolean;
   descuento_efectivo_porcentaje?: number;
+  tarjeta_ajuste_porcentaje?: number;
   plan_suscripcion?: "STARTER" | "PRO" | "ENTERPRISE" | "BASICO";
   ambiente?: "PRODUCTION" | "SANDBOX" | "DEMO";
   activo?: boolean;
@@ -118,6 +119,7 @@ export const DEFAULT_EMPRESA: EmpresaConfig = {
   margen_refacciones_default: 35,
   descuento_efectivo_habilitado: true,
   descuento_efectivo_porcentaje: 3.0,
+  tarjeta_ajuste_porcentaje: 4.3,
   terminos_condiciones:
     "Garantía de 30 días o 1,000 km en mano de obra. Refacciones y neumáticos sujetos a garantía del fabricante.",
   plan_suscripcion: "ENTERPRISE",
@@ -324,6 +326,7 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
           plan_suscripcion: empData.plan_suscripcion || "STARTER",
           ambiente: empData.ambiente || "PRODUCTION",
           activo: empData.activo !== false,
+          tarjeta_ajuste_porcentaje: Number(empData.tarjeta_ajuste_porcentaje ?? 4.3),
           custom_metadata: empData.custom_metadata || {},
         };
         setEmpresa(merged);
