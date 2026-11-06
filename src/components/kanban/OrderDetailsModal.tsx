@@ -13,6 +13,7 @@ import { AuditTimeline } from "@/components/audit/AuditTimeline";
 import { TicketEvidenceLightbox } from "@/components/proveedores/TicketEvidenceLightbox";
 import { ProveedorEvidenceModal } from "@/components/proveedores/ProveedorEvidenceModal";
 import { ProveedorService, type Proveedor } from "@/services/proveedorService";
+import { EditOrderItemDrawer, type OrderItemType } from "./EditOrderItemDrawer";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -94,7 +95,7 @@ interface OrderDetailsModalProps {
 
 type WorkspaceTab = "cotizacion" | "dvi" | "pagos" | "impresion" | "auditoria";
 
-const PROVEEDORES_REFACCIONES = [
+export const PROVEEDORES_REFACCIONES: string[] = [
   "AutoZone Comercial",
   "Rolcar",
   "EuroPartes Culiacán",
@@ -256,6 +257,15 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   } | null>(null);
   const [attachingPartForEvidence, setAttachingPartForEvidence] = useState<any | null>(null);
   const [isRegistrarTicketModalOpen, setIsRegistrarTicketModalOpen] = useState(false);
+  const [editingItemDrawer, setEditingItemDrawer] = useState<{
+    isOpen: boolean;
+    itemType: OrderItemType | null;
+    itemData: any | null;
+  }>({
+    isOpen: false,
+    itemType: null,
+    itemData: null,
+  });
 
   // Tires state
   const [isAddingTire, setIsAddingTire] = useState(false);
@@ -1170,6 +1180,36 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
       setEditingServiceId(null);
       onUpdate();
     }
+  };
+
+  const handleItemEdited = (updatedItem: any, itemType: OrderItemType) => {
+    if (itemType === "servicio") {
+      setOrder((prev: any) => ({
+        ...prev,
+        orden_servicio_servicios: (prev.orden_servicio_servicios || []).map((s: any) =>
+          s.id === updatedItem.id ? updatedItem : s
+        ),
+      }));
+    } else if (itemType === "refaccion") {
+      setOrder((prev: any) => ({
+        ...prev,
+        orden_servicio_refacciones: (prev.orden_servicio_refacciones || []).map((r: any) =>
+          r.id === updatedItem.id ? updatedItem : r
+        ),
+      }));
+    } else if (itemType === "llanta") {
+      const updatedDetalles = (order?.cotizaciones?.detalles_cotizacion || []).map((d: any) =>
+        d.id === updatedItem.id ? updatedItem : d
+      );
+      setOrder((prev: any) => ({
+        ...prev,
+        cotizaciones: {
+          ...prev.cotizaciones,
+          detalles_cotizacion: updatedDetalles,
+        },
+      }));
+    }
+    onUpdate();
   };
 
   const handleToggleCortesia = async (row: any) => {
@@ -3128,14 +3168,30 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                         ${sub.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                                       </td>
                                       <td className="py-2 px-3 text-right">
-                                        <button
-                                          type="button"
-                                          onClick={() => handleRemoveTire(t)}
-                                          className="p-1 text-slate-400 hover:text-red-600 cursor-pointer"
-                                          title="Eliminar neumático"
-                                        >
-                                          <Trash2 size={13} />
-                                        </button>
+                                        <div className="inline-flex items-center gap-1">
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setEditingItemDrawer({
+                                                isOpen: true,
+                                                itemType: "llanta",
+                                                itemData: t,
+                                              })
+                                            }
+                                            className="p-1 text-slate-400 hover:text-amber-600 cursor-pointer"
+                                            title="Editar neumático"
+                                          >
+                                            <Pencil size={13} />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleRemoveTire(t)}
+                                            className="p-1 text-slate-400 hover:text-red-600 cursor-pointer"
+                                            title="Eliminar neumático"
+                                          >
+                                            <Trash2 size={13} />
+                                          </button>
+                                        </div>
                                       </td>
                                     </tr>
                                   );
@@ -3206,6 +3262,20 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                       </td>
                                       <td className="py-2 px-3 text-right">
                                         <div className="inline-flex items-center gap-1">
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setEditingItemDrawer({
+                                                isOpen: true,
+                                                itemType: "refaccion",
+                                                itemData: r,
+                                              })
+                                            }
+                                            className="p-1 text-slate-400 hover:text-indigo-600 cursor-pointer"
+                                            title="Editar refacción"
+                                          >
+                                            <Pencil size={13} />
+                                          </button>
                                           {!isDeferred && (
                                             <button
                                               type="button"
@@ -3311,6 +3381,20 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                       </td>
                                       <td className="py-2 px-3 text-right">
                                         <div className="inline-flex items-center gap-1">
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setEditingItemDrawer({
+                                                isOpen: true,
+                                                itemType: "servicio",
+                                                itemData: s,
+                                              })
+                                            }
+                                            className="p-1 text-slate-400 hover:text-blue-600 cursor-pointer"
+                                            title="Editar mano de obra completa"
+                                          >
+                                            <Pencil size={13} />
+                                          </button>
                                           <button
                                             type="button"
                                             onClick={() => handleToggleCortesia(s)}
@@ -3547,6 +3631,20 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                               </td>
                               <td className="py-2.5 px-3 text-right">
                                 <div className="inline-flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setEditingItemDrawer({
+                                        isOpen: true,
+                                        itemType: "servicio",
+                                        itemData: row,
+                                      })
+                                    }
+                                    className="p-1 text-slate-400 hover:text-blue-600 cursor-pointer"
+                                    title="Editar mano de obra completa"
+                                  >
+                                    <Pencil size={14} />
+                                  </button>
                                   <button
                                     type="button"
                                     onClick={() => handleToggleCortesia(row)}
@@ -3809,6 +3907,20 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                               </td>
                               <td className="py-2.5 px-3 text-right">
                                 <div className="inline-flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setEditingItemDrawer({
+                                        isOpen: true,
+                                        itemType: "refaccion",
+                                        itemData: part,
+                                      })
+                                    }
+                                    className="p-1 text-slate-400 hover:text-indigo-600 cursor-pointer"
+                                    title="Editar refacción"
+                                  >
+                                    <Pencil size={14} />
+                                  </button>
                                   {!isDeferred && (
                                     <button
                                       type="button"
@@ -4469,14 +4581,30 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                 ${Number(row.subtotal).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                               </td>
                               <td className="py-2.5 px-3 text-right">
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveTire(row)}
-                                  className="p-1 text-slate-400 hover:text-red-600 cursor-pointer"
-                                  title="Eliminar neumático"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
+                                <div className="inline-flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setEditingItemDrawer({
+                                        isOpen: true,
+                                        itemType: "llanta",
+                                        itemData: row,
+                                      })
+                                    }
+                                    className="p-1 text-slate-400 hover:text-amber-600 cursor-pointer"
+                                    title="Editar neumático"
+                                  >
+                                    <Pencil size={14} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveTire(row)}
+                                    className="p-1 text-slate-400 hover:text-red-600 cursor-pointer"
+                                    title="Eliminar neumático"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           );
@@ -5724,7 +5852,22 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
           />
         )}
 
-        {/* TAB 4: HOJA DE RECEPCIÓN / IMPRESIÓN */}
+        {/* Drawer Lateral de Edición de Partidas (Mano de Obra, Refacción, Neumático) */}
+        {editingItemDrawer.isOpen && (
+          <EditOrderItemDrawer
+            isOpen={editingItemDrawer.isOpen}
+            onClose={() =>
+              setEditingItemDrawer({ isOpen: false, itemType: null, itemData: null })
+            }
+            itemType={editingItemDrawer.itemType}
+            itemData={editingItemDrawer.itemData}
+            orderId={orderId}
+            empresaId={order?.empresa_id || empresa?.id}
+            mechanics={mechanics}
+            proveedoresCatalogo={proveedoresCatalogo}
+            onSaveSuccess={handleItemEdited}
+          />
+        )}
         {activeTab === "impresion" && (
           <OrderPrintSheet order={order} mechanicName={assignedMechanic?.nombre} />
         )}

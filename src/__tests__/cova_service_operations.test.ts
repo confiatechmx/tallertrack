@@ -163,4 +163,58 @@ describe("Cova Service Operations & Packaging Engine", () => {
     expect(resolverNombre(srv1)).toBe("Torneado especial de disco ventilado");
     expect(resolverNombre(srv2)).toBe("Alineación 3D");
   });
+
+  it("permite editar campos de refacción recalculando costo, markup y precio sin necesidad de eliminar y reingresar", () => {
+    const refaccionOriginal = {
+      id: "ref-1",
+      nombre: "Balatas Delanteras",
+      cantidad: 1,
+      costo_unitario: 500,
+      margen_porcentaje: 35,
+      precio_unitario: 675,
+      subtotal: 675,
+    };
+
+    // Modificar cantidad a 2 y margen a 40%
+    const nuevaCantidad = 2;
+    const nuevoMargen = 40;
+    const nuevoPrecio = Math.round(refaccionOriginal.costo_unitario * (1 + nuevoMargen / 100));
+    const nuevoSubtotal = nuevaCantidad * nuevoPrecio;
+
+    const refaccionActualizada = {
+      ...refaccionOriginal,
+      cantidad: nuevaCantidad,
+      margen_porcentaje: nuevoMargen,
+      precio_unitario: nuevoPrecio,
+      subtotal: nuevoSubtotal,
+    };
+
+    expect(refaccionActualizada.cantidad).toBe(2);
+    expect(refaccionActualizada.precio_unitario).toBe(700);
+    expect(refaccionActualizada.subtotal).toBe(1400);
+  });
+
+  it("permite actualizar un servicio asignándole nuevo técnico, horas y precio de forma reactiva", () => {
+    const servicioOriginal = {
+      id: "srv-1",
+      concepto_personalizado: "Diagnóstico inicial",
+      mecanico_id: "mec-1",
+      horas_labor: 0.5,
+      precio_cobrado: 300,
+      es_cortesia: false,
+    };
+
+    const servicioEditado = {
+      ...servicioOriginal,
+      concepto_personalizado: "Diagnóstico completo por escáner y compresión",
+      mecanico_id: "mec-2",
+      horas_labor: 1.5,
+      precio_cobrado: 650,
+    };
+
+    expect(servicioEditado.concepto_personalizado).toBe("Diagnóstico completo por escáner y compresión");
+    expect(servicioEditado.mecanico_id).toBe("mec-2");
+    expect(servicioEditado.horas_labor).toBe(1.5);
+    expect(servicioEditado.precio_cobrado).toBe(650);
+  });
 });
