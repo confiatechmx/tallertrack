@@ -13,7 +13,6 @@ import { AuditTimeline } from "@/components/audit/AuditTimeline";
 import { TicketEvidenceLightbox } from "@/components/proveedores/TicketEvidenceLightbox";
 import { ProveedorEvidenceModal } from "@/components/proveedores/ProveedorEvidenceModal";
 import { ProveedorService, type Proveedor } from "@/services/proveedorService";
-import { EditOrderItemDrawer, type OrderItemType } from "./EditOrderItemDrawer";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -257,15 +256,12 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   } | null>(null);
   const [attachingPartForEvidence, setAttachingPartForEvidence] = useState<any | null>(null);
   const [isRegistrarTicketModalOpen, setIsRegistrarTicketModalOpen] = useState(false);
-  const [editingItemDrawer, setEditingItemDrawer] = useState<{
-    isOpen: boolean;
-    itemType: OrderItemType | null;
-    itemData: any | null;
-  }>({
-    isOpen: false,
-    itemType: null,
-    itemData: null,
-  });
+  const [inlineEdit, setInlineEdit] = useState<{
+    itemType: "servicio" | "refaccion" | "llanta";
+    itemId: string;
+    field: "nombre" | "cantidad" | "precio" | "costo" | "mecanico" | "horas";
+    value: string;
+  } | null>(null);
 
   // Tires state
   const [isAddingTire, setIsAddingTire] = useState(false);
@@ -1182,34 +1178,183 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
     }
   };
 
-  const handleItemEdited = (updatedItem: any, itemType: OrderItemType) => {
-    if (itemType === "servicio") {
-      setOrder((prev: any) => ({
-        ...prev,
-        orden_servicio_servicios: (prev.orden_servicio_servicios || []).map((s: any) =>
-          s.id === updatedItem.id ? updatedItem : s
-        ),
-      }));
-    } else if (itemType === "refaccion") {
-      setOrder((prev: any) => ({
-        ...prev,
-        orden_servicio_refacciones: (prev.orden_servicio_refacciones || []).map((r: any) =>
-          r.id === updatedItem.id ? updatedItem : r
-        ),
-      }));
-    } else if (itemType === "llanta") {
-      const updatedDetalles = (order?.cotizaciones?.detalles_cotizacion || []).map((d: any) =>
-        d.id === updatedItem.id ? updatedItem : d
-      );
-      setOrder((prev: any) => ({
-        ...prev,
-        cotizaciones: {
-          ...prev.cotizaciones,
-          detalles_cotizacion: updatedDetalles,
-        },
-      }));
+  const updateInlineEditValue = (val: string) => {
+    setInlineEdit((prev) => (prev ? { ...prev, value: val } : null));
+  };
+
+  const saveInlineEdit = async (targetOverride?: {
+    itemType: "servicio" | "refaccion" | "llanta";
+    itemId: string;
+    field: "nombre" | "cantidad" | "precio" | "costo" | "mecanico" | "horas";
+    value: string;
+  }) => {
+    const target = targetOverride || inlineEdit;
+    if (!target) return;
+    const { itemType, itemId, field, value } = target;
+    setInlineEdit(null);
+
+    try {
+      if (itemType === "servicio") {
+        const current = (order?.orden_servicio_servicios || []).find((s: any) => s.id === itemId);
+        if (!current) return;
+
+        const updates: any = {};
+        if (field === "nombre") {
+          const valTrim = value.trim();
+          if (!valTrim || valTrim === (current.concepto_personalizado || current.servicios_taller?.nombre)) return;
+          updates.concepto_personalizado = valTrim;
+        } else if (field === "cantidad") {
+          const q = Math.max(1, parseInt(value) || 1);
+          if (q === Number(current.cantidad || 1)) return;
+          updates.cantidad = q;
+        } else if (field === "precio") {
+          const p = Math.max(0, parseFloat(value) || 0);
+          if (p === Number(current.precio_cobrado || 0)) return;
+          updates.precio_cobrado = p;
+          if (p > 0 && current.es_cortesia) updates.es_cortesia = false;
+        } else if (field === "horas") {
+          const h = Math.max(0.1, parseFloat(value) || 1.0);
+          if (h === Number(current.horas_labor || 1.0)) return;
+          updates.horas_labor = h;
+        } else if (field === "mecanico") {
+          const mId = value || null;
+          if (mId === current.mecanico_id) return;
+          updates.mecanico_id = mId;
+        }
+
+        if (Object.keys(updates).length === 0) return;
+
+        setOrder((prev: any) => ({
+          ...prev,
+          orden_servicio_servicios: (prev.orden_servicio_servicios || []).map((s: any) =>
+            s.id === itemId ? { ...s, ...updates } : s
+          ),
+        }));
+
+        const { error } = await supabase
+          .from("orden_servicio_servicios")
+          .update(updates)
+          .eq("id", itemId);
+
+        if (error) {
+          toast.error("Error al actualizar servicio");
+        } else {
+          toast.success("Servicio actualizado");
+        }
+        onUpdate();
+      } else if (itemType === "refaccion") {
+        const current = (order?.orden_servicio_refacciones || []).find((r: any) => r.id === itemId);
+        if (!current) return;
+
+        const updates: any = {};
+        if (field === "nombre") {
+          const valTrim = value.trim();
+          if (!valTrim || valTrim === current.nombre) return;
+          updates.nombre = valTrim;
+        } else if (field === "cantidad") {
+          const q = Math.max(1, parseInt(value) || 1);
+          if (q === Number(current.cantidad || 1)) return;
+          updates.cantidad = q;
+          updates.subtotal = Math.round(q * Number(current.precio_unitario || 0) * 100) / 100;
+        } else if (field === "precio") {
+          const p = Math.max(0, parseFloat(value) || 0);
+          if (p === Number(current.precio_unitario || 0)) return;
+          updates.precio_unitario = p;
+          updates.subtotal = Math.round(Number(current.cantidad || 1) * p * 100) / 100;
+          if (Number(current.costo_unitario) > 0) {
+            updates.margen_porcentaje = Math.round(
+              ((p - Number(current.costo_unitario)) / Number(current.costo_unitario)) * 100
+            );
+          }
+        } else if (field === "costo") {
+          const c = Math.max(0, parseFloat(value) || 0);
+          if (c === Number(current.costo_unitario || 0)) return;
+          updates.costo_unitario = c;
+          if (c > 0 && Number(current.precio_unitario) > 0) {
+            updates.margen_porcentaje = Math.round(
+              ((Number(current.precio_unitario) - c) / c) * 100
+            );
+          }
+        }
+
+        if (Object.keys(updates).length === 0) return;
+
+        setOrder((prev: any) => ({
+          ...prev,
+          orden_servicio_refacciones: (prev.orden_servicio_refacciones || []).map((r: any) =>
+            r.id === itemId ? { ...r, ...updates } : r
+          ),
+        }));
+
+        const { error } = await supabase
+          .from("orden_servicio_refacciones")
+          .update(updates)
+          .eq("id", itemId);
+
+        if (error) {
+          toast.error("Error al actualizar refacción");
+        } else {
+          toast.success("Refacción actualizada");
+        }
+        onUpdate();
+      } else if (itemType === "llanta") {
+        const current = (order?.cotizaciones?.detalles_cotizacion || []).find(
+          (d: any) => d.id === itemId
+        );
+        if (!current) return;
+
+        const updates: any = {};
+        if (field === "cantidad") {
+          const q = Math.max(1, parseInt(value) || 1);
+          if (q === Number(current.cantidad || 1)) return;
+          updates.cantidad = q;
+          updates.subtotal = Math.round(q * Number(current.precio_unitario || 0) * 100) / 100;
+
+          const oldQty = Number(current.cantidad || 1);
+          const deltaStock = oldQty - q;
+          if (deltaStock !== 0 && current.llanta_id) {
+            await ConcurrencyService.ajustarStock({
+              llantaId: current.llanta_id,
+              delta: deltaStock,
+              permitirNegativo: true,
+            });
+          }
+        } else if (field === "precio") {
+          const p = Math.max(0, parseFloat(value) || 0);
+          if (p === Number(current.precio_unitario || 0)) return;
+          updates.precio_unitario = p;
+          updates.subtotal = Math.round(Number(current.cantidad || 1) * p * 100) / 100;
+        }
+
+        if (Object.keys(updates).length === 0) return;
+
+        const updatedDetalles = (order?.cotizaciones?.detalles_cotizacion || []).map(
+          (d: any) => (d.id === itemId ? { ...d, ...updates } : d)
+        );
+        setOrder((prev: any) => ({
+          ...prev,
+          cotizaciones: {
+            ...prev.cotizaciones,
+            detalles_cotizacion: updatedDetalles,
+          },
+        }));
+
+        const { error } = await supabase
+          .from("detalles_cotizacion")
+          .update(updates)
+          .eq("id", itemId);
+
+        if (error) {
+          toast.error("Error al actualizar neumático");
+        } else {
+          toast.success("Neumático actualizado");
+        }
+        onUpdate();
+      }
+    } catch (err) {
+      console.error("Error en saveInlineEdit:", err);
+      toast.error("Error al guardar cambio");
     }
-    onUpdate();
   };
 
   const handleToggleCortesia = async (row: any) => {
@@ -3160,38 +3305,68 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                         <div className="font-semibold text-slate-900">{name}</div>
                                         <div className="text-[11px] font-mono font-bold text-slate-600">{medida}</div>
                                       </td>
-                                      <td className="py-2 px-3 text-center tabular-nums font-bold">{qty}</td>
+                                      <td className="py-2 px-3 text-center tabular-nums font-bold">
+                                        {inlineEdit?.itemId === t.id && inlineEdit?.field === "cantidad" ? (
+                                          <input
+                                            type="number"
+                                            min="1"
+                                            autoFocus
+                                            value={inlineEdit?.value || ""}
+                                            onChange={(e) => updateInlineEditValue(e.target.value)}
+                                            onKeyDown={(e) => {
+                                              if (e.key === "Enter") saveInlineEdit();
+                                              else if (e.key === "Escape") setInlineEdit(null);
+                                            }}
+                                            onBlur={() => saveInlineEdit()}
+                                            className="w-14 h-7 text-xs border-2 border-blue-500 rounded px-1 text-center font-bold outline-none"
+                                          />
+                                        ) : (
+                                          <span
+                                            onClick={() => setInlineEdit({ itemType: "llanta", itemId: t.id, field: "cantidad", value: String(qty) })}
+                                            className="cursor-pointer hover:bg-blue-100/60 rounded px-1.5 py-0.5 text-slate-900 transition-colors inline-block"
+                                            title="Clic para editar cantidad"
+                                          >
+                                            {qty}
+                                          </span>
+                                        )}
+                                      </td>
                                       <td className="py-2 px-3 text-right tabular-nums text-slate-700">
-                                        ${unit.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                                        {inlineEdit?.itemId === t.id && inlineEdit?.field === "precio" ? (
+                                          <input
+                                            type="number"
+                                            step="10"
+                                            autoFocus
+                                            value={inlineEdit?.value || ""}
+                                            onChange={(e) => updateInlineEditValue(e.target.value)}
+                                            onKeyDown={(e) => {
+                                              if (e.key === "Enter") saveInlineEdit();
+                                              else if (e.key === "Escape") setInlineEdit(null);
+                                            }}
+                                            onBlur={() => saveInlineEdit()}
+                                            className="w-20 h-7 text-xs border-2 border-blue-500 rounded px-1 text-right font-bold outline-none"
+                                          />
+                                        ) : (
+                                          <span
+                                            onClick={() => setInlineEdit({ itemType: "llanta", itemId: t.id, field: "precio", value: String(unit) })}
+                                            className="cursor-pointer hover:bg-blue-100/60 rounded px-1.5 py-0.5 text-slate-800 font-medium transition-colors inline-block"
+                                            title="Clic para editar precio"
+                                          >
+                                            ${unit.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                                          </span>
+                                        )}
                                       </td>
                                       <td className="py-2 px-3 text-right font-bold text-slate-900 tabular-nums">
                                         ${sub.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                                       </td>
                                       <td className="py-2 px-3 text-right">
-                                        <div className="inline-flex items-center gap-1">
-                                          <button
-                                            type="button"
-                                            onClick={() =>
-                                              setEditingItemDrawer({
-                                                isOpen: true,
-                                                itemType: "llanta",
-                                                itemData: t,
-                                              })
-                                            }
-                                            className="p-1 text-slate-400 hover:text-amber-600 cursor-pointer"
-                                            title="Editar neumático"
-                                          >
-                                            <Pencil size={13} />
-                                          </button>
-                                          <button
-                                            type="button"
-                                            onClick={() => handleRemoveTire(t)}
-                                            className="p-1 text-slate-400 hover:text-red-600 cursor-pointer"
-                                            title="Eliminar neumático"
-                                          >
-                                            <Trash2 size={13} />
-                                          </button>
-                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemoveTire(t)}
+                                          className="p-1 text-slate-400 hover:text-red-600 cursor-pointer"
+                                          title="Eliminar neumático"
+                                        >
+                                          <Trash2 size={13} />
+                                        </button>
                                       </td>
                                     </tr>
                                   );
@@ -3210,7 +3385,28 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                       </td>
                                       <td className="py-2 px-3">
                                         <div className="flex items-center gap-1.5 flex-wrap">
-                                          <span className="font-semibold text-slate-900">{r.nombre}</span>
+                                          {inlineEdit?.itemId === r.id && inlineEdit?.field === "nombre" ? (
+                                            <input
+                                              type="text"
+                                              autoFocus
+                                              value={inlineEdit?.value || ""}
+                                              onChange={(e) => updateInlineEditValue(e.target.value)}
+                                              onKeyDown={(e) => {
+                                                if (e.key === "Enter") saveInlineEdit();
+                                                else if (e.key === "Escape") setInlineEdit(null);
+                                              }}
+                                              onBlur={() => saveInlineEdit()}
+                                              className="h-7 text-xs border-2 border-blue-500 rounded px-2 font-bold text-slate-900 outline-none w-full max-w-[240px]"
+                                            />
+                                          ) : (
+                                            <span
+                                              onClick={() => setInlineEdit({ itemType: "refaccion", itemId: r.id, field: "nombre", value: r.nombre })}
+                                              className="font-semibold text-slate-900 cursor-pointer hover:bg-blue-100/60 rounded px-1.5 py-0.5 transition-colors"
+                                              title="Clic para editar nombre"
+                                            >
+                                              {r.nombre}
+                                            </span>
+                                          )}
                                           {r.compras_proveedores?.evidencia_url ? (
                                             <button
                                               type="button"
@@ -3253,29 +3449,61 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                           </div>
                                         )}
                                       </td>
-                                      <td className="py-2 px-3 text-center tabular-nums font-bold">{qty}</td>
+                                      <td className="py-2 px-3 text-center tabular-nums font-bold">
+                                        {inlineEdit?.itemId === r.id && inlineEdit?.field === "cantidad" ? (
+                                          <input
+                                            type="number"
+                                            min="1"
+                                            autoFocus
+                                            value={inlineEdit?.value || ""}
+                                            onChange={(e) => updateInlineEditValue(e.target.value)}
+                                            onKeyDown={(e) => {
+                                              if (e.key === "Enter") saveInlineEdit();
+                                              else if (e.key === "Escape") setInlineEdit(null);
+                                            }}
+                                            onBlur={() => saveInlineEdit()}
+                                            className="w-14 h-7 text-xs border-2 border-blue-500 rounded px-1 text-center font-bold outline-none"
+                                          />
+                                        ) : (
+                                          <span
+                                            onClick={() => setInlineEdit({ itemType: "refaccion", itemId: r.id, field: "cantidad", value: String(qty) })}
+                                            className="cursor-pointer hover:bg-blue-100/60 rounded px-1.5 py-0.5 text-slate-900 transition-colors inline-block"
+                                            title="Clic para editar cantidad"
+                                          >
+                                            {qty}
+                                          </span>
+                                        )}
+                                      </td>
                                       <td className="py-2 px-3 text-right tabular-nums text-slate-700">
-                                        ${unit.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                                        {inlineEdit?.itemId === r.id && inlineEdit?.field === "precio" ? (
+                                          <input
+                                            type="number"
+                                            step="10"
+                                            autoFocus
+                                            value={inlineEdit?.value || ""}
+                                            onChange={(e) => updateInlineEditValue(e.target.value)}
+                                            onKeyDown={(e) => {
+                                              if (e.key === "Enter") saveInlineEdit();
+                                              else if (e.key === "Escape") setInlineEdit(null);
+                                            }}
+                                            onBlur={() => saveInlineEdit()}
+                                            className="w-20 h-7 text-xs border-2 border-blue-500 rounded px-1 text-right font-bold outline-none"
+                                          />
+                                        ) : (
+                                          <span
+                                            onClick={() => setInlineEdit({ itemType: "refaccion", itemId: r.id, field: "precio", value: String(unit) })}
+                                            className="cursor-pointer hover:bg-blue-100/60 rounded px-1.5 py-0.5 text-slate-800 font-medium transition-colors inline-block"
+                                            title="Clic para editar precio"
+                                          >
+                                            ${unit.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                                          </span>
+                                        )}
                                       </td>
                                       <td className="py-2 px-3 text-right font-bold text-slate-900 tabular-nums">
                                         ${sub.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                                       </td>
                                       <td className="py-2 px-3 text-right">
                                         <div className="inline-flex items-center gap-1">
-                                          <button
-                                            type="button"
-                                            onClick={() =>
-                                              setEditingItemDrawer({
-                                                isOpen: true,
-                                                itemType: "refaccion",
-                                                itemData: r,
-                                              })
-                                            }
-                                            className="p-1 text-slate-400 hover:text-indigo-600 cursor-pointer"
-                                            title="Editar refacción"
-                                          >
-                                            <Pencil size={13} />
-                                          </button>
                                           {!isDeferred && (
                                             <button
                                               type="button"
@@ -3317,7 +3545,28 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                       </td>
                                       <td className="py-2 px-3">
                                         <div className="flex items-center gap-1.5 flex-wrap">
-                                          <span className="font-semibold text-slate-900">{srvName}</span>
+                                          {inlineEdit?.itemId === s.id && inlineEdit?.field === "nombre" ? (
+                                            <input
+                                              type="text"
+                                              autoFocus
+                                              value={inlineEdit?.value || ""}
+                                              onChange={(e) => updateInlineEditValue(e.target.value)}
+                                              onKeyDown={(e) => {
+                                                if (e.key === "Enter") saveInlineEdit();
+                                                else if (e.key === "Escape") setInlineEdit(null);
+                                              }}
+                                              onBlur={() => saveInlineEdit()}
+                                              className="h-7 text-xs border-2 border-blue-500 rounded px-2 font-bold text-slate-900 outline-none w-full max-w-[240px]"
+                                            />
+                                          ) : (
+                                            <span
+                                              onClick={() => setInlineEdit({ itemType: "servicio", itemId: s.id, field: "nombre", value: srvName })}
+                                              className="font-semibold text-slate-900 cursor-pointer hover:bg-blue-100/60 rounded px-1.5 py-0.5 transition-colors"
+                                              title="Clic para editar concepto"
+                                            >
+                                              {srvName}
+                                            </span>
+                                          )}
                                           {isCortesia && (
                                             <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-0.5">
                                               <Gift size={10} /> GRATIS
@@ -3326,50 +3575,54 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                         </div>
                                         {s.notas && <div className="text-[11px] text-slate-500">{s.notas}</div>}
                                       </td>
-                                      <td className="py-2 px-3 text-center tabular-nums font-bold">{qty}</td>
-                                      <td className="py-2 px-3 text-right tabular-nums">
-                                        {isEditing ? (
-                                          <div className="inline-flex items-center gap-1 justify-end">
-                                            <input
-                                              type="number"
-                                              value={editingServicePrice}
-                                              onChange={(e) => setEditingServicePrice(e.target.value)}
-                                              className="w-20 h-7 text-xs border border-blue-400 rounded px-1 text-right font-bold"
-                                              autoFocus
-                                              onKeyDown={(e) => {
-                                                if (e.key === "Enter") {
-                                                  handleInlineUpdateServicePrice(s.id, parseFloat(editingServicePrice) || 0);
-                                                } else if (e.key === "Escape") {
-                                                  setEditingServiceId(null);
-                                                }
-                                              }}
-                                            />
-                                            <button
-                                              type="button"
-                                              onClick={() => handleInlineUpdateServicePrice(s.id, parseFloat(editingServicePrice) || 0)}
-                                              className="p-1 text-emerald-600 hover:text-emerald-800 cursor-pointer"
-                                              title="Guardar precio"
-                                            >
-                                              <Check size={13} />
-                                            </button>
-                                          </div>
+                                      <td className="py-2 px-3 text-center tabular-nums font-bold">
+                                        {inlineEdit?.itemId === s.id && inlineEdit?.field === "cantidad" ? (
+                                          <input
+                                            type="number"
+                                            min="1"
+                                            autoFocus
+                                            value={inlineEdit?.value || ""}
+                                            onChange={(e) => updateInlineEditValue(e.target.value)}
+                                            onKeyDown={(e) => {
+                                              if (e.key === "Enter") saveInlineEdit();
+                                              else if (e.key === "Escape") setInlineEdit(null);
+                                            }}
+                                            onBlur={() => saveInlineEdit()}
+                                            className="w-14 h-7 text-xs border-2 border-blue-500 rounded px-1 text-center font-bold outline-none"
+                                          />
                                         ) : (
-                                          <div className="inline-flex items-center gap-1 justify-end">
-                                            <span className={isCortesia ? "text-emerald-700 font-bold" : "text-slate-800"}>
-                                              {isCortesia ? "$0.00" : `$${unit.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`}
-                                            </span>
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                setEditingServiceId(s.id);
-                                                setEditingServicePrice(String(unit));
-                                              }}
-                                              className="p-0.5 text-slate-400 hover:text-blue-600 cursor-pointer"
-                                              title="Editar precio al vuelo"
-                                            >
-                                              <Pencil size={11} />
-                                            </button>
-                                          </div>
+                                          <span
+                                            onClick={() => setInlineEdit({ itemType: "servicio", itemId: s.id, field: "cantidad", value: String(qty) })}
+                                            className="cursor-pointer hover:bg-blue-100/60 rounded px-1.5 py-0.5 text-slate-900 transition-colors inline-block"
+                                            title="Clic para editar cantidad"
+                                          >
+                                            {qty}
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td className="py-2 px-3 text-right tabular-nums">
+                                        {inlineEdit?.itemId === s.id && inlineEdit?.field === "precio" ? (
+                                          <input
+                                            type="number"
+                                            step="10"
+                                            autoFocus
+                                            value={inlineEdit?.value || ""}
+                                            onChange={(e) => updateInlineEditValue(e.target.value)}
+                                            onKeyDown={(e) => {
+                                              if (e.key === "Enter") saveInlineEdit();
+                                              else if (e.key === "Escape") setInlineEdit(null);
+                                            }}
+                                            onBlur={() => saveInlineEdit()}
+                                            className="w-20 h-7 text-xs border-2 border-blue-500 rounded px-1 text-right font-bold outline-none"
+                                          />
+                                        ) : (
+                                          <span
+                                            onClick={() => setInlineEdit({ itemType: "servicio", itemId: s.id, field: "precio", value: String(unit) })}
+                                            className={`cursor-pointer hover:bg-blue-100/60 rounded px-1.5 py-0.5 transition-colors inline-block ${isCortesia ? "text-emerald-700 font-bold" : "text-slate-800 font-medium"}`}
+                                            title="Clic para editar precio"
+                                          >
+                                            {isCortesia ? "$0.00" : `$${unit.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`}
+                                          </span>
                                         )}
                                       </td>
                                       <td className="py-2 px-3 text-right font-bold tabular-nums">
@@ -3381,20 +3634,6 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                       </td>
                                       <td className="py-2 px-3 text-right">
                                         <div className="inline-flex items-center gap-1">
-                                          <button
-                                            type="button"
-                                            onClick={() =>
-                                              setEditingItemDrawer({
-                                                isOpen: true,
-                                                itemType: "servicio",
-                                                itemData: s,
-                                              })
-                                            }
-                                            className="p-1 text-slate-400 hover:text-blue-600 cursor-pointer"
-                                            title="Editar mano de obra completa"
-                                          >
-                                            <Pencil size={13} />
-                                          </button>
                                           <button
                                             type="button"
                                             onClick={() => handleToggleCortesia(s)}
@@ -3541,9 +3780,35 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                             >
                               <td className="py-2.5 px-3">
                                 <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className="font-semibold text-slate-900">
-                                    {row.concepto_personalizado || row.servicios_taller?.nombre || "Servicio"}
-                                  </span>
+                                  {inlineEdit?.itemId === row.id && inlineEdit?.field === "nombre" ? (
+                                    <input
+                                      type="text"
+                                      autoFocus
+                                      value={inlineEdit?.value || ""}
+                                      onChange={(e) => updateInlineEditValue(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") saveInlineEdit();
+                                        else if (e.key === "Escape") setInlineEdit(null);
+                                      }}
+                                      onBlur={() => saveInlineEdit()}
+                                      className="h-7 text-xs border-2 border-blue-500 rounded px-2 font-bold text-slate-900 outline-none w-full max-w-[240px]"
+                                    />
+                                  ) : (
+                                    <span
+                                      onClick={() =>
+                                        setInlineEdit({
+                                          itemType: "servicio",
+                                          itemId: row.id,
+                                          field: "nombre",
+                                          value: row.concepto_personalizado || row.servicios_taller?.nombre || "Servicio",
+                                        })
+                                      }
+                                      className="font-semibold text-slate-900 cursor-pointer hover:bg-blue-100/60 rounded px-1.5 py-0.5 transition-colors"
+                                      title="Clic para editar concepto"
+                                    >
+                                      {row.concepto_personalizado || row.servicios_taller?.nombre || "Servicio"}
+                                    </span>
+                                  )}
                                   {row.paquete_operacion && (
                                     <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
                                       {row.paquete_operacion}
@@ -3559,11 +3824,80 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                   <div className="text-[11px] text-slate-500">{row.notas}</div>
                                 )}
                               </td>
-                              <td className="py-2.5 px-3 text-[11px] text-slate-600">
-                                {mech?.nombre || "Por asignar"}
+                              <td className="py-2.5 px-3 text-[11px]">
+                                {inlineEdit?.itemId === row.id && inlineEdit?.field === "mecanico" ? (
+                                  <select
+                                    autoFocus
+                                    value={inlineEdit?.value || ""}
+                                    onChange={(e) => {
+                                      saveInlineEdit({
+                                        itemType: "servicio",
+                                        itemId: row.id,
+                                        field: "mecanico",
+                                        value: e.target.value,
+                                      });
+                                    }}
+                                    onBlur={() => saveInlineEdit()}
+                                    className="text-xs h-7 border-2 border-blue-500 rounded px-1 text-slate-900 font-medium outline-none"
+                                  >
+                                    <option value="">Por asignar</option>
+                                    {mechanics
+                                      .filter((m) => m.rol === "Mecánico" || !m.rol)
+                                      .map((m) => (
+                                        <option key={m.id} value={m.id}>
+                                          {m.nombre} ({m.comision_porcentaje || 15}%)
+                                        </option>
+                                      ))}
+                                  </select>
+                                ) : (
+                                  <span
+                                    onClick={() =>
+                                      setInlineEdit({
+                                        itemType: "servicio",
+                                        itemId: row.id,
+                                        field: "mecanico",
+                                        value: row.mecanico_id || "",
+                                      })
+                                    }
+                                    className="cursor-pointer hover:bg-blue-100/60 rounded px-1.5 py-0.5 text-slate-700 font-medium transition-colors"
+                                    title="Clic para cambiar técnico"
+                                  >
+                                    {mech?.nombre || "Por asignar"}
+                                  </span>
+                                )}
                               </td>
                               <td className="py-2.5 px-3 text-center font-mono tabular-nums text-[11px]">
-                                {Number(row.horas_labor || 1).toFixed(1)}h
+                                {inlineEdit?.itemId === row.id && inlineEdit?.field === "horas" ? (
+                                  <input
+                                    type="number"
+                                    step="0.1"
+                                    min="0.1"
+                                    autoFocus
+                                    value={inlineEdit?.value || ""}
+                                    onChange={(e) => updateInlineEditValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") saveInlineEdit();
+                                      else if (e.key === "Escape") setInlineEdit(null);
+                                    }}
+                                    onBlur={() => saveInlineEdit()}
+                                    className="w-14 h-7 text-xs border-2 border-blue-500 rounded px-1 text-center font-bold outline-none"
+                                  />
+                                ) : (
+                                  <span
+                                    onClick={() =>
+                                      setInlineEdit({
+                                        itemType: "servicio",
+                                        itemId: row.id,
+                                        field: "horas",
+                                        value: String(row.horas_labor || 1.0),
+                                      })
+                                    }
+                                    className="cursor-pointer hover:bg-blue-100/60 rounded px-1.5 py-0.5 text-slate-700 transition-colors inline-block"
+                                    title="Clic para editar horas"
+                                  >
+                                    {Number(row.horas_labor || 1).toFixed(1)}h
+                                  </span>
+                                )}
                               </td>
                               <td className="py-2.5 px-3 text-right tabular-nums text-[11px] text-slate-600">
                                 ${comisionMonto.toLocaleString("es-MX", { minimumFractionDigits: 2 })}{" "}
@@ -3585,66 +3919,39 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                 </button>
                               </td>
                               <td className="py-2.5 px-3 text-right font-bold tabular-nums">
-                                {isEditing ? (
-                                  <div className="inline-flex items-center gap-1 justify-end">
-                                    <input
-                                      type="number"
-                                      value={editingServicePrice}
-                                      onChange={(e) => setEditingServicePrice(e.target.value)}
-                                      className="w-20 h-7 text-xs border border-blue-400 rounded px-1 text-right font-bold"
-                                      autoFocus
-                                      onKeyDown={(e) => {
-                                        if (e.key === "Enter") {
-                                          handleInlineUpdateServicePrice(row.id, parseFloat(editingServicePrice) || 0);
-                                        } else if (e.key === "Escape") {
-                                          setEditingServiceId(null);
-                                        }
-                                      }}
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={() => handleInlineUpdateServicePrice(row.id, parseFloat(editingServicePrice) || 0)}
-                                      className="p-1 text-emerald-600 hover:text-emerald-800 cursor-pointer"
-                                      title="Guardar precio"
-                                    >
-                                      <Check size={13} />
-                                    </button>
-                                  </div>
+                                {inlineEdit?.itemId === row.id && inlineEdit?.field === "precio" ? (
+                                  <input
+                                    type="number"
+                                    step="10"
+                                    autoFocus
+                                    value={inlineEdit?.value || ""}
+                                    onChange={(e) => updateInlineEditValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") saveInlineEdit();
+                                      else if (e.key === "Escape") setInlineEdit(null);
+                                    }}
+                                    onBlur={() => saveInlineEdit()}
+                                    className="w-20 h-7 text-xs border-2 border-blue-500 rounded px-1 text-right font-bold outline-none"
+                                  />
                                 ) : (
-                                  <div className="inline-flex items-center gap-1 justify-end">
-                                    <span className={isCortesia ? "text-emerald-700 font-bold" : "text-slate-900"}>
-                                      {isCortesia ? "$0.00" : `$${importe.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`}
-                                    </span>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setEditingServiceId(row.id);
-                                        setEditingServicePrice(String(row.precio_cobrado || 0));
-                                      }}
-                                      className="p-0.5 text-slate-400 hover:text-blue-600 cursor-pointer"
-                                      title="Editar precio al vuelo"
-                                    >
-                                      <Pencil size={11} />
-                                    </button>
-                                  </div>
+                                  <span
+                                    onClick={() =>
+                                      setInlineEdit({
+                                        itemType: "servicio",
+                                        itemId: row.id,
+                                        field: "precio",
+                                        value: String(row.precio_cobrado || 0),
+                                      })
+                                    }
+                                    className={`cursor-pointer hover:bg-blue-100/60 rounded px-1.5 py-0.5 transition-colors inline-block ${isCortesia ? "text-emerald-700 font-bold" : "text-slate-900 font-bold"}`}
+                                    title="Clic para editar precio"
+                                  >
+                                    {isCortesia ? "$0.00" : `$${importe.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`}
+                                  </span>
                                 )}
                               </td>
                               <td className="py-2.5 px-3 text-right">
                                 <div className="inline-flex items-center gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setEditingItemDrawer({
-                                        isOpen: true,
-                                        itemType: "servicio",
-                                        itemData: row,
-                                      })
-                                    }
-                                    className="p-1 text-slate-400 hover:text-blue-600 cursor-pointer"
-                                    title="Editar mano de obra completa"
-                                  >
-                                    <Pencil size={14} />
-                                  </button>
                                   <button
                                     type="button"
                                     onClick={() => handleToggleCortesia(row)}
@@ -3831,7 +4138,35 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                             >
                               <td className="py-2.5 px-3">
                                 <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className="font-semibold text-slate-900">{part.nombre}</span>
+                                  {inlineEdit?.itemId === part.id && inlineEdit?.field === "nombre" ? (
+                                    <input
+                                      type="text"
+                                      autoFocus
+                                      value={inlineEdit?.value || ""}
+                                      onChange={(e) => updateInlineEditValue(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") saveInlineEdit();
+                                        else if (e.key === "Escape") setInlineEdit(null);
+                                      }}
+                                      onBlur={() => saveInlineEdit()}
+                                      className="h-7 text-xs border-2 border-blue-500 rounded px-2 font-bold text-slate-900 outline-none w-full max-w-[240px]"
+                                    />
+                                  ) : (
+                                    <span
+                                      onClick={() =>
+                                        setInlineEdit({
+                                          itemType: "refaccion",
+                                          itemId: part.id,
+                                          field: "nombre",
+                                          value: part.nombre,
+                                        })
+                                      }
+                                      className="font-semibold text-slate-900 cursor-pointer hover:bg-blue-100/60 rounded px-1.5 py-0.5 transition-colors"
+                                      title="Clic para editar nombre"
+                                    >
+                                      {part.nombre}
+                                    </span>
+                                  )}
                                   {part.paquete_operacion && (
                                     <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
                                       {part.paquete_operacion}
@@ -3888,10 +4223,68 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                 </span>
                               </td>
                               <td className="py-2.5 px-3 text-center tabular-nums font-medium">
-                                {part.cantidad}
+                                {inlineEdit?.itemId === part.id && inlineEdit?.field === "cantidad" ? (
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    autoFocus
+                                    value={inlineEdit?.value || ""}
+                                    onChange={(e) => updateInlineEditValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") saveInlineEdit();
+                                      else if (e.key === "Escape") setInlineEdit(null);
+                                    }}
+                                    onBlur={() => saveInlineEdit()}
+                                    className="w-14 h-7 text-xs border-2 border-blue-500 rounded px-1 text-center font-bold outline-none"
+                                  />
+                                ) : (
+                                  <span
+                                    onClick={() =>
+                                      setInlineEdit({
+                                        itemType: "refaccion",
+                                        itemId: part.id,
+                                        field: "cantidad",
+                                        value: String(part.cantidad || 1),
+                                      })
+                                    }
+                                    className="cursor-pointer hover:bg-blue-100/60 rounded px-1.5 py-0.5 text-slate-900 transition-colors inline-block font-bold"
+                                    title="Clic para editar cantidad"
+                                  >
+                                    {part.cantidad}
+                                  </span>
+                                )}
                               </td>
                               <td className="py-2.5 px-3 text-right tabular-nums text-slate-500">
-                                ${Number(part.costo_unitario).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                                {inlineEdit?.itemId === part.id && inlineEdit?.field === "costo" ? (
+                                  <input
+                                    type="number"
+                                    step="10"
+                                    autoFocus
+                                    value={inlineEdit?.value || ""}
+                                    onChange={(e) => updateInlineEditValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") saveInlineEdit();
+                                      else if (e.key === "Escape") setInlineEdit(null);
+                                    }}
+                                    onBlur={() => saveInlineEdit()}
+                                    className="w-20 h-7 text-xs border-2 border-blue-500 rounded px-1 text-right font-bold outline-none"
+                                  />
+                                ) : (
+                                  <span
+                                    onClick={() =>
+                                      setInlineEdit({
+                                        itemType: "refaccion",
+                                        itemId: part.id,
+                                        field: "costo",
+                                        value: String(part.costo_unitario || 0),
+                                      })
+                                    }
+                                    className="cursor-pointer hover:bg-blue-100/60 rounded px-1.5 py-0.5 text-slate-700 transition-colors inline-block"
+                                    title="Clic para editar costo proveedor"
+                                  >
+                                    ${Number(part.costo_unitario).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                                  </span>
+                                )}
                               </td>
                               <td className="py-2.5 px-3 text-center">
                                 <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-mono text-[10px] font-bold tabular-nums">
@@ -3900,27 +4293,42 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                 </span>
                               </td>
                               <td className="py-2.5 px-3 text-right tabular-nums">
-                                ${Number(part.precio_unitario).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                                {inlineEdit?.itemId === part.id && inlineEdit?.field === "precio" ? (
+                                  <input
+                                    type="number"
+                                    step="10"
+                                    autoFocus
+                                    value={inlineEdit?.value || ""}
+                                    onChange={(e) => updateInlineEditValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") saveInlineEdit();
+                                      else if (e.key === "Escape") setInlineEdit(null);
+                                    }}
+                                    onBlur={() => saveInlineEdit()}
+                                    className="w-20 h-7 text-xs border-2 border-blue-500 rounded px-1 text-right font-bold outline-none"
+                                  />
+                                ) : (
+                                  <span
+                                    onClick={() =>
+                                      setInlineEdit({
+                                        itemType: "refaccion",
+                                        itemId: part.id,
+                                        field: "precio",
+                                        value: String(part.precio_unitario || 0),
+                                      })
+                                    }
+                                    className="cursor-pointer hover:bg-blue-100/60 rounded px-1.5 py-0.5 text-slate-900 font-medium transition-colors inline-block"
+                                    title="Clic para editar precio de venta"
+                                  >
+                                    ${Number(part.precio_unitario).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                                  </span>
+                                )}
                               </td>
                               <td className="py-2.5 px-3 text-right font-bold text-slate-900 tabular-nums">
                                 ${Number(part.subtotal).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                               </td>
                               <td className="py-2.5 px-3 text-right">
                                 <div className="inline-flex items-center gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setEditingItemDrawer({
-                                        isOpen: true,
-                                        itemType: "refaccion",
-                                        itemData: part,
-                                      })
-                                    }
-                                    className="p-1 text-slate-400 hover:text-indigo-600 cursor-pointer"
-                                    title="Editar refacción"
-                                  >
-                                    <Pencil size={14} />
-                                  </button>
                                   {!isDeferred && (
                                     <button
                                       type="button"
@@ -4564,7 +4972,36 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                 )}
                               </td>
                               <td className="py-2.5 px-3 text-center tabular-nums font-bold">
-                                {row.cantidad}
+                                {inlineEdit?.itemId === row.id && inlineEdit?.field === "cantidad" ? (
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    autoFocus
+                                    value={inlineEdit?.value || ""}
+                                    onChange={(e) => updateInlineEditValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") saveInlineEdit();
+                                      else if (e.key === "Escape") setInlineEdit(null);
+                                    }}
+                                    onBlur={() => saveInlineEdit()}
+                                    className="w-14 h-7 text-xs border-2 border-blue-500 rounded px-1 text-center font-bold outline-none"
+                                  />
+                                ) : (
+                                  <span
+                                    onClick={() =>
+                                      setInlineEdit({
+                                        itemType: "llanta",
+                                        itemId: row.id,
+                                        field: "cantidad",
+                                        value: String(row.cantidad || 1),
+                                      })
+                                    }
+                                    className="cursor-pointer hover:bg-blue-100/60 rounded px-1.5 py-0.5 text-slate-900 transition-colors inline-block"
+                                    title="Clic para editar cantidad"
+                                  >
+                                    {row.cantidad}
+                                  </span>
+                                )}
                               </td>
                               <td className="py-2.5 px-3 text-right tabular-nums text-slate-500">
                                 ${costoU.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
@@ -4575,36 +5012,49 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                 </span>
                               </td>
                               <td className="py-2.5 px-3 text-right tabular-nums">
-                                ${pVenta.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                                {inlineEdit?.itemId === row.id && inlineEdit?.field === "precio" ? (
+                                  <input
+                                    type="number"
+                                    step="10"
+                                    autoFocus
+                                    value={inlineEdit?.value || ""}
+                                    onChange={(e) => updateInlineEditValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") saveInlineEdit();
+                                      else if (e.key === "Escape") setInlineEdit(null);
+                                    }}
+                                    onBlur={() => saveInlineEdit()}
+                                    className="w-20 h-7 text-xs border-2 border-blue-500 rounded px-1 text-right font-bold outline-none"
+                                  />
+                                ) : (
+                                  <span
+                                    onClick={() =>
+                                      setInlineEdit({
+                                        itemType: "llanta",
+                                        itemId: row.id,
+                                        field: "precio",
+                                        value: String(pVenta),
+                                      })
+                                    }
+                                    className="cursor-pointer hover:bg-blue-100/60 rounded px-1.5 py-0.5 text-slate-900 font-medium transition-colors inline-block"
+                                    title="Clic para editar precio unitario"
+                                  >
+                                    ${pVenta.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                                  </span>
+                                )}
                               </td>
                               <td className="py-2.5 px-3 text-right font-bold text-slate-900 tabular-nums">
                                 ${Number(row.subtotal).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                               </td>
                               <td className="py-2.5 px-3 text-right">
-                                <div className="inline-flex items-center gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setEditingItemDrawer({
-                                        isOpen: true,
-                                        itemType: "llanta",
-                                        itemData: row,
-                                      })
-                                    }
-                                    className="p-1 text-slate-400 hover:text-amber-600 cursor-pointer"
-                                    title="Editar neumático"
-                                  >
-                                    <Pencil size={14} />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveTire(row)}
-                                    className="p-1 text-slate-400 hover:text-red-600 cursor-pointer"
-                                    title="Eliminar neumático"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveTire(row)}
+                                  className="p-1 text-slate-400 hover:text-red-600 cursor-pointer"
+                                  title="Eliminar neumático"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
                               </td>
                             </tr>
                           );
@@ -5852,22 +6302,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
           />
         )}
 
-        {/* Drawer Lateral de Edición de Partidas (Mano de Obra, Refacción, Neumático) */}
-        {editingItemDrawer.isOpen && (
-          <EditOrderItemDrawer
-            isOpen={editingItemDrawer.isOpen}
-            onClose={() =>
-              setEditingItemDrawer({ isOpen: false, itemType: null, itemData: null })
-            }
-            itemType={editingItemDrawer.itemType}
-            itemData={editingItemDrawer.itemData}
-            orderId={orderId}
-            empresaId={order?.empresa_id || empresa?.id}
-            mechanics={mechanics}
-            proveedoresCatalogo={proveedoresCatalogo}
-            onSaveSuccess={handleItemEdited}
-          />
-        )}
+        {/* TAB 4: HOJA DE RECEPCIÓN / IMPRESIÓN */}
         {activeTab === "impresion" && (
           <OrderPrintSheet order={order} mechanicName={assignedMechanic?.nombre} />
         )}
