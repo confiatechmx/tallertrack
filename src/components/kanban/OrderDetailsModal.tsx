@@ -2401,7 +2401,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
               if (parseFloat(e.target.value) === 0) setServiceIsCortesia(true);
               else setServiceIsCortesia(false);
             }}
-            className={`w-full h-8 text-xs bg-white border rounded-md px-2 font-bold tabular-nums ${
+            className={`w-full h-8 text-xs bg-white border rounded-md px-2 font-bold tabular-nums no-spinners ${
               serviceIsCortesia
                 ? "border-emerald-400 text-emerald-700 bg-emerald-50/50"
                 : "border-slate-300 text-slate-900"
@@ -2535,7 +2535,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                   handleAddPart();
                 }
               }}
-              className="w-full h-8 text-xs bg-white border border-indigo-300 rounded-md px-2.5 text-indigo-950 font-black tabular-nums font-mono focus:ring-1 focus:ring-indigo-500 outline-none"
+              className="w-full h-8 text-xs bg-white border border-indigo-300 rounded-md px-2.5 text-indigo-950 font-black tabular-nums font-mono focus:ring-1 focus:ring-indigo-500 outline-none no-spinners"
             />
           </div>
         </div>

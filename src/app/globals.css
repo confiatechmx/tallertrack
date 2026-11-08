@@ -144,3 +144,83 @@ body {
     display: none !important;
   }
 }
+
+/* =========================================================================
+   Inputs Numéricos: Ocultar flechas (spinners) en Precios y Montos
+   (Se conservan en cantidades donde sí tiene sentido el incremento unitario)
+   ========================================================================= */
+.no-spinners::-webkit-outer-spin-button,
+.no-spinners::-webkit-inner-spin-button,
+input.no-spinners::-webkit-outer-spin-button,
+input.no-spinners::-webkit-inner-spin-button,
+input[data-currency]::-webkit-outer-spin-button,
+input[data-currency]::-webkit-inner-spin-button,
+input[type="number"][placeholder*="0.00"]::-webkit-outer-spin-button,
+input[type="number"][placeholder*="0.00"]::-webkit-inner-spin-button,
+input[type="number"][step="10"]::-webkit-outer-spin-button,
+input[type="number"][step="10"]::-webkit-inner-spin-button,
+input[type="number"][step="0.01"]::-webkit-outer-spin-button,
+input[type="number"][step="0.01"]::-webkit-inner-spin-button,
+input[type="number"][step="0.1"]::-webkit-outer-spin-button,
+input[type="number"][step="0.1"]::-webkit-inner-spin-button,
+input[type="number"][step="0.5"]::-webkit-outer-spin-button,
+input[type="number"][step="0.5"]::-webkit-inner-spin-button,
+input[type="number"][step="any"]::-webkit-outer-spin-button,
+input[type="number"][step="any"]::-webkit-inner-spin-button,
+input[name*="precio"]::-webkit-outer-spin-button,
+input[name*="precio"]::-webkit-inner-spin-button,
+input[name*="costo"]::-webkit-outer-spin-button,
+input[name*="costo"]::-webkit-inner-spin-button,
+input[name*="monto"]::-webkit-outer-spin-button,
+input[name*="monto"]::-webkit-inner-spin-button,
+input[name*="pago"]::-webkit-outer-spin-button,
+input[name*="pago"]::-webkit-inner-spin-button,
+input[name*="price"]::-webkit-outer-spin-button,
+input[name*="price"]::-webkit-inner-spin-button,
+input[name*="amount"]::-webkit-outer-spin-button,
+input[name*="amount"]::-webkit-inner-spin-button,
+input[id*="precio"]::-webkit-outer-spin-button,
+input[id*="precio"]::-webkit-inner-spin-button,
+input[id*="costo"]::-webkit-outer-spin-button,
+input[id*="costo"]::-webkit-inner-spin-button,
+input[id*="monto"]::-webkit-outer-spin-button,
+input[id*="monto"]::-webkit-inner-spin-button,
+input[id*="pago"]::-webkit-outer-spin-button,
+input[id*="pago"]::-webkit-inner-spin-button {
+  -webkit-appearance: none !important;
+  margin: 0 !important;
+}
+
+.no-spinners,
+input.no-spinners,
+input[data-currency],
+input[type="number"][placeholder*="0.00"],
+input[type="number"][step="10"],
+input[type="number"][step="0.01"],
+input[type="number"][step="0.1"],
+input[type="number"][step="0.5"],
+input[type="number"][step="any"],
+input[name*="precio"],
+input[name*="costo"],
+input[name*="monto"],
+input[name*="pago"],
+input[name*="price"],
+input[name*="amount"],
+input[id*="precio"],
+input[id*="costo"],
+input[id*="monto"],
+input[id*="pago"] {
+  -moz-appearance: textfield !important;
+  appearance: textfield !important;
+}
+
+/* Forzar flechas en inputs de cantidad si alguna regla los sobreescribe */
+input[type="number"].has-spinners::-webkit-outer-spin-button,
+input[type="number"].has-spinners::-webkit-inner-spin-button {
+  -webkit-appearance: auto !important;
+  margin: 0 !important;
+}
+input[type="number"].has-spinners {
+  -moz-appearance: auto !important;
+  appearance: auto !important;
+}
