@@ -1369,6 +1369,9 @@ export const CajaTurnoService = {
         });
       });
 
+      // Ordenar las ventas de forma ascendente estricta por folio (1001, 1002, ..., 1016)
+      ventas.sort((a, b) => (a.folio || 0) - (b.folio || 0));
+
       // 5. Gastos y compras a proveedor del turno
       let movsQuery = supabase
         .from("caja_movimientos")

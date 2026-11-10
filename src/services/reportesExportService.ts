@@ -76,6 +76,11 @@ export const ReportesExportService = {
     const fondoSig = Number(cierreData?.fondoSiguiente || 0);
     const teorico = cierreData?.resumenTeorico;
 
+    // Garantizar orden ascendente estricto por folio (1001 -> 1016)
+    if (detalleTurno?.ventas) {
+      detalleTurno.ventas.sort((a, b) => (Number(a.folio) || 0) - (Number(b.folio) || 0));
+    }
+
     // Calcular salidas operativas y salidas por compras
     const totalGastosOperativos = (detalleTurno.gastos || []).reduce(
       (acc, g) => acc + Number(g.monto || 0),
