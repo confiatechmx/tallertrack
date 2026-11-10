@@ -1407,16 +1407,29 @@ export const CajaTurnoService = {
       }
 
       const { data: movsData } = await movsQuery;
+      // Filtrar para que 'gastos' contenga ÚNICAMENTE gastos operativos menores no vinculados a refacciones de órdenes
+      // (las compras de refacciones de órdenes ya viven dentro de sus respectivas órdenes en la sección de Ventas y Servicios)
       const gastos: TurnoGastoMovimiento[] = (movsData || [])
-        .filter((m: any) =>
-          [
-            "Gasto / Insumos",
-            "Pago Proveedor",
-            "Retiro de Efectivo",
-            "Retiro Administrativo",
-            "EGRESO",
-          ].includes(m.tipo)
-        )
+        .filter((m: any) => {
+          const cat = (m.categoria || "").toUpperCase();
+          const esGastoOperativo =
+            cat !== "REFACCIONES" &&
+            cat !== "COMPRA_REFACCIONES" &&
+            !m.concepto?.toLowerCase().includes("compra refacciones") &&
+            !m.concepto?.toLowerCase().includes("pago refacciones");
+
+          return (
+            esGastoOperativo &&
+            [
+              "Gasto / Insumos",
+              "Retiro de Efectivo",
+              "Retiro Administrativo",
+              "OPERATIVO",
+              "SALIDA",
+              "EGRESO",
+            ].includes(m.tipo)
+          );
+        })
         .map((m: any) => {
           const d = new Date(m.created_at);
           return {
