@@ -88,7 +88,7 @@ export function OrderForm({
   const [formData, setFormData] = useState({
     sucursal_id: sucursalActiva?.id || "",
     mecanico_id: "",
-    bahia_rampa: "Fosa de diagnóstico",
+    bahia_rampa: DEFAULT_COVA_ESTACIONES[0] || "",
     prioridad: "normal",
     kilometraje_ingreso: "",
     nivel_gasolina: "1/2",
@@ -100,7 +100,7 @@ export function OrderForm({
     setTipoRecepcion(tipo);
     setFormData((prev) => ({
       ...prev,
-      bahia_rampa: tipo === "express" ? (estaciones[1] || "Rampa frenera 1") : (estaciones[0] || "Fosa de diagnóstico"),
+      bahia_rampa: tipo === "express" ? (estaciones[1] || estaciones[0] || "") : (estaciones[0] || ""),
     }));
   };
 
@@ -115,6 +115,9 @@ export function OrderForm({
   useEffect(() => {
     async function loadInitialData() {
       setFetchingData(true);
+
+      const targetEmpresaId = empresa?.id || "b2ad09db-0a34-4876-9ca3-d584c40bd294";
+      const targetSucId = formData.sucursal_id || sucursalActiva?.id || sucursales[0]?.id;
 
       let clientsQuery = supabase
         .from("clientes")
@@ -140,10 +143,22 @@ export function OrderForm({
         mechQuery = mechQuery.eq("empresa_id", empresa.id);
       }
 
-      const [{ data: clientsData }, { data: mechData }] = await Promise.all([
+      const [{ data: clientsData }, { data: mechData }, estacionesRes] = await Promise.all([
         clientsQuery,
         mechQuery,
+        TenantEstacionesService.obtenerEstaciones(targetEmpresaId, targetSucId),
       ]);
+
+      if (estacionesRes?.data && estacionesRes.data.length > 0) {
+        const loadedNombres = estacionesRes.data.map((e) => e.nombre);
+        setEstaciones(loadedNombres);
+        setFormData((prev) => ({
+          ...prev,
+          bahia_rampa: loadedNombres.includes(prev.bahia_rampa)
+            ? prev.bahia_rampa
+            : (tipoRecepcion === "express" ? (loadedNombres[1] || loadedNombres[0] || "") : (loadedNombres[0] || "")),
+        }));
+      }
 
       if (clientsData) {
         const typedClients = clientsData as Client[];
@@ -223,7 +238,24 @@ export function OrderForm({
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    if (name === "sucursal_id") {
+      const targetEmpresaId = empresa?.id || "b2ad09db-0a34-4876-9ca3-d584c40bd294";
+      TenantEstacionesService.obtenerEstaciones(targetEmpresaId, value).then((res) => {
+        if (!res.error && res.data && res.data.length > 0) {
+          const loaded = res.data.map((item) => item.nombre);
+          setEstaciones(loaded);
+          setFormData((prev) => ({
+            ...prev,
+            bahia_rampa: loaded.includes(prev.bahia_rampa)
+              ? prev.bahia_rampa
+              : (tipoRecepcion === "express" ? (loaded[1] || loaded[0] || "") : (loaded[0] || "")),
+          }));
+        }
+      });
+    }
   };
 
   const toggleDeferredSelection = (id: string) => {
@@ -724,16 +756,17 @@ export function OrderForm({
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
-            <label className={labelClasses}>Bahía / Rampa</label>
+            <label className={labelClasses}>Bahía / Estación de Trabajo</label>
             <select
               name="bahia_rampa"
               value={formData.bahia_rampa}
               onChange={handleChange}
               className={inputClasses}
             >
+              <option value="">Sin Asignar (A definir en piso)</option>
               {estaciones.map((b) => (
                 <option key={b} value={b}>
-                  {b}
+                  📍 {b}
                 </option>
               ))}
             </select>

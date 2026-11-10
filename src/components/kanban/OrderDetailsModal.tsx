@@ -13,6 +13,7 @@ import { AuditTimeline } from "@/components/audit/AuditTimeline";
 import { TicketEvidenceLightbox } from "@/components/proveedores/TicketEvidenceLightbox";
 import { ProveedorEvidenceModal } from "@/components/proveedores/ProveedorEvidenceModal";
 import { ProveedorService, type Proveedor } from "@/services/proveedorService";
+import { TenantEstacionesService } from "@/services/tenantEstacionesService";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -440,7 +441,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
       setDviItems(dviData || []);
 
       const validCuentas = (cuentasBancariasData as any[]) || [];
-      const targetEmpresaId = orderData.empresa_id || empresa?.id;
+      const targetEmpresaId = orderData.empresa_id || empresa?.id || "b2ad09db-0a34-4876-9ca3-d584c40bd294";
       const filteredCuentas = validCuentas.filter(
         (cb) => !cb.empresa_id || cb.empresa_id === targetEmpresaId
       );
@@ -448,6 +449,13 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
       if (filteredCuentas.length > 0) {
         setSelectedCuentaBancariaId((prev) => prev || filteredCuentas[0].id);
       }
+
+      // Cargar estaciones de trabajo activas de la empresa y sucursal
+      TenantEstacionesService.obtenerEstaciones(targetEmpresaId, orderData.sucursal_id).then((estRes) => {
+        if (!estRes.error && estRes.data && estRes.data.length > 0) {
+          setEstacionesList(estRes.data.map((e) => e.nombre));
+        }
+      });
 
       // Init reception fields
       setRecProblema(orderData.problema_reportado || orderData.notas_recepcion || "");
@@ -998,6 +1006,22 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
       setOrder((prev: any) => ({ ...prev, mecanico_id: val }));
       setServiceMechanicId(val || "");
       onUpdate();
+    }
+  };
+
+  const handleUpdateBahia = async (newBahia: string) => {
+    const val = newBahia === "" ? null : newBahia;
+    const { error } = await supabase
+      .from("ordenes_servicio")
+      .update({ bahia_rampa: val })
+      .eq("id", orderId);
+    if (!error) {
+      setOrder((prev: any) => ({ ...prev, bahia_rampa: val }));
+      setRecBahia(val || "");
+      toast.success("Estación de trabajo actualizada");
+      onUpdate();
+    } else {
+      toast.error("Error al actualizar la estación");
     }
   };
 
@@ -2703,6 +2727,20 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                   🔧 {m.nombre}
                 </option>
               ))}
+          </select>
+
+          <select
+            value={order.bahia_rampa || ""}
+            onChange={(e) => handleUpdateBahia(e.target.value)}
+            className="h-8 text-xs font-semibold bg-slate-50 border border-slate-300 rounded-md px-2.5 text-slate-800 focus:outline-none focus:border-blue-600"
+            title="Estación de Trabajo / Rampa"
+          >
+            <option value="">Sin Estación</option>
+            {estacionesList.map((b) => (
+              <option key={b} value={b}>
+                📍 {b}
+              </option>
+            ))}
           </select>
 
           <select
