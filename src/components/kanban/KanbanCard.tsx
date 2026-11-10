@@ -10,6 +10,7 @@ import {
   User,
   MapPin,
   ShieldCheck,
+  CheckCircle2,
 } from "lucide-react";
 
 export type OrderPriority = "low" | "normal" | "high" | "urgent";
@@ -51,6 +52,7 @@ export interface Order {
 interface KanbanCardProps {
   order: Order;
   onClick?: (orderId: string) => void;
+  onDeliverOrder?: (orderId: string) => void;
 }
 
 const priorityBorders: Record<OrderPriority, string> = {
@@ -60,7 +62,7 @@ const priorityBorders: Record<OrderPriority, string> = {
   urgent: "border-l-rose-500",
 };
 
-export function KanbanCard({ order, onClick }: KanbanCardProps) {
+export function KanbanCard({ order, onClick, onDeliverOrder }: KanbanCardProps) {
   const {
     attributes,
     listeners,
@@ -237,6 +239,23 @@ export function KanbanCard({ order, onClick }: KanbanCardProps) {
             </span>
           </div>
         </div>
+
+        {/* Nivel 4: Acción Rápida de Entrega de Vehículo */}
+        {order.columnId === "Listo para Entrega" && onDeliverOrder && (
+          <div className="pt-2 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeliverOrder(order.id);
+              }}
+              className="w-full py-1.5 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+              title="Marcar como entregado y retirar del tablero activo"
+            >
+              <CheckCircle2 size={13} /> Marcar como Entregado
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

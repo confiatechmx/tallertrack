@@ -30,7 +30,9 @@ import {
   ExternalLink,
   ShieldCheck,
   RefreshCw,
+  CheckCircle2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useTenant } from "@/context/TenantContext";
 import { Modal } from "../ui/Modal";
@@ -81,6 +83,7 @@ export function KanbanBoard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMechanicFilter, setSelectedMechanicFilter] = useState<string>("ALL");
   const [selectedPaymentFilter, setSelectedPaymentFilter] = useState<string>("ALL");
+  const [selectedEtapaFilter, setSelectedEtapaFilter] = useState<string>("ACTIVAS");
 
   // Modals & Deep-link state
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
@@ -358,6 +361,33 @@ export function KanbanBoard() {
       prev.map((o) => (o.id === orderId ? { ...o, columnId: newStage } : o))
     );
     await supabase.from("ordenes_servicio").update({ estado: newStage }).eq("id", orderId);
+    if (newStage === "Entregado") {
+      toast.success("Vehículo marcado como entregado. La orden sale del tablero.");
+    }
+  };
+
+  const handleDeliverOrder = async (orderId: string) => {
+    try {
+      const { error } = await supabase
+        .from("ordenes_servicio")
+        .update({ estado: "Entregado", sub_estado: "Entregado" })
+        .eq("id", orderId);
+
+      if (error) {
+        toast.error("Error al marcar la orden como entregada");
+        return;
+      }
+
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId ? { ...o, columnId: "Entregado", subEstado: "Entregado" } : o
+        )
+      );
+      toast.success("Vehículo entregado al cliente con éxito. Orden archivada del tablero.");
+    } catch (err) {
+      console.error("Error entregando vehículo:", err);
+      toast.error("Error al procesar la entrega");
+    }
   };
 
   const filteredOrders = useMemo(() => {
@@ -375,6 +405,15 @@ export function KanbanBoard() {
       // Payment status filter
       if (selectedPaymentFilter !== "ALL" && order.estatusPago !== selectedPaymentFilter) {
         return false;
+      }
+      // Lifecycle Stage filter (unless user is searching explicitly by text)
+      if (!searchQuery.trim()) {
+        if (selectedEtapaFilter === "ACTIVAS" && order.columnId === "Entregado") {
+          return false;
+        }
+        if (selectedEtapaFilter === "Entregado" && order.columnId !== "Entregado") {
+          return false;
+        }
       }
       // Search query
       if (searchQuery.trim()) {
@@ -394,6 +433,7 @@ export function KanbanBoard() {
     sucursalActiva,
     selectedMechanicFilter,
     selectedPaymentFilter,
+    selectedEtapaFilter,
     searchQuery,
   ]);
 
@@ -522,6 +562,19 @@ export function KanbanBoard() {
               </select>
             </div>
 
+            {/* Lifecycle Stage Filter */}
+            <div className="flex items-center gap-1.5">
+              <select
+                value={selectedEtapaFilter}
+                onChange={(e) => setSelectedEtapaFilter(e.target.value)}
+                className="h-8 text-xs font-bold bg-white border border-slate-300 rounded-md px-2.5 text-slate-700 focus:outline-none focus:border-blue-600"
+              >
+                <option value="ACTIVAS">En Taller (Activas)</option>
+                <option value="ALL">Todas (Incluye Entregadas)</option>
+                <option value="Entregado">Histórico: Entregadas</option>
+              </select>
+            </div>
+
             <button
               type="button"
               onClick={fetchOrders}
@@ -591,6 +644,7 @@ export function KanbanBoard() {
                     accentColor={col.color}
                     orders={filteredOrders.filter((o) => o.columnId === col.id)}
                     onCardClick={(id) => setSelectedOrderId(id)}
+                    onDeliverOrder={handleDeliverOrder}
                   />
                 </div>
               ))}
@@ -675,6 +729,7 @@ export function KanbanBoard() {
                               {c.title}
                             </option>
                           ))}
+                          <option value="Entregado">5. Entregado (Archivar)</option>
                         </select>
                       </td>
                       <td className="py-2.5 px-3 text-center">
@@ -705,13 +760,25 @@ export function KanbanBoard() {
                         ${o.totalAmount.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                       </td>
                       <td className="py-2.5 px-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedOrderId(o.id)}
-                          className="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold cursor-pointer"
-                        >
-                          Abrir
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                          {o.columnId === "Listo para Entrega" && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeliverOrder(o.id)}
+                              className="px-2 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer shadow-2xs transition-colors"
+                              title="Marcar vehículo como entregado"
+                            >
+                              <CheckCircle2 size={11} /> Entregar
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedOrderId(o.id)}
+                            className="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold cursor-pointer transition-colors"
+                          >
+                            Abrir
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

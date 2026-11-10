@@ -2714,7 +2714,24 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
             <option value="En Inspección">2. En Inspección</option>
             <option value="En Rampa">3. En Rampa</option>
             <option value="Listo para Entrega">4. Listo para Entrega</option>
+            <option value="Entregado">5. Entregado / Salida de Taller</option>
           </select>
+
+          {order.estado === "Listo para Entrega" && (
+            <button
+              type="button"
+              onClick={async () => {
+                await handleUpdateStatus("Entregado");
+                await handleUpdateSubStatus("Entregado");
+                toast.success("Vehículo marcado como entregado. La orden sale del tablero.");
+                onClose();
+              }}
+              className="h-8 px-2.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-md flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
+              title="Marcar como entregado y archivar del tablero"
+            >
+              <CheckCircle2 size={13} /> Entregar Auto
+            </button>
+          )}
 
           <select
             value={order.sub_estado || "Activa"}
@@ -4976,13 +4993,45 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
 
                 {/* Quick Actions */}
                 <div className="pt-1 flex flex-col gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("pagos")}
-                    className="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-emerald-600 text-white text-xs font-black flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
-                  >
-                    <Banknote size={15} /> Proceder al Cobro en Caja →
-                  </button>
+                  {saldoPendiente <= 0.01 ? (
+                    <div className="flex flex-col gap-2">
+                      <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
+                          Orden 100% Liquidada
+                        </span>
+                        <span className="font-mono text-emerald-900 font-black">
+                          ${totalPagado.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                      {order.estado !== "Entregado" ? (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await handleUpdateStatus("Entregado");
+                            await handleUpdateSubStatus("Entregado");
+                            toast.success("Vehículo entregado al cliente con éxito.");
+                            onClose();
+                          }}
+                          className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
+                        >
+                          <Car size={15} /> Marcar como Entregado al Cliente
+                        </button>
+                      ) : (
+                        <div className="text-center py-2 text-xs font-bold text-slate-500 bg-slate-100 rounded-xl">
+                          ✓ Vehículo Entregado al Cliente
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("pagos")}
+                      className="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-emerald-600 text-white text-xs font-black flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
+                    >
+                      <Banknote size={15} /> Proceder al Cobro en Caja →
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setActiveTab("impresion")}

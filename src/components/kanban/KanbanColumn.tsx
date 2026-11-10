@@ -11,6 +11,7 @@ interface KanbanColumnProps {
   accentColor?: string;
   orders: Order[];
   onCardClick?: (orderId: string) => void;
+  onDeliverOrder?: (orderId: string) => void;
 }
 
 export function KanbanColumn({
@@ -19,6 +20,7 @@ export function KanbanColumn({
   accentColor = "#2563EB",
   orders,
   onCardClick,
+  onDeliverOrder,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: id,
@@ -62,7 +64,12 @@ export function KanbanColumn({
       >
         <SortableContext items={orderIds} strategy={verticalListSortingStrategy}>
           {orders.map((order) => (
-            <KanbanCard key={order.id} order={order} onClick={onCardClick} />
+            <KanbanCard
+              key={order.id}
+              order={order}
+              onClick={onCardClick}
+              onDeliverOrder={onDeliverOrder}
+            />
           ))}
         </SortableContext>
 

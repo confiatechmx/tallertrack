@@ -38,6 +38,7 @@ import {
   Plus,
   XCircle,
   CheckCircle2,
+  Car,
   Wallet,
   Wrench,
   Clock,
@@ -1463,8 +1464,71 @@ export default function CajaPage() {
                     </div>
                   </div>
 
-                  {/* Saldo y Monto a Cobrar Destacado */}
-                  <div className="p-5 border-b border-slate-100 bg-gradient-to-b from-slate-50/70 to-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  {Number(activeOrder.saldo || 0) <= 0.01 ? (
+                    /* Vista de Orden Liquidada al 100% - Sin botón de pagar duplicado */
+                    <div className="p-8 sm:p-10 flex flex-col items-center justify-center text-center gap-6">
+                      <div className="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center shadow-xs">
+                        <CheckCircle2 size={36} />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <span className="inline-block px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold uppercase tracking-wider border border-emerald-200">
+                          Orden 100% Liquidada
+                        </span>
+                        <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+                          Esta orden no tiene saldo pendiente
+                        </h3>
+                        <p className="text-xs text-slate-500 max-w-md">
+                          Total de la orden: <strong className="font-mono text-slate-800">${Number(activeOrder.granTotal || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN</strong> • Total cubierto al 100%.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-md pt-2">
+                        {/* Botón Ver Recibo Oficial */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReceiptOrder(activeOrder);
+                            setReceiptPayment(activeOrder.pagos_orden?.[activeOrder.pagos_orden.length - 1] || null);
+                            setReceiptPayments(activeOrder.pagos_orden || []);
+                            setReceiptModalOpen(true);
+                          }}
+                          className="w-full sm:flex-1 h-12 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                        >
+                          <Receipt size={16} /> Ver Recibo Oficial
+                        </button>
+
+                        {/* Botón Entregar Vehículo si aún no está entregado */}
+                        {activeOrder.estado !== "Entregado" ? (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const { error } = await supabase
+                                .from("ordenes_servicio")
+                                .update({ estado: "Entregado", sub_estado: "Entregado" })
+                                .eq("id", activeOrder.id);
+                              if (error) {
+                                toast.error("Error al marcar la orden como entregada");
+                                return;
+                              }
+                              toast.success("Vehículo marcado como entregado. La orden sale del tablero.");
+                              await loadData();
+                            }}
+                            className="w-full sm:flex-1 h-12 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                          >
+                            <Car size={16} /> Entregar Vehículo
+                          </button>
+                        ) : (
+                          <div className="w-full sm:flex-1 h-12 px-4 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 font-bold text-xs flex items-center justify-center gap-2">
+                            ✓ Auto Entregado
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Saldo y Monto a Cobrar Destacado */}
+                      <div className="p-5 border-b border-slate-100 bg-gradient-to-b from-slate-50/70 to-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                       <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
                         Total por Cobrar
@@ -2047,8 +2111,10 @@ export default function CajaPage() {
                       </button>
                     </div>
                   </div>
-                </div>
-              ) : (
+                </>
+              )}
+            </div>
+          ) : (
                 <div className="bg-white border border-slate-200/90 rounded-2xl p-12 text-center text-slate-400 flex flex-col items-center justify-center gap-3 shadow-xs">
                   <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
                     <Receipt size={32} />
