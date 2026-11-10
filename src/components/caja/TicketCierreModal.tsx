@@ -225,10 +225,10 @@ export function TicketCierreModal({
             Ventas Cobradas
           </span>
           <span className="text-sm sm:text-base font-black text-blue-950 font-mono tabular-nums block mt-0.5">
-            ${detalleTurno.totales.totalVentas.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+            ${Number(detalleTurno.totales?.totalVentas || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
           </span>
           <span className="text-[10px] text-blue-600 font-medium">
-            {detalleTurno.totales.cantidadOrdenes} órdenes cobradas
+            {detalleTurno.totales?.cantidadOrdenes || 0} órdenes cobradas
           </span>
         </div>
 
@@ -237,7 +237,7 @@ export function TicketCierreModal({
             Costo Refacciones
           </span>
           <span className="text-sm sm:text-base font-black text-amber-950 font-mono tabular-nums block mt-0.5">
-            ${detalleTurno.totales.totalCostos.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+            ${Number(detalleTurno.totales?.totalCostos || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
           </span>
           <span className="text-[10px] text-amber-700 font-medium">
             Compras a proveedores
@@ -249,10 +249,10 @@ export function TicketCierreModal({
             Utilidad Bruta Est.
           </span>
           <span className="text-sm sm:text-base font-black text-emerald-950 font-mono tabular-nums block mt-0.5">
-            +${detalleTurno.totales.utilidadEstimada.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+            +${Number(detalleTurno.totales?.utilidadEstimada || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
           </span>
           <span className="text-[10px] text-emerald-700 font-medium">
-            Margen promedio {detalleTurno.totales.margenEstimadoPorcentaje.toFixed(1)}%
+            Margen promedio {Number(detalleTurno.totales?.margenEstimadoPorcentaje || 0).toFixed(1)}%
           </span>
         </div>
 
@@ -261,7 +261,7 @@ export function TicketCierreModal({
             Gastos Caja Chica
           </span>
           <span className="text-sm sm:text-base font-black text-slate-800 font-mono tabular-nums block mt-0.5">
-            ${detalleTurno.totales.totalGastos.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+            ${Number(detalleTurno.totales?.totalGastos || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
           </span>
           <span className="text-[10px] text-slate-500 font-medium">
             Salidas operativas
@@ -308,13 +308,13 @@ export function TicketCierreModal({
 
                   <div className="flex items-center gap-3 text-xs">
                     <span className="text-slate-500 text-[11px]">
-                      Cliente: <strong className="text-slate-700">{v.clienteNombre}</strong>
+                      Cliente: <strong className="text-slate-700">{v.clienteNombre || "Público General"}</strong>
                     </span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${v.metodoPago.startsWith("Multimétodo") ? "bg-purple-50 text-purple-800 border-purple-200" : v.metodoPago.startsWith("Transferencia") ? "bg-blue-50 text-blue-800 border-blue-200" : v.metodoPago.includes("MSI") || v.metodoPago.includes("Tarjeta") || v.metodoPago.includes("Mercado Pago") ? "bg-indigo-50 text-indigo-800 border-indigo-200" : "bg-emerald-50 text-emerald-800 border-emerald-200"}`}>
-                      {v.metodoPago}
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${(v.metodoPago || "").startsWith("Multimétodo") ? "bg-purple-50 text-purple-800 border-purple-200" : (v.metodoPago || "").startsWith("Transferencia") ? "bg-blue-50 text-blue-800 border-blue-200" : (v.metodoPago || "").includes("MSI") || (v.metodoPago || "").includes("Tarjeta") || (v.metodoPago || "").includes("Mercado Pago") ? "bg-indigo-50 text-indigo-800 border-indigo-200" : "bg-emerald-50 text-emerald-800 border-emerald-200"}`}>
+                      {v.metodoPago || "Efectivo"}
                     </span>
                     <span className="font-mono font-black text-slate-900 tabular-nums">
-                      ${v.totalVenta.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                      ${Number(v.totalVenta || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                     </span>
                   </div>
                 </div>
@@ -401,13 +401,13 @@ export function TicketCierreModal({
                           </td>
                           <td className="py-1 px-2 text-center font-mono">{item.cantidad}</td>
                           <td className="py-1 px-2 text-right font-mono text-slate-600 tabular-nums">
-                            ${item.precioUnitario.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                            ${Number(item.precioUnitario || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                           </td>
                           <td className="py-1 px-2 text-right font-mono font-bold text-slate-900 tabular-nums">
-                            ${item.importe.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                            ${Number(item.importe || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                           </td>
                           <td className="py-1 px-2 text-right font-mono text-[10px] font-semibold text-emerald-700 tabular-nums">
-                            {item.margenPorcentaje.toFixed(0)}%
+                            {Number(item.margenPorcentaje || 0).toFixed(0)}%
                           </td>
                         </tr>
                       ))}
@@ -952,8 +952,8 @@ export function TicketCierreModal({
             <div className="mt-1 space-y-0.5">
               {teorico.tarjetasTPV.desglose.map((t: any, idx: number) => (
                 <div key={idx} className="text-[9px] text-slate-500 flex justify-between">
-                  <span>↳ {t.metodo} ({t.modalidad}):</span>
-                  <span>${Number(t.bruto).toFixed(2)}</span>
+                  <span>↳ {t.metodo || t.proveedor || "Terminal"} ({t.modalidad || "Point"}):</span>
+                  <span>${Number(t.bruto || 0).toFixed(2)}</span>
                 </div>
               ))}
             </div>
@@ -967,7 +967,7 @@ export function TicketCierreModal({
       <div className="pt-2 pb-3 text-center">
         <span className="text-[10px] text-slate-500 font-bold">TOTAL FACTURADO</span>
         <p className="text-sm font-bold text-slate-900 mt-0.5 font-mono">
-          ${Number(teorico?.totalVentasTurno || detalleTurno.totales.totalVentas || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
+          ${Number(teorico?.totalVentasTurno || detalleTurno.totales?.totalVentas || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
         </p>
       </div>
 

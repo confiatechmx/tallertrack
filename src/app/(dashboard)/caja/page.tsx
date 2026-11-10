@@ -26,6 +26,7 @@ import {
   CajaFondo,
   CuentaBancaria,
 } from "@/services/cajaTurnoService";
+import { ReportesExportService } from "@/services/reportesExportService";
 
 import { simularCuotasBNPL, CuotaSimulation } from "@/app/actions/payments";
 import {
@@ -62,6 +63,7 @@ import {
   Coins,
   Split,
   FileText,
+  Eye,
 } from "lucide-react";
 
 type TabType = "POS" | "Cobranza" | "CajaChica" | "Comisiones";
@@ -98,6 +100,7 @@ export default function CajaPage() {
   const [cierreTicketData, setCierreTicketData] = useState<any | null>(null);
   const [auditoriaModalOpen, setAuditoriaModalOpen] = useState(false);
   const [auditoriaTurnoId, setAuditoriaTurnoId] = useState<string | null>(null);
+  const [descargandoExcelTurnoId, setDescargandoExcelTurnoId] = useState<string | null>(null);
   const [proveedorEvidenceOpen, setProveedorEvidenceOpen] = useState(false);
 
   const [posSelectedOrderId, setPosSelectedOrderId] = useState<string | null>(null);
@@ -1154,6 +1157,45 @@ export default function CajaPage() {
     document.body.removeChild(link);
   };
 
+  const handleDescargaDirectaExcel = async (t: CajaTurno) => {
+    try {
+      setDescargandoExcelTurnoId(t.id);
+      const detalleTurno = await CajaTurnoService.obtenerDetalleTurnoCompleto(t.id);
+      const teorico = await CajaTurnoService.calcularResumenTeoricoTurno(t.id);
+
+      const fechaStr = t.fecha_cierre
+        ? new Date(t.fecha_cierre).toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })
+        : new Date(t.fecha_apertura).toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" });
+
+      await ReportesExportService.exportarCorteExcelElegante({
+        empresaNombre: empresa?.nombre_comercial || "Cova",
+        sucursalNombre: sucursalActiva?.nombre || "Cova Culiacán",
+        cajeroNombre: perfil?.nombre || "Cajero en Turno",
+        fechaTurno: fechaStr,
+        turnoId: t.id,
+        cierreData: {
+          declaradoF1: t.monto_cierre_declarado_f1 ?? 0,
+          declaradoF2: t.monto_cierre_declarado_f2 ?? 0,
+          diferenciaF1: t.diferencia_f1 ?? 0,
+          diferenciaF2: t.diferencia_f2 ?? 0,
+          remesa: t.monto_remesa_retirada ?? 0,
+          fondoSiguiente: t.monto_fondo_siguiente_f1 ?? 0,
+          teoricoF1: t.monto_cierre_teorico_f1 ?? 0,
+          teoricoF2: t.monto_cierre_teorico_f2 ?? 0,
+          resumenTeorico: teorico || t.snapshot_resumen,
+          justificacion_descuadre: t.justificacion_descuadre,
+        },
+        detalleTurno,
+      });
+      toast.success("Excel descargado correctamente");
+    } catch (err: any) {
+      console.error("Error al descargar Excel:", err);
+      toast.error("Error al generar el archivo Excel");
+    } finally {
+      setDescargandoExcelTurnoId(null);
+    }
+  };
+
   if (loading) {
   
 
@@ -2162,7 +2204,36 @@ export default function CajaPage() {
                               </span>
                             </td>
                             <td className="py-3 px-4 text-right">
-                              <div className="flex items-center justify-end gap-2">
+                              <div className="flex items-center justify-end gap-1.5">
+                                {/* 1. Ver Detalle / Auditoría en Pantalla */}
+                                <button
+                                  onClick={() => {
+                                    setAuditoriaTurnoId(t.id);
+                                    setAuditoriaModalOpen(true);
+                                  }}
+                                  className="text-[11px] font-bold text-blue-700 hover:text-blue-900 inline-flex items-center gap-1 cursor-pointer bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-md transition-colors"
+                                  title="Ver Auditoría, Desglose de Ventas, Bancos y Comisiones en Pantalla"
+                                >
+                                  <Eye size={12} />
+                                  <span>Ver Cierre / Detalle</span>
+                                </button>
+
+                                {/* 2. Descarga Directa e Instantánea de Excel */}
+                                <button
+                                  onClick={() => handleDescargaDirectaExcel(t)}
+                                  disabled={descargandoExcelTurnoId === t.id}
+                                  className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 inline-flex items-center gap-1 cursor-pointer bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-md transition-colors disabled:opacity-50"
+                                  title="Descargar libro Excel formateado (.xlsx) directamente a tu computadora"
+                                >
+                                  {descargandoExcelTurnoId === t.id ? (
+                                    <Loader2 size={12} className="animate-spin text-emerald-700" />
+                                  ) : (
+                                    <FileSpreadsheet size={12} className="text-emerald-700" />
+                                  )}
+                                  <span>{descargandoExcelTurnoId === t.id ? "Descargando..." : "Descargar Excel"}</span>
+                                </button>
+
+                                {/* 3. Ticket Térmico 80mm de Mostrador */}
                                 {(t.estado === "CERRADO" || t.estado === "AUDITADO") && (
                                   <button
                                     onClick={() => {
@@ -2181,23 +2252,13 @@ export default function CajaPage() {
                                       });
                                       setTicketCierreOpen(true);
                                     }}
-                                    className="text-[11px] font-bold text-primary hover:underline inline-flex items-center gap-1 cursor-pointer"
+                                    className="text-[11px] font-medium text-slate-600 hover:text-slate-900 inline-flex items-center gap-1 cursor-pointer bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded-md transition-colors"
+                                    title="Imprimir Ticket Térmico Corte Z (80mm)"
                                   >
                                     <Printer size={12} />
-                                    <span>Ver Cierre (Corte Z)</span>
+                                    <span>Ticket 80mm</span>
                                   </button>
                                 )}
-                                <button
-                                  onClick={() => {
-                                    setAuditoriaTurnoId(t.id);
-                                    setAuditoriaModalOpen(true);
-                                  }}
-                                  className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 hover:underline inline-flex items-center gap-1 cursor-pointer"
-                                  title="Descargar Reporte en Excel y Resumen Financiero"
-                                >
-                                  <FileSpreadsheet size={12} />
-                                  <span>Excel / Detalle</span>
-                                </button>
                               </div>
                             </td>
                           </tr>
