@@ -321,13 +321,50 @@ export const ReportesExportService = {
       });
     }
 
-    // Tarjetas TPV / Mercado Pago
+    // Tarjetas TPV / Mercado Pago con desglose por modalidad (1 Exhibición, 6 MSI, etc.)
     const totalTarjetas = Number(teorico?.tarjetasTPV?.total || 0);
     const conteoTarjetas = Number(teorico?.tarjetasTPV?.conteo || 0);
-    const comisionesTarjetas = Number(teorico?.tarjetasTPV?.comisionesRetenidas || 0);
+    const comisionesTarjetas = Number(
+      teorico?.tarjetasTPV?.totalComisiones ||
+      teorico?.tarjetasTPV?.comisionesRetenidas ||
+      detalleTurno.ventas.reduce((acc, v) => acc + (v.comisionPasarela || 0), 0) ||
+      0
+    );
     const netoTarjetas = totalTarjetas - comisionesTarjetas;
 
-    if (totalTarjetas > 0) {
+    const desgloseTPV = (teorico?.tarjetasTPV?.desglose || []) as any[];
+    if (desgloseTPV.length > 0) {
+      desgloseTPV.forEach((d) => {
+        const bruto = Number(d.bruto || 0);
+        const comision = Number(d.comision || 0);
+        const neto = Number(d.neto || bruto - comision);
+        const pct = totalVentasTurno > 0 ? bruto / totalVentasTurno : 0;
+        const rTpv = wsResumen.getRow(resRow);
+        rTpv.values = [
+          "Tarjetas / Terminal TPV",
+          `${d.metodo || d.proveedor || "Terminal"} (${d.modalidad || "Point"})`,
+          Number(d.conteo || 1),
+          bruto,
+          comision,
+          neto,
+          pct,
+        ];
+        rTpv.height = 22;
+        rTpv.eachCell((c, col) => {
+          c.font = { name: "Segoe UI", size: 9.5 };
+          c.border = softBorder;
+          if (col === 3) c.alignment = { horizontal: "center" };
+          else if ([4, 5, 6].includes(col)) {
+            c.numFmt = '"$"#,##0.00';
+            c.alignment = { horizontal: "right" };
+          } else if (col === 7) {
+            c.numFmt = "0.0%";
+            c.alignment = { horizontal: "right" };
+          }
+        });
+        resRow++;
+      });
+    } else if (totalTarjetas > 0) {
       const rTpv = wsResumen.getRow(resRow);
       const pctTpv = totalVentasTurno > 0 ? totalTarjetas / totalVentasTurno : 0;
       rTpv.values = [
@@ -599,7 +636,7 @@ export const ReportesExportService = {
     });
 
     // Fila 1: Título Principal
-    wsDetalle.mergeCells("A1:Q1");
+    wsDetalle.mergeCells("A1:T1");
     const titleCell2 = wsDetalle.getCell("A1");
     titleCell2.value = `${empresaNombre.toUpperCase()} - DETALLE UNIFICADO DE VENTAS, PROVEEDORES Y GASTOS`;
     titleCell2.font = { name: "Segoe UI", size: 14, bold: true, color: { argb: "FFFFFFFF" } };
@@ -608,7 +645,7 @@ export const ReportesExportService = {
     wsDetalle.getRow(1).height = 34;
 
     // Fila 2: Metadatos
-    wsDetalle.mergeCells("A2:Q2");
+    wsDetalle.mergeCells("A2:T2");
     const metaCell2 = wsDetalle.getCell("A2");
     metaCell2.value = `Sucursal: ${sucursalNombre}   |   Fecha: ${fechaTurno}   |   Turno: #${String(turnoId).substring(0, 8).toUpperCase()}   |   Total Cobrado: $${totalVentasTurno.toLocaleString("es-MX", { minimumFractionDigits: 2 })}   |   Salidas Caja Chica: $${f1Salidas.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`;
     metaCell2.font = { name: "Segoe UI", size: 10, color: { argb: "FFD1FAE5" } };
@@ -617,7 +654,7 @@ export const ReportesExportService = {
     wsDetalle.getRow(2).height = 20;
 
     // Fila 4: Banner Sección 1 - Ventas
-    wsDetalle.mergeCells("A4:Q4");
+    wsDetalle.mergeCells("A4:T4");
     const secVentasBanner = wsDetalle.getCell("A4");
     secVentasBanner.value = "1. DESGLOSE DE ÓRDENES DE SERVICIO Y COSTOS POR PROVEEDOR";
     secVentasBanner.font = { name: "Segoe UI", size: 10.5, bold: true, color: { argb: "FFFFFFFF" } };
@@ -625,7 +662,7 @@ export const ReportesExportService = {
     secVentasBanner.alignment = { vertical: "middle", horizontal: "left" };
     wsDetalle.getRow(4).height = 24;
 
-    // Fila 5: Encabezados de Columna
+    // Fila 5: Encabezados de Columna (20 Columnas con AutoFiltro nativo)
     const columnasDetalle = [
       "No. Orden",
       "Hora",
@@ -639,10 +676,13 @@ export const ReportesExportService = {
       "P. Unitario ($)",
       "Importe ($)",
       "Método de Cobro",
+      "Comisión TPV ($)",
+      "Neto Pasarela ($)",
       "Proveedor",
       "Caja Chica ($)",
       "Fondo ($)",
       "Pendiente ($)",
+      "Utilidad Real ($)",
       "Folio Ticket / Garantía",
     ];
 
@@ -658,7 +698,7 @@ export const ReportesExportService = {
 
     let curRow = 6;
     if (detalleTurno.ventas.length === 0) {
-      wsDetalle.mergeCells(`A6:Q6`);
+      wsDetalle.mergeCells(`A6:T6`);
       const emptyCell = wsDetalle.getCell("A6");
       emptyCell.value = "Sin órdenes de servicio cobradas en este turno.";
       emptyCell.font = { name: "Segoe UI", size: 10, italic: true, color: { argb: "FF64748B" } };
@@ -669,9 +709,12 @@ export const ReportesExportService = {
       detalleTurno.ventas.forEach((v, vIdx) => {
         const isAlternateOrder = vIdx % 2 === 1;
         const rowBg = isAlternateOrder ? "FFF8FAFC" : "FFFFFFFF";
+        const horaStr = new Date(v.fechaPago).toLocaleTimeString("es-MX", {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
 
-        v.partidas.forEach((item, pIdx) => {
-          const isFirstItem = pIdx === 0;
+        v.partidas.forEach((item) => {
           const r = wsDetalle.getRow(curRow);
 
           const costo = Number(item.costoTotal || 0);
@@ -685,25 +728,34 @@ export const ReportesExportService = {
             else pend = costo;
           }
 
+          const comisionItem = Number(item.comisionMonto || 0);
+          const netoPasarelaItem = Number((item.importe - comisionItem).toFixed(2));
+          const utilidadRealItem =
+            item.utilidadReal != null
+              ? Number(item.utilidadReal)
+              : Number((item.importe - costo - comisionItem).toFixed(2));
+
+          // Todas las celdas van auto-contenidas para permitir ordenamiento y autofiltros nativos en Excel
           r.values = [
-            isFirstItem ? v.folioStr : "",
-            isFirstItem
-              ? new Date(v.fechaPago).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })
-              : "",
-            isFirstItem ? v.clienteNombre : "",
-            isFirstItem ? v.clienteTelefono : "",
-            isFirstItem ? v.vehiculoDesc : "",
-            isFirstItem ? v.placas : "",
+            v.folioStr,
+            horaStr,
+            v.clienteNombre,
+            v.clienteTelefono,
+            v.vehiculoDesc,
+            v.placas,
             item.tipo,
             item.descripcion,
             item.cantidad,
             item.precioUnitario,
             item.importe,
-            isFirstItem ? v.metodoPago : "",
+            v.metodoPago,
+            comisionItem > 0 ? comisionItem : 0,
+            netoPasarelaItem,
             item.proveedor || "-",
             caja > 0 ? caja : "",
             fondo > 0 ? fondo : "",
             pend > 0 ? pend : "",
+            utilidadRealItem,
             item.folioTicketProv
               ? `Nota #${item.folioTicketProv}${item.mesesGarantia ? ` (${item.mesesGarantia}m)` : ""}`
               : "-",
@@ -717,7 +769,7 @@ export const ReportesExportService = {
 
             if ([1, 2, 6, 7, 9].includes(colNumber)) {
               cell.alignment = { vertical: "middle", horizontal: "center" };
-            } else if ([10, 11, 14, 15, 16].includes(colNumber)) {
+            } else if ([10, 11, 13, 14, 16, 17, 18, 19].includes(colNumber)) {
               cell.numFmt = '"$"#,##0.00';
               cell.alignment = { vertical: "middle", horizontal: "right" };
             } else {
@@ -725,14 +777,18 @@ export const ReportesExportService = {
             }
 
             // Resaltar No. Orden y Placas
-            if (isFirstItem && colNumber === 1) {
+            if (colNumber === 1) {
               cell.font = { name: "Segoe UI", size: 9.5, bold: true, color: { argb: "FF1E40AF" } };
             }
-            if (isFirstItem && colNumber === 6) {
+            if (colNumber === 6) {
               cell.font = { name: "Segoe UI", size: 9, bold: true, color: { argb: "FF0F172A" } };
             }
+            // Resaltar Comisiones TPV
+            if (colNumber === 13 && Number(cell.value) > 0) {
+              cell.font = { name: "Segoe UI", size: 9.5, bold: true, color: { argb: "FFDC2626" } };
+            }
             // Resaltar Pendiente
-            if (colNumber === 16 && cell.value) {
+            if (colNumber === 18 && cell.value) {
               cell.font = { name: "Segoe UI", size: 9.5, bold: true, color: { argb: "FFB45309" } };
             }
           });
@@ -741,8 +797,16 @@ export const ReportesExportService = {
         });
       });
 
+      const filaFinalVentas = curRow - 1;
+      // AutoFiltro nativo de Excel que cubre exclusivamente la tabla de ventas (A5 a T...)
+      wsDetalle.autoFilter = `A5:T${filaFinalVentas}`;
+
       // Fila de Totales de Ventas
       const totalRowVentas = wsDetalle.getRow(curRow);
+      const totalComisionesTurno = comisionesTarjetas;
+      const totalNetoTurno = totalVentasTurno - totalComisionesTurno;
+      const totalUtilidadRealTurno = utilidadTurno - totalComisionesTurno;
+
       totalRowVentas.values = [
         "SUBTOTAL ÓRDENES Y VENTAS",
         "",
@@ -756,10 +820,13 @@ export const ReportesExportService = {
         "",
         totalVentasTurno,
         "",
+        totalComisionesTurno,
+        totalNetoTurno,
         "",
         totalRefaccionesCajaChica,
         totalRefaccionesFondo,
         totalRefaccionesPendiente,
+        totalUtilidadRealTurno,
         "",
       ];
       totalRowVentas.height = 26;
@@ -771,7 +838,7 @@ export const ReportesExportService = {
           bottom: { style: "double", color: { argb: "FF0F172A" } },
         };
 
-        if ([11, 14, 15, 16].includes(colNumber)) {
+        if ([11, 13, 14, 16, 17, 18, 19].includes(colNumber)) {
           cell.numFmt = '"$"#,##0.00';
           cell.alignment = { vertical: "middle", horizontal: "right" };
         } else if (colNumber === 9) {
@@ -787,7 +854,7 @@ export const ReportesExportService = {
     // =========================================================================
     // SECCIÓN 2: GASTOS OPERATIVOS Y SALIDAS DE CAJA CHICA
     // =========================================================================
-    wsDetalle.mergeCells(`A${curRow}:Q${curRow}`);
+    wsDetalle.mergeCells(`A${curRow}:T${curRow}`);
     const secGastosBanner = wsDetalle.getCell(`A${curRow}`);
     secGastosBanner.value = "2. GASTOS OPERATIVOS Y SALIDAS DE CAJA CHICA (NO VINCULADOS A ÓRDENES)";
     secGastosBanner.font = { name: "Segoe UI", size: 10.5, bold: true, color: { argb: "FFFFFFFF" } };
@@ -811,7 +878,10 @@ export const ReportesExportService = {
       "Monto Salida ($)",
       "Fondo de Salida",
       "Proveedor / Beneficiario",
-      "Comprobante / Folio",
+      "",
+      "Comprobante / Folio / Notas",
+      "",
+      "",
       "",
       "",
       "",
@@ -821,15 +891,17 @@ export const ReportesExportService = {
       cell.font = { name: "Segoe UI", size: 9.5, bold: true, color: { argb: "FFFFFFFF" } };
       cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF78350F" } };
       cell.border = headerBorder;
-      if ([1, 2, 3, 12, 14].includes(col)) cell.alignment = { vertical: "middle", horizontal: "center" };
+      if ([1, 2, 3, 12, 15].includes(col)) cell.alignment = { vertical: "middle", horizontal: "center" };
       else if (col === 11) cell.alignment = { vertical: "middle", horizontal: "right" };
       else cell.alignment = { vertical: "middle", horizontal: "left" };
     });
     wsDetalle.mergeCells(`D${curRow}:J${curRow}`);
+    wsDetalle.mergeCells(`M${curRow}:N${curRow}`);
+    wsDetalle.mergeCells(`O${curRow}:T${curRow}`);
     curRow++;
 
     if (detalleTurno.gastos.length === 0) {
-      wsDetalle.mergeCells(`A${curRow}:Q${curRow}`);
+      wsDetalle.mergeCells(`A${curRow}:T${curRow}`);
       const emptyG = wsDetalle.getCell(`A${curRow}`);
       emptyG.value = "Sin movimientos de gastos menores en este turno.";
       emptyG.font = { name: "Segoe UI", size: 9.5, italic: true, color: { argb: "FF64748B" } };
@@ -854,7 +926,10 @@ export const ReportesExportService = {
           g.monto,
           g.fondoNombre,
           g.proveedor || "-",
+          "",
           g.folioTicket ? `#${g.folioTicket}` : "-",
+          "",
+          "",
           "",
           "",
           "",
@@ -864,7 +939,7 @@ export const ReportesExportService = {
           cell.font = { name: "Segoe UI", size: 9.5, color: { argb: "FF1E293B" } };
           cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } };
           cell.border = softBorder;
-          if ([1, 2, 3, 12, 14].includes(col)) cell.alignment = { vertical: "middle", horizontal: "center" };
+          if ([1, 2, 3, 12, 15].includes(col)) cell.alignment = { vertical: "middle", horizontal: "center" };
           else if (col === 11) {
             cell.numFmt = '"$"#,##0.00';
             cell.alignment = { vertical: "middle", horizontal: "right" };
@@ -874,6 +949,8 @@ export const ReportesExportService = {
           }
         });
         wsDetalle.mergeCells(`D${curRow}:J${curRow}`);
+        wsDetalle.mergeCells(`M${curRow}:N${curRow}`);
+        wsDetalle.mergeCells(`O${curRow}:T${curRow}`);
         curRow++;
       });
     }
@@ -892,6 +969,9 @@ export const ReportesExportService = {
       "",
       "",
       totalGastosOperativos,
+      "",
+      "",
+      "",
       "",
       "",
       "",
@@ -918,7 +998,7 @@ export const ReportesExportService = {
     // =========================================================================
     // SECCIÓN 3: CONCILIACIÓN MATEMÁTICA DE CAJA CHICA (MOSTRADOR)
     // =========================================================================
-    wsDetalle.mergeCells(`A${curRow}:Q${curRow}`);
+    wsDetalle.mergeCells(`A${curRow}:T${curRow}`);
     const secConcilBanner = wsDetalle.getCell(`A${curRow}`);
     secConcilBanner.value = "3. CONCILIACIÓN FINAL DE EFECTIVO EN CAJA CHICA (MOSTRADOR)";
     secConcilBanner.font = { name: "Segoe UI", size: 10.5, bold: true, color: { argb: "FFFFFFFF" } };
@@ -931,7 +1011,7 @@ export const ReportesExportService = {
       ["(+) Fondo de Apertura Inicial en Gaveta", f1Apertura, "Fondo base entregado al iniciar jornada"],
       ["(+) Cobros en Efectivo de Ventas del Turno", f1Entradas, `${conteoEfectivo} ventas cobradas en efectivo`],
       ["(-) Salidas de Caja Chica por Refacciones a Proveedores", -totalRefaccionesCajaChica, "Blue, Llantas Plus, Omar, Dar, Pat, San"],
-      ["(-) Gastos Operativos Menores de Mostrador", -totalGastosOperativos, "Consumibles, alimentos o retiros autorizados"],
+      ["(-) Gastos Operativos Menores de Mostrador", -totalGastosOperativos, "Consumibles, alimentos o retiros autorizados (REC)"],
       ["(=) Saldo Teórico Final que Debe Haber en Gaveta", teoricoF1, "Efectivo físico esperado por el sistema"],
       ["(=) Arqueo Físico Declarado por Cajero(a)", f1Declarado, "Conteo ciego de billetes y monedas"],
       ["(=) Diferencia / Descuadre de Caja", difF1, difF1 === 0 ? "Cuadrado Perfecto ($0.00)" : (difF1 > 0 ? "Sobrante de efectivo" : "Faltante de efectivo")],
@@ -941,7 +1021,7 @@ export const ReportesExportService = {
 
     concilItems.forEach(([label, monto, obs], idx) => {
       const r = wsDetalle.getRow(curRow);
-      r.values = [label, "", "", "", "", "", "", "", "", "", monto, obs, "", "", "", "", ""];
+      r.values = [label, "", "", "", "", "", "", "", "", "", monto, obs, "", "", "", "", "", "", "", ""];
       r.height = 22;
       r.eachCell((c, col) => {
         c.font = { name: "Segoe UI", size: 9.5 };
@@ -973,29 +1053,32 @@ export const ReportesExportService = {
         }
       });
       wsDetalle.mergeCells(`A${curRow}:J${curRow}`);
-      wsDetalle.mergeCells(`L${curRow}:Q${curRow}`);
+      wsDetalle.mergeCells(`L${curRow}:T${curRow}`);
       curRow++;
     });
 
-    // Anchos de columna Hoja 2
+    // Anchos de columna Hoja 2 (20 Columnas perfectamente dimensionadas)
     wsDetalle.columns = [
-      { width: 13 }, // 1: No. Orden
-      { width: 12 }, // 2: Hora
-      { width: 26 }, // 3: Cliente
-      { width: 16 }, // 4: Teléfono
-      { width: 28 }, // 5: Vehículo
-      { width: 14 }, // 6: Placas
-      { width: 13 }, // 7: Tipo
-      { width: 34 }, // 8: Concepto
-      { width: 9 },  // 9: Cant
-      { width: 15 }, // 10: P. Unit
-      { width: 16 }, // 11: Importe Venta / Monto Salida
-      { width: 22 }, // 12: Método Cobro / Fondo Salida
-      { width: 22 }, // 13: Proveedor
-      { width: 16 }, // 14: Caja Chica ($)
-      { width: 15 }, // 15: Fondo ($)
-      { width: 16 }, // 16: Pendiente ($)
-      { width: 24 }, // 17: Folio Ticket / Garantía
+      { width: 13 }, // 1 (A): No. Orden
+      { width: 10 }, // 2 (B): Hora
+      { width: 25 }, // 3 (C): Cliente
+      { width: 15 }, // 4 (D): Teléfono
+      { width: 24 }, // 5 (E): Vehículo
+      { width: 13 }, // 6 (F): Placas
+      { width: 12 }, // 7 (G): Tipo
+      { width: 34 }, // 8 (H): Concepto / Descripción
+      { width: 8 },  // 9 (I): Cant.
+      { width: 14 }, // 10 (J): P. Unitario ($)
+      { width: 15 }, // 11 (K): Importe ($)
+      { width: 26 }, // 12 (L): Método de Cobro
+      { width: 15 }, // 13 (M): Comisión TPV ($)
+      { width: 16 }, // 14 (N): Neto Pasarela ($)
+      { width: 20 }, // 15 (O): Proveedor
+      { width: 15 }, // 16 (P): Caja Chica ($)
+      { width: 14 }, // 17 (Q): Fondo ($)
+      { width: 15 }, // 18 (R): Pendiente ($)
+      { width: 15 }, // 19 (S): Utilidad Real ($)
+      { width: 22 }, // 20 (T): Folio Ticket / Garantía
     ];
 
     // =========================================================================

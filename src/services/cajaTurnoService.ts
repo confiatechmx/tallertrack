@@ -202,6 +202,8 @@ export interface TurnoVentaPartida {
   cajaMonto?: number;
   fondoMonto?: number;
   pendienteMonto?: number;
+  comisionMonto?: number;
+  utilidadReal?: number;
 }
 
 export interface TurnoVentaPagoDesglose {
@@ -234,6 +236,9 @@ export interface TurnoVentaOrden {
   totalCostos: number;
   utilidadBruta: number;
   margenPorcentaje: number;
+  comisionPasarela?: number;
+  montoNetoCobrado?: number;
+  utilidadNeta?: number;
 }
 
 export interface TurnoGastoMovimiento {
@@ -1331,11 +1336,31 @@ export const CajaTurnoService = {
           });
         }
 
+        const comisionPasarela = pagosDesglose.reduce(
+          (acc, p) => acc + (p.comisionMonto || 0),
+          0
+        );
+        const montoNetoCobrado = totalCobradoEnTurno - comisionPasarela;
         const utilidadBruta = totalCobradoEnTurno - ordenCostos;
+        const utilidadNeta = utilidadBruta - comisionPasarela;
         const margenPorcentaje =
           totalCobradoEnTurno > 0
             ? Math.round((utilidadBruta / totalCobradoEnTurno) * 1000) / 10
             : 0;
+
+        // Distribuir proporcionalmente la comisión pasarela entre las partidas para cálculo de utilidad real
+        let comisionAcumuladaPartidas = 0;
+        partidas.forEach((p, idx) => {
+          if (idx === partidas.length - 1) {
+            // Última partida absorbe cualquier centavo residual de redondeo
+            p.comisionMonto = Number((comisionPasarela - comisionAcumuladaPartidas).toFixed(2));
+          } else {
+            const prop = totalCobradoEnTurno > 0 ? p.importe / totalCobradoEnTurno : 0;
+            p.comisionMonto = Number((comisionPasarela * prop).toFixed(2));
+            comisionAcumuladaPartidas += p.comisionMonto;
+          }
+          p.utilidadReal = Number((p.importe - p.costoTotal - (p.comisionMonto || 0)).toFixed(2));
+        });
 
         totalVentasSum += totalCobradoEnTurno;
         totalCostosSum += ordenCostos;
@@ -1366,6 +1391,9 @@ export const CajaTurnoService = {
           totalCostos: ordenCostos,
           utilidadBruta,
           margenPorcentaje,
+          comisionPasarela,
+          montoNetoCobrado,
+          utilidadNeta,
         });
       });
 
