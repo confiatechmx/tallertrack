@@ -68,7 +68,7 @@ BEGIN
     -- B. Hashear contraseña con bcrypt
     v_encrypted_pw := crypt(p_password, gen_salt('bf'));
 
-    -- C. Insertar en auth.users
+    -- C. Insertar en auth.users (sin confirmed_at ya que es columna GENERATED ALWAYS en Supabase)
     INSERT INTO auth.users (
         instance_id,
         id,
@@ -77,7 +77,6 @@ BEGIN
         email,
         encrypted_password,
         email_confirmed_at,
-        confirmed_at,
         raw_app_meta_data,
         raw_user_meta_data,
         is_super_admin,
@@ -92,7 +91,6 @@ BEGIN
         'authenticated',
         v_clean_email,
         v_encrypted_pw,
-        now(),
         now(),
         '{"provider": "email", "providers": ["email"]}'::jsonb,
         jsonb_build_object(
