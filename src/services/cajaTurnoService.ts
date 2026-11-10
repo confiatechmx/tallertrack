@@ -197,6 +197,11 @@ export interface TurnoVentaPartida {
   folioTicketProv?: string;
   mesesGarantia?: number;
   evidenciaUrl?: string;
+  fuentePago?: string;
+  estatusPago?: string;
+  cajaMonto?: number;
+  fondoMonto?: number;
+  pendienteMonto?: number;
 }
 
 export interface TurnoVentaPagoDesglose {
@@ -1114,6 +1119,9 @@ export const CajaTurnoService = {
               nombre,
               numero_parte,
               proveedor,
+              proveedor_id,
+              compra_proveedor_id,
+              fuente_pago,
               cantidad,
               costo_unitario,
               precio_unitario,
@@ -1123,11 +1131,21 @@ export const CajaTurnoService = {
               garantia_especifica,
               folio_ticket_nota,
               evidencia_url,
+              proveedores:proveedor_id (
+                id,
+                nombre_comercial
+              ),
               compras_proveedores (
                 id,
                 folio_ticket_nota,
                 meses_garantia,
-                evidencia_url
+                evidencia_url,
+                fuente_pago,
+                estatus_pago,
+                proveedores:proveedor_id (
+                  id,
+                  nombre_comercial
+                )
               )
             )
           `)
@@ -1238,6 +1256,25 @@ export const CajaTurnoService = {
             costoTot > 0 ? (margenMonto / costoTot) * 100 : importe > 0 ? 100 : 0;
 
           ordenCostos += costoTot;
+
+          const provNombre =
+            r.proveedores?.nombre_comercial ||
+            r.compras_proveedores?.proveedores?.nombre_comercial ||
+            r.proveedor ||
+            undefined;
+
+          const fuente =
+            r.compras_proveedores?.fuente_pago ||
+            r.fuente_pago ||
+            (provNombre?.includes("Inventario") ? "CREDITO_PENDIENTE" : "CAJA_CHICA");
+
+          let cajaM = 0;
+          let fondoM = 0;
+          let pendienteM = 0;
+          if (fuente === "CAJA_CHICA") cajaM = costoTot;
+          else if (fuente === "FONDO_RESERVA" || fuente === "TRANSFERENCIA") fondoM = costoTot;
+          else if (fuente === "CREDITO_PENDIENTE") pendienteM = costoTot;
+
           partidas.push({
             tipo: "Refacción",
             descripcion: `${r.nombre || "Refacción"}${r.numero_parte ? ` (${r.numero_parte})` : ""}`,
@@ -1248,10 +1285,15 @@ export const CajaTurnoService = {
             importe,
             margenMonto,
             margenPorcentaje: Math.round(margenPct * 10) / 10,
-            proveedor: r.proveedor || undefined,
+            proveedor: provNombre,
             folioTicketProv: r.folio_ticket_nota || r.compras_proveedores?.folio_ticket_nota || undefined,
             mesesGarantia: r.compras_proveedores?.meses_garantia || (r.garantia_especifica ? parseInt(r.garantia_especifica) : undefined),
             evidenciaUrl: r.evidencia_url || r.compras_proveedores?.evidencia_url || undefined,
+            fuentePago: fuente,
+            estatusPago: r.compras_proveedores?.estatus_pago || (fuente === "CAJA_CHICA" ? "PAGADO" : "PENDIENTE"),
+            cajaMonto: cajaM,
+            fondoMonto: fondoM,
+            pendienteMonto: pendienteM,
           });
         });
 

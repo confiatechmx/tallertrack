@@ -45,7 +45,9 @@ export interface ExportarCorteParams {
 
 export const ReportesExportService = {
   /**
-   * Genera el libro Excel con diseño editorial premium y descarga el archivo .xlsx
+   * Genera el libro Excel con diseño editorial premium de 2 pestañas unificadas:
+   * 1. Resumen de Corte y Balance (Dashboard Ejecutivo, Arqueo Físico y CxP Proveedores)
+   * 2. Detalle de Transacciones (Ventas, Partidas con Desglose Proveedor/Caja/Fondo/Pendiente + Gastos Operativos)
    */
   async exportarCorteExcelElegante({
     empresaNombre = "COVA",
@@ -74,10 +76,67 @@ export const ReportesExportService = {
     const fondoSig = Number(cierreData?.fondoSiguiente || 0);
     const teorico = cierreData?.resumenTeorico;
 
-    // Teórico F1 y F2 con cálculo de contingencia si no fueron pasados pre-calculados
-    const f1Apertura = Number(teorico?.fondo1?.apertura || 0);
-    const f1Entradas = Number(teorico?.fondo1?.entradasEfectivoPOS || 0);
-    const f1Salidas = Number(teorico?.fondo1?.salidasGastos || 0);
+    // Calcular salidas operativas y salidas por compras
+    const totalGastosOperativos = (detalleTurno.gastos || []).reduce(
+      (acc, g) => acc + Number(g.monto || 0),
+      0
+    );
+
+    // Calcular salidas de refacciones pagadas de caja chica
+    let totalRefaccionesCajaChica = 0;
+    let totalRefaccionesFondo = 0;
+    let totalRefaccionesPendiente = 0;
+
+    // Agrupación dinámica por proveedor
+    const provTotalesMap = new Map<
+      string,
+      { caja: number; fondo: number; pendiente: number; total: number }
+    >();
+
+    detalleTurno.ventas.forEach((v) => {
+      v.partidas.forEach((item) => {
+        const costo = Number(item.costoTotal || 0);
+        const prov = item.proveedor?.trim() || (item.tipo === "Refacción" ? "Sin Proveedor" : null);
+
+        let caja = Number(item.cajaMonto || 0);
+        let fondo = Number(item.fondoMonto || 0);
+        let pend = Number(item.pendienteMonto || 0);
+
+        if (caja === 0 && fondo === 0 && pend === 0 && costo > 0) {
+          if (item.fuentePago === "CAJA_CHICA") caja = costo;
+          else if (["FONDO_RESERVA", "TRANSFERENCIA"].includes(item.fuentePago || "")) fondo = costo;
+          else pend = costo;
+        }
+
+        totalRefaccionesCajaChica += caja;
+        totalRefaccionesFondo += fondo;
+        totalRefaccionesPendiente += pend;
+
+        if (prov && costo > 0) {
+          const cur = provTotalesMap.get(prov) || { caja: 0, fondo: 0, pendiente: 0, total: 0 };
+          cur.caja += caja;
+          cur.fondo += fondo;
+          cur.pendiente += pend;
+          cur.total += costo;
+          provTotalesMap.set(prov, cur);
+        }
+      });
+    });
+
+    // Teórico F1 y F2 con cálculo de contingencia
+    const f1Apertura = Number(teorico?.fondo1?.apertura ?? cierreData?.fondo1_apertura ?? 1000);
+    const f1Entradas = Number(
+      teorico?.fondo1?.entradasEfectivoPOS ??
+      detalleTurno.ventas
+        .filter((v) => v.metodoPago?.toLowerCase().includes("efectivo"))
+        .reduce((acc, v) => acc + (v.totalVenta || 0), 0)
+    );
+    const f1SalidasCalculadas = totalRefaccionesCajaChica + totalGastosOperativos;
+    const f1Salidas = Number(
+      teorico?.fondo1?.salidasGastos && teorico.fondo1.salidasGastos > 0
+        ? teorico.fondo1.salidasGastos
+        : f1SalidasCalculadas
+    );
     const f1TraspasosNetos = Number((teorico?.fondo1?.traspasosRecibidos || 0) - (teorico?.fondo1?.traspasosEnviados || 0));
     const teoricoF1Calculado = f1Apertura + f1Entradas - f1Salidas + f1TraspasosNetos;
     const teoricoF1 = Number(cierreData?.teoricoF1 != null ? cierreData.teoricoF1 : teoricoF1Calculado);
@@ -86,6 +145,11 @@ export const ReportesExportService = {
     const f2TraspasosNetos = -Number(teorico?.fondo2?.traspasosEnviados || 0);
     const teoricoF2Calculado = f2Apertura + f2TraspasosNetos;
     const teoricoF2 = Number(cierreData?.teoricoF2 != null ? cierreData.teoricoF2 : (teoricoF2Calculado || f2Declarado));
+
+    const totalVentasTurno = Number(detalleTurno.totales.totalVentas || 0);
+    const totalCostosMercancia = Number(detalleTurno.totales.totalCostos || 0);
+    const utilidadTurno = totalVentasTurno - totalCostosMercancia - totalGastosOperativos;
+    const margenTurnoPct = totalVentasTurno > 0 ? (utilidadTurno / totalVentasTurno) * 100 : 0;
 
     const softBorder: Partial<ExcelJS.Borders> = {
       top: { style: "thin", color: { argb: "FFE2E8F0" } },
@@ -102,101 +166,500 @@ export const ReportesExportService = {
     };
 
     // =========================================================================
-    // HOJA 1: VENTAS Y SERVICIOS (Color Azul)
+    // HOJA 1: RESUMEN DE CORTE Y BALANCE (Dashboard Ejecutivo)
     // =========================================================================
-    const wsVentas = workbook.addWorksheet("Ventas y Servicios", {
-      views: [{ state: "frozen", ySplit: 5 }],
-      properties: { tabColor: { argb: "FF1E40AF" } },
+    const wsResumen = workbook.addWorksheet("Resumen de Corte y Balance", {
+      properties: { tabColor: { argb: "FF1E3A8A" } },
     });
 
     // Fila 1: Título Principal
-    wsVentas.mergeCells("A1:R1");
-    const titleCell1 = wsVentas.getCell("A1");
-    titleCell1.value = `${empresaNombre.toUpperCase()} - REPORTE DE VENTAS Y SERVICIOS`;
-    titleCell1.font = { name: "Segoe UI", size: 14, bold: true, color: { argb: "FFFFFFFF" } };
-    titleCell1.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0F172A" } };
-    titleCell1.alignment = { vertical: "middle", horizontal: "center" };
-    wsVentas.getRow(1).height = 34;
+    wsResumen.mergeCells("A1:G1");
+    const rTitle1 = wsResumen.getCell("A1");
+    rTitle1.value = `${empresaNombre.toUpperCase()} - RESUMEN EJECUTIVO Y BALANCE DE CORTE`;
+    rTitle1.font = { name: "Segoe UI", size: 14, bold: true, color: { argb: "FFFFFFFF" } };
+    rTitle1.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0F172A" } };
+    rTitle1.alignment = { vertical: "middle", horizontal: "center" };
+    wsResumen.getRow(1).height = 34;
 
     // Fila 2: Metadatos
-    wsVentas.mergeCells("A2:R2");
-    const metaCell1 = wsVentas.getCell("A2");
-    metaCell1.value = `Sucursal: ${sucursalNombre}   |   Fecha: ${fechaTurno}   |   Turno: #${String(turnoId).substring(0, 8).toUpperCase()}   |   Responsable: ${cajeroNombre}`;
-    metaCell1.font = { name: "Segoe UI", size: 10, color: { argb: "FFCBD5E1" } };
-    metaCell1.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
-    metaCell1.alignment = { vertical: "middle", horizontal: "center" };
-    wsVentas.getRow(2).height = 20;
+    wsResumen.mergeCells("A2:G2");
+    const rMeta1 = wsResumen.getCell("A2");
+    rMeta1.value = `Sucursal: ${sucursalNombre}   |   Fecha de Cierre: ${fechaTurno}   |   Turno: #${String(turnoId).substring(0, 8).toUpperCase()}   |   Responsable: ${cajeroNombre}`;
+    rMeta1.font = { name: "Segoe UI", size: 10, color: { argb: "FFCBD5E1" } };
+    rMeta1.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
+    rMeta1.alignment = { vertical: "middle", horizontal: "center" };
+    wsResumen.getRow(2).height = 20;
 
-    // Fila 3: Tarjetas Resumen KPIs
-    wsVentas.mergeCells("A3:D3");
-    wsVentas.getCell("A3").value = `Total Ventas: $${detalleTurno.totales.totalVentas.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`;
-    wsVentas.getCell("A3").font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FF1E3A8A" } };
-    wsVentas.getCell("A3").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEFF6FF" } };
-    wsVentas.getCell("A3").alignment = { vertical: "middle", horizontal: "center" };
+    // Fila 3: Espacio
+    wsResumen.getRow(3).height = 8;
 
-    wsVentas.mergeCells("E3:H3");
-    wsVentas.getCell("E3").value = `Costo Refacciones: $${detalleTurno.totales.totalCostos.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`;
-    wsVentas.getCell("E3").font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FF9A3412" } };
-    wsVentas.getCell("E3").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF7ED" } };
-    wsVentas.getCell("E3").alignment = { vertical: "middle", horizontal: "center" };
+    // Fila 4: Tarjetas KPI Ejecutivos
+    wsResumen.mergeCells("A4:B4");
+    wsResumen.getCell("A4").value = `Total Cobrado en Turno\n$${totalVentasTurno.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`;
+    wsResumen.getCell("A4").font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FF1E3A8A" } };
+    wsResumen.getCell("A4").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEFF6FF" } };
+    wsResumen.getCell("A4").alignment = { vertical: "middle", horizontal: "center", wrapText: true };
 
-    wsVentas.mergeCells("I3:M3");
-    wsVentas.getCell("I3").value = `Utilidad Bruta Estimada: $${detalleTurno.totales.utilidadEstimada.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`;
-    wsVentas.getCell("I3").font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FF166534" } };
-    wsVentas.getCell("I3").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF0FDF4" } };
-    wsVentas.getCell("I3").alignment = { vertical: "middle", horizontal: "center" };
+    wsResumen.mergeCells("C4:D4");
+    wsResumen.getCell("C4").value = `Salidas Caja Chica (Mostrador)\n-$${f1Salidas.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`;
+    wsResumen.getCell("C4").font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FF991B1B" } };
+    wsResumen.getCell("C4").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF2F2" } };
+    wsResumen.getCell("C4").alignment = { vertical: "middle", horizontal: "center", wrapText: true };
 
-    wsVentas.mergeCells("N3:R3");
-    wsVentas.getCell("N3").value = `Margen Promedio: ${detalleTurno.totales.margenEstimadoPorcentaje.toFixed(1)}% (${detalleTurno.totales.cantidadOrdenes} órdenes / ${detalleTurno.totales.cantidadPartidas} partidas)`;
-    wsVentas.getCell("N3").font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FF475569" } };
-    wsVentas.getCell("N3").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF8FAFC" } };
-    wsVentas.getCell("N3").alignment = { vertical: "middle", horizontal: "center" };
-    wsVentas.getRow(3).height = 24;
+    wsResumen.mergeCells("E4:F4");
+    wsResumen.getCell("E4").value = `Compras a Crédito / Pasivos\n$${totalRefaccionesPendiente.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`;
+    wsResumen.getCell("E4").font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FF92400E" } };
+    wsResumen.getCell("E4").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFFBEB" } };
+    wsResumen.getCell("E4").alignment = { vertical: "middle", horizontal: "center", wrapText: true };
 
-    // Fila 4: Espacio
-    wsVentas.getRow(4).height = 8;
+    wsResumen.getCell("G4").value = `Ganancia Neta Turno\n$${utilidadTurno.toLocaleString("es-MX", { minimumFractionDigits: 2 })} (${margenTurnoPct.toFixed(1)}%)`;
+    wsResumen.getCell("G4").font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FF166534" } };
+    wsResumen.getCell("G4").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF0FDF4" } };
+    wsResumen.getCell("G4").alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+    wsResumen.getRow(4).height = 36;
+
+    let resRow = 6;
+
+    // =========================================================================
+    // SECCIÓN 1: DESGLOSE DE COBROS POR MÉTODO
+    // =========================================================================
+    wsResumen.mergeCells(`A${resRow}:G${resRow}`);
+    const secCobrosTitle = wsResumen.getCell(`A${resRow}`);
+    secCobrosTitle.value = "1. RESUMEN DE COBROS POR MÉTODO DE PAGO";
+    secCobrosTitle.font = { name: "Segoe UI", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
+    secCobrosTitle.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E3A8A" } };
+    secCobrosTitle.alignment = { vertical: "middle", horizontal: "left" };
+    wsResumen.getRow(resRow).height = 24;
+    resRow++;
+
+    const rCobrosHeader = wsResumen.getRow(resRow);
+    rCobrosHeader.values = [
+      "Canal / Método",
+      "Detalle / Cuenta / Terminal",
+      "No. Transacciones",
+      "Monto Bruto ($)",
+      "Comisiones ($)",
+      "Neto Acreditado ($)",
+      "Participación (%)",
+    ];
+    rCobrosHeader.height = 24;
+    rCobrosHeader.eachCell((cell) => {
+      cell.font = { name: "Segoe UI", size: 9.5, bold: true, color: { argb: "FFFFFFFF" } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF334155" } };
+      cell.alignment = { vertical: "middle", horizontal: "center" };
+      cell.border = headerBorder;
+    });
+    resRow++;
+
+    // Efectivo
+    const conteoEfectivo = detalleTurno.ventas.filter((v) =>
+      v.metodoPago?.toLowerCase().includes("efectivo")
+    ).length;
+    const pctEfectivo = totalVentasTurno > 0 ? f1Entradas / totalVentasTurno : 0;
+    const rEf = wsResumen.getRow(resRow);
+    rEf.values = [
+      "Efectivo Mostrador",
+      "Gaveta de Cobro (Caja Chica)",
+      conteoEfectivo,
+      f1Entradas,
+      0,
+      f1Entradas,
+      pctEfectivo,
+    ];
+    rEf.height = 22;
+    rEf.eachCell((c, col) => {
+      c.font = { name: "Segoe UI", size: 9.5 };
+      c.border = softBorder;
+      if (col === 3) c.alignment = { horizontal: "center" };
+      else if ([4, 5, 6].includes(col)) {
+        c.numFmt = '"$"#,##0.00';
+        c.alignment = { horizontal: "right" };
+      } else if (col === 7) {
+        c.numFmt = "0.0%";
+        c.alignment = { horizontal: "right" };
+      }
+    });
+    resRow++;
+
+    // Bancos SPEI
+    const bancosList = teorico?.bancosSPEI || [];
+    if (bancosList.length > 0) {
+      bancosList.forEach((b: any) => {
+        const monto = Number(b.total || 0);
+        if (monto > 0) {
+          const rB = wsResumen.getRow(resRow);
+          const pct = totalVentasTurno > 0 ? monto / totalVentasTurno : 0;
+          rB.values = [
+            `Transferencia SPEI (${b.banco})`,
+            b.alias || "Cuenta Operativa",
+            Number(b.conteo || 0),
+            monto,
+            0,
+            monto,
+            pct,
+          ];
+          rB.height = 22;
+          rB.eachCell((c, col) => {
+            c.font = { name: "Segoe UI", size: 9.5 };
+            c.border = softBorder;
+            if (col === 3) c.alignment = { horizontal: "center" };
+            else if ([4, 5, 6].includes(col)) {
+              c.numFmt = '"$"#,##0.00';
+              c.alignment = { horizontal: "right" };
+            } else if (col === 7) {
+              c.numFmt = "0.0%";
+              c.alignment = { horizontal: "right" };
+            }
+          });
+          resRow++;
+        }
+      });
+    }
+
+    // Tarjetas TPV / Mercado Pago
+    const totalTarjetas = Number(teorico?.tarjetasTPV?.total || 0);
+    const conteoTarjetas = Number(teorico?.tarjetasTPV?.conteo || 0);
+    const comisionesTarjetas = Number(teorico?.tarjetasTPV?.comisionesRetenidas || 0);
+    const netoTarjetas = totalTarjetas - comisionesTarjetas;
+
+    if (totalTarjetas > 0) {
+      const rTpv = wsResumen.getRow(resRow);
+      const pctTpv = totalVentasTurno > 0 ? totalTarjetas / totalVentasTurno : 0;
+      rTpv.values = [
+        "Tarjetas / Terminal TPV",
+        "Terminal Mercado Pago Point",
+        conteoTarjetas,
+        totalTarjetas,
+        comisionesTarjetas,
+        netoTarjetas,
+        pctTpv,
+      ];
+      rTpv.height = 22;
+      rTpv.eachCell((c, col) => {
+        c.font = { name: "Segoe UI", size: 9.5 };
+        c.border = softBorder;
+        if (col === 3) c.alignment = { horizontal: "center" };
+        else if ([4, 5, 6].includes(col)) {
+          c.numFmt = '"$"#,##0.00';
+          c.alignment = { horizontal: "right" };
+        } else if (col === 7) {
+          c.numFmt = "0.0%";
+          c.alignment = { horizontal: "right" };
+        }
+      });
+      resRow++;
+    }
+
+    // Fila Total de Cobros
+    const rTotCobros = wsResumen.getRow(resRow);
+    rTotCobros.values = [
+      "TOTAL COBROS DEL TURNO",
+      "",
+      detalleTurno.ventas.length,
+      totalVentasTurno,
+      comisionesTarjetas,
+      totalVentasTurno - comisionesTarjetas,
+      1.0,
+    ];
+    rTotCobros.height = 24;
+    rTotCobros.eachCell((c, col) => {
+      c.font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FF0F172A" } };
+      c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2E8F0" } };
+      c.border = {
+        top: { style: "thin", color: { argb: "FF0F172A" } },
+        bottom: { style: "double", color: { argb: "FF0F172A" } },
+      };
+      if (col === 3) c.alignment = { horizontal: "center" };
+      else if ([4, 5, 6].includes(col)) {
+        c.numFmt = '"$"#,##0.00';
+        c.alignment = { horizontal: "right" };
+      } else if (col === 7) {
+        c.numFmt = "0.0%";
+        c.alignment = { horizontal: "right" };
+      }
+    });
+    wsResumen.mergeCells(`A${resRow}:B${resRow}`);
+    resRow += 2;
+
+    // =========================================================================
+    // SECCIÓN 2: BALANCE Y ARQUEO DE EFECTIVO EN CAJA CHICA (MOSTRADOR)
+    // =========================================================================
+    wsResumen.mergeCells(`A${resRow}:G${resRow}`);
+    const secArqueoTitle = wsResumen.getCell(`A${resRow}`);
+    secArqueoTitle.value = "2. BALANCE Y ARQUEO FÍSICO DE CAJA CHICA (MOSTRADOR)";
+    secArqueoTitle.font = { name: "Segoe UI", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
+    secArqueoTitle.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF065F46" } };
+    secArqueoTitle.alignment = { vertical: "middle", horizontal: "left" };
+    wsResumen.getRow(resRow).height = 24;
+    resRow++;
+
+    const rArqueoHeader = wsResumen.getRow(resRow);
+    rArqueoHeader.values = [
+      "Fondo / Concepto",
+      "Saldo Apertura ($)",
+      "Cobros Efectivo ($)",
+      "Salidas Totales ($)",
+      "Teórico Gaveta ($)",
+      "Físico Contado ($)",
+      "Diferencia ($) / Estatus",
+    ];
+    rArqueoHeader.height = 24;
+    rArqueoHeader.eachCell((cell) => {
+      cell.font = { name: "Segoe UI", size: 9.5, bold: true, color: { argb: "FFFFFFFF" } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF047857" } };
+      cell.alignment = { vertical: "middle", horizontal: "center" };
+      cell.border = headerBorder;
+    });
+    resRow++;
+
+    const rFondo1 = wsResumen.getRow(resRow);
+    rFondo1.values = [
+      "Fondo 1: Caja Chica Mostrador",
+      f1Apertura,
+      f1Entradas,
+      f1Salidas,
+      teoricoF1,
+      f1Declarado,
+      difF1 === 0 ? "$0.00 (Cuadrado)" : `$${difF1.toFixed(2)} (${difF1 > 0 ? "Sobrante" : "Faltante"})`,
+    ];
+    rFondo1.height = 22;
+    rFondo1.eachCell((c, col) => {
+      c.font = { name: "Segoe UI", size: 9.5 };
+      c.border = softBorder;
+      if ([2, 3, 4, 5, 6].includes(col)) {
+        c.numFmt = '"$"#,##0.00';
+        c.alignment = { horizontal: "right" };
+      } else if (col === 7) {
+        c.alignment = { horizontal: "center" };
+        c.font = {
+          name: "Segoe UI",
+          size: 9.5,
+          bold: true,
+          color: { argb: Math.abs(difF1) <= 10 ? "FF166534" : "FFDC2626" },
+        };
+      }
+    });
+    resRow++;
+
+    // Desglose de Salidas de Caja Chica
+    const rSubSalidas = wsResumen.getRow(resRow);
+    rSubSalidas.values = [
+      "  ↳ Desglose Salidas Mostrador:",
+      `Refacciones Proveedores: $${totalRefaccionesCajaChica.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`,
+      `Gastos Operativos: $${totalGastosOperativos.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`,
+      `Total Salidas: $${f1Salidas.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`,
+      "",
+      `Fondo Siguiente: $${fondoSig.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`,
+      `Remesa Retirada: $${remesa.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`,
+    ];
+    rSubSalidas.height = 20;
+    rSubSalidas.eachCell((c) => {
+      c.font = { name: "Segoe UI", size: 8.5, italic: true, color: { argb: "FF475569" } };
+      c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF8FAFC" } };
+      c.border = softBorder;
+    });
+    resRow += 2;
+
+    // =========================================================================
+    // SECCIÓN 3: CONSOLIDADO DE PROVEEDORES DEL TURNO (CxP Y CAJA CHICA)
+    // =========================================================================
+    wsResumen.mergeCells(`A${resRow}:G${resRow}`);
+    const secProvTitle = wsResumen.getCell(`A${resRow}`);
+    secProvTitle.value = "3. CONSOLIDADO DE COMPRAS Y PAGOS A PROVEEDORES DEL TURNO";
+    secProvTitle.font = { name: "Segoe UI", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
+    secProvTitle.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF92400E" } };
+    secProvTitle.alignment = { vertical: "middle", horizontal: "left" };
+    wsResumen.getRow(resRow).height = 24;
+    resRow++;
+
+    const rProvHeader = wsResumen.getRow(resRow);
+    rProvHeader.values = [
+      "Proveedor",
+      "Pagado Caja Chica ($)",
+      "Pagado Fondo Reserva ($)",
+      "Crédito Pendiente ($)",
+      "Costo Total Mercancía ($)",
+      "Estatus Financiero",
+      "Tipo / Observación",
+    ];
+    rProvHeader.height = 24;
+    rProvHeader.eachCell((cell) => {
+      cell.font = { name: "Segoe UI", size: 9.5, bold: true, color: { argb: "FFFFFFFF" } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF78350F" } };
+      cell.alignment = { vertical: "middle", horizontal: "center" };
+      cell.border = headerBorder;
+    });
+    resRow++;
+
+    if (provTotalesMap.size === 0) {
+      wsResumen.mergeCells(`A${resRow}:G${resRow}`);
+      const emptyP = wsResumen.getCell(`A${resRow}`);
+      emptyP.value = "Sin compras de refacciones ni llantas en este turno.";
+      emptyP.font = { name: "Segoe UI", size: 9.5, italic: true, color: { argb: "FF64748B" } };
+      emptyP.alignment = { horizontal: "center" };
+      resRow++;
+    } else {
+      provTotalesMap.forEach((tot, provName) => {
+        const rP = wsResumen.getRow(resRow);
+        const esInventario = provName.toLowerCase().includes("inventario") || provName.toLowerCase().includes("sh");
+        const statusLabel = tot.pendiente > 0
+          ? (tot.caja > 0 ? "Parcialmente Pagado" : "Pendiente de Pago")
+          : "Liquidado en Turno";
+        const tipoLabel = esInventario ? "Inventario Cova (Consignación)" : "Compra Externa";
+
+        rP.values = [
+          provName,
+          tot.caja,
+          tot.fondo,
+          tot.pendiente,
+          tot.total,
+          statusLabel,
+          tipoLabel,
+        ];
+        rP.height = 22;
+        rP.eachCell((c, col) => {
+          c.font = { name: "Segoe UI", size: 9.5 };
+          c.border = softBorder;
+          if ([2, 3, 4, 5].includes(col)) {
+            c.numFmt = '"$"#,##0.00';
+            c.alignment = { horizontal: "right" };
+          } else if ([6, 7].includes(col)) {
+            c.alignment = { horizontal: "center" };
+            if (col === 6 && tot.pendiente > 0) {
+              c.font = { name: "Segoe UI", size: 9, bold: true, color: { argb: "FFB45309" } };
+            }
+          }
+        });
+        resRow++;
+      });
+
+      // Total Proveedores
+      const rTotProv = wsResumen.getRow(resRow);
+      rTotProv.values = [
+        "TOTAL COSTOS PROVEEDORES:",
+        totalRefaccionesCajaChica,
+        totalRefaccionesFondo,
+        totalRefaccionesPendiente,
+        totalCostosMercancia,
+        "",
+        "",
+      ];
+      rTotProv.height = 24;
+      rTotProv.eachCell((c, col) => {
+        c.font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FF0F172A" } };
+        c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2E8F0" } };
+        c.border = {
+          top: { style: "thin", color: { argb: "FF0F172A" } },
+          bottom: { style: "double", color: { argb: "FF0F172A" } },
+        };
+        if ([2, 3, 4, 5].includes(col)) {
+          c.numFmt = '"$"#,##0.00';
+          c.alignment = { horizontal: "right" };
+        }
+      });
+      resRow += 3;
+    }
+
+    // Cuadro de Firmas
+    wsResumen.getCell(`B${resRow}`).value = "____________________________________";
+    wsResumen.getCell(`F${resRow}`).value = "____________________________________";
+    wsResumen.getCell(`B${resRow}`).alignment = { horizontal: "center" };
+    wsResumen.getCell(`F${resRow}`).alignment = { horizontal: "center" };
+    resRow++;
+
+    wsResumen.getCell(`B${resRow}`).value = `Cajero(a) Entrega Turno\n${cajeroNombre}`;
+    wsResumen.getCell(`F${resRow}`).value = "Administrador / Supervisor\nRecepción y Validación de Fondos";
+    wsResumen.getCell(`B${resRow}`).font = { name: "Segoe UI", size: 9.5, bold: true };
+    wsResumen.getCell(`F${resRow}`).font = { name: "Segoe UI", size: 9.5, bold: true };
+    wsResumen.getCell(`B${resRow}`).alignment = { horizontal: "center", wrapText: true };
+    wsResumen.getCell(`F${resRow}`).alignment = { horizontal: "center", wrapText: true };
+    wsResumen.getRow(resRow).height = 30;
+
+    wsResumen.columns = [
+      { width: 34 }, // A: Concepto / Proveedor
+      { width: 24 }, // B: Apertura / Caja Chica
+      { width: 22 }, // C: Entradas / Fondo
+      { width: 22 }, // D: Salidas / Pendiente
+      { width: 22 }, // E: Teórico / Costo Total
+      { width: 22 }, // F: Físico / Estatus
+      { width: 26 }, // G: Diferencia / Tipo
+    ];
+
+    // =========================================================================
+    // HOJA 2: DETALLE UNIFICADO DE TRANSACCIONES (Ventas y Gastos Integrados)
+    // =========================================================================
+    const wsDetalle = workbook.addWorksheet("Detalle de Transacciones", {
+      views: [{ state: "frozen", ySplit: 5 }],
+      properties: { tabColor: { argb: "FF059669" } },
+    });
+
+    // Fila 1: Título Principal
+    wsDetalle.mergeCells("A1:Q1");
+    const titleCell2 = wsDetalle.getCell("A1");
+    titleCell2.value = `${empresaNombre.toUpperCase()} - DETALLE UNIFICADO DE VENTAS, PROVEEDORES Y GASTOS`;
+    titleCell2.font = { name: "Segoe UI", size: 14, bold: true, color: { argb: "FFFFFFFF" } };
+    titleCell2.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF064E3B" } };
+    titleCell2.alignment = { vertical: "middle", horizontal: "center" };
+    wsDetalle.getRow(1).height = 34;
+
+    // Fila 2: Metadatos
+    wsDetalle.mergeCells("A2:Q2");
+    const metaCell2 = wsDetalle.getCell("A2");
+    metaCell2.value = `Sucursal: ${sucursalNombre}   |   Fecha: ${fechaTurno}   |   Turno: #${String(turnoId).substring(0, 8).toUpperCase()}   |   Total Cobrado: $${totalVentasTurno.toLocaleString("es-MX", { minimumFractionDigits: 2 })}   |   Salidas Caja Chica: $${f1Salidas.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`;
+    metaCell2.font = { name: "Segoe UI", size: 10, color: { argb: "FFD1FAE5" } };
+    metaCell2.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF065F46" } };
+    metaCell2.alignment = { vertical: "middle", horizontal: "center" };
+    wsDetalle.getRow(2).height = 20;
+
+    // Fila 4: Banner Sección 1 - Ventas
+    wsDetalle.mergeCells("A4:Q4");
+    const secVentasBanner = wsDetalle.getCell("A4");
+    secVentasBanner.value = "1. DESGLOSE DE ÓRDENES DE SERVICIO Y COSTOS POR PROVEEDOR";
+    secVentasBanner.font = { name: "Segoe UI", size: 10.5, bold: true, color: { argb: "FFFFFFFF" } };
+    secVentasBanner.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E3A8A" } };
+    secVentasBanner.alignment = { vertical: "middle", horizontal: "left" };
+    wsDetalle.getRow(4).height = 24;
 
     // Fila 5: Encabezados de Columna
-    const columnasVentas = [
+    const columnasDetalle = [
       "No. Orden",
-      "Fecha / Hora",
+      "Hora",
       "Cliente",
       "Teléfono",
       "Vehículo",
       "Placas",
       "Tipo",
-      "Concepto / Refacción",
+      "Concepto / Descripción",
       "Cant.",
-      "Costo Unit. ($)",
-      "Costo Total ($)",
       "P. Unitario ($)",
       "Importe ($)",
-      "Utilidad ($)",
-      "Margen (%)",
       "Método de Cobro",
       "Proveedor",
+      "Caja Chica ($)",
+      "Fondo ($)",
+      "Pendiente ($)",
       "Folio Ticket / Garantía",
     ];
 
-    const headerRowVentas = wsVentas.getRow(5);
-    headerRowVentas.values = columnasVentas;
-    headerRowVentas.height = 28;
-    headerRowVentas.eachCell((cell) => {
-      cell.font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FFFFFFFF" } };
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E3A8A" } };
+    const headerRowDetalle = wsDetalle.getRow(5);
+    headerRowDetalle.values = columnasDetalle;
+    headerRowDetalle.height = 28;
+    headerRowDetalle.eachCell((cell) => {
+      cell.font = { name: "Segoe UI", size: 9.5, bold: true, color: { argb: "FFFFFFFF" } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0F172A" } };
       cell.alignment = { vertical: "middle", horizontal: "center", wrapText: false };
       cell.border = headerBorder;
     });
 
-    let currentVentasRow = 6;
+    let curRow = 6;
     if (detalleTurno.ventas.length === 0) {
-      wsVentas.mergeCells(`A6:R6`);
-      const emptyCell = wsVentas.getCell("A6");
+      wsDetalle.mergeCells(`A6:Q6`);
+      const emptyCell = wsDetalle.getCell("A6");
       emptyCell.value = "Sin órdenes de servicio cobradas en este turno.";
       emptyCell.font = { name: "Segoe UI", size: 10, italic: true, color: { argb: "FF64748B" } };
       emptyCell.alignment = { vertical: "middle", horizontal: "center" };
-      wsVentas.getRow(6).height = 24;
-      currentVentasRow = 7;
+      wsDetalle.getRow(6).height = 24;
+      curRow = 7;
     } else {
       detalleTurno.ventas.forEach((v, vIdx) => {
         const isAlternateOrder = vIdx % 2 === 1;
@@ -204,7 +667,18 @@ export const ReportesExportService = {
 
         v.partidas.forEach((item, pIdx) => {
           const isFirstItem = pIdx === 0;
-          const r = wsVentas.getRow(currentVentasRow);
+          const r = wsDetalle.getRow(curRow);
+
+          const costo = Number(item.costoTotal || 0);
+          let caja = Number(item.cajaMonto || 0);
+          let fondo = Number(item.fondoMonto || 0);
+          let pend = Number(item.pendienteMonto || 0);
+
+          if (caja === 0 && fondo === 0 && pend === 0 && costo > 0) {
+            if (item.fuentePago === "CAJA_CHICA") caja = costo;
+            else if (["FONDO_RESERVA", "TRANSFERENCIA"].includes(item.fuentePago || "")) fondo = costo;
+            else pend = costo;
+          }
 
           r.values = [
             isFirstItem ? v.folioStr : "",
@@ -218,14 +692,13 @@ export const ReportesExportService = {
             item.tipo,
             item.descripcion,
             item.cantidad,
-            item.costoUnitario,
-            item.costoTotal,
             item.precioUnitario,
             item.importe,
-            item.margenMonto,
-            item.margenPorcentaje / 100,
             isFirstItem ? v.metodoPago : "",
             item.proveedor || "-",
+            caja > 0 ? caja : "",
+            fondo > 0 ? fondo : "",
+            pend > 0 ? pend : "",
             item.folioTicketProv
               ? `Nota #${item.folioTicketProv}${item.mesesGarantia ? ` (${item.mesesGarantia}m)` : ""}`
               : "-",
@@ -237,14 +710,10 @@ export const ReportesExportService = {
             cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } };
             cell.border = softBorder;
 
-            // Formatos por columna
             if ([1, 2, 6, 7, 9].includes(colNumber)) {
               cell.alignment = { vertical: "middle", horizontal: "center" };
-            } else if ([10, 11, 12, 13, 14].includes(colNumber)) {
+            } else if ([10, 11, 14, 15, 16].includes(colNumber)) {
               cell.numFmt = '"$"#,##0.00';
-              cell.alignment = { vertical: "middle", horizontal: "right" };
-            } else if (colNumber === 15) {
-              cell.numFmt = "0.0%";
               cell.alignment = { vertical: "middle", horizontal: "right" };
             } else {
               cell.alignment = { vertical: "middle", horizontal: "left" };
@@ -257,16 +726,20 @@ export const ReportesExportService = {
             if (isFirstItem && colNumber === 6) {
               cell.font = { name: "Segoe UI", size: 9, bold: true, color: { argb: "FF0F172A" } };
             }
+            // Resaltar Pendiente
+            if (colNumber === 16 && cell.value) {
+              cell.font = { name: "Segoe UI", size: 9.5, bold: true, color: { argb: "FFB45309" } };
+            }
           });
 
-          currentVentasRow++;
+          curRow++;
         });
       });
 
-      // Fila de Totales
-      const totalRowVentas = wsVentas.getRow(currentVentasRow);
+      // Fila de Totales de Ventas
+      const totalRowVentas = wsDetalle.getRow(curRow);
       totalRowVentas.values = [
-        "TOTALES DEL TURNO",
+        "SUBTOTAL ÓRDENES Y VENTAS",
         "",
         "",
         "",
@@ -276,13 +749,12 @@ export const ReportesExportService = {
         "",
         detalleTurno.totales.cantidadPartidas,
         "",
-        detalleTurno.totales.totalCostos,
-        "",
-        detalleTurno.totales.totalVentas,
-        detalleTurno.totales.utilidadEstimada,
-        detalleTurno.totales.margenEstimadoPorcentaje / 100,
+        totalVentasTurno,
         "",
         "",
+        totalRefaccionesCajaChica,
+        totalRefaccionesFondo,
+        totalRefaccionesPendiente,
         "",
       ];
       totalRowVentas.height = 26;
@@ -292,15 +764,10 @@ export const ReportesExportService = {
         cell.border = {
           top: { style: "thin", color: { argb: "FF0F172A" } },
           bottom: { style: "double", color: { argb: "FF0F172A" } },
-          left: { style: "thin", color: { argb: "FFE2E8F0" } },
-          right: { style: "thin", color: { argb: "FFE2E8F0" } },
         };
 
-        if ([11, 13, 14].includes(colNumber)) {
+        if ([11, 14, 15, 16].includes(colNumber)) {
           cell.numFmt = '"$"#,##0.00';
-          cell.alignment = { vertical: "middle", horizontal: "right" };
-        } else if (colNumber === 15) {
-          cell.numFmt = "0.0%";
           cell.alignment = { vertical: "middle", horizontal: "right" };
         } else if (colNumber === 9) {
           cell.alignment = { vertical: "middle", horizontal: "center" };
@@ -308,425 +775,235 @@ export const ReportesExportService = {
           cell.alignment = { vertical: "middle", horizontal: "left" };
         }
       });
-      wsVentas.mergeCells(`A${currentVentasRow}:H${currentVentasRow}`);
+      wsDetalle.mergeCells(`A${curRow}:H${curRow}`);
+      curRow += 2;
     }
 
-    // Anchos de columna automáticos generosos
-    wsVentas.columns = [
-      { width: 13 }, // No. Orden
-      { width: 14 }, // Fecha / Hora
-      { width: 26 }, // Cliente
-      { width: 16 }, // Teléfono
-      { width: 28 }, // Vehículo
-      { width: 14 }, // Placas
-      { width: 13 }, // Tipo
-      { width: 34 }, // Concepto
-      { width: 9 },  // Cant
-      { width: 15 }, // Costo Unit
-      { width: 16 }, // Costo Total
-      { width: 15 }, // P. Unit
-      { width: 16 }, // Importe
-      { width: 16 }, // Utilidad
-      { width: 14 }, // Margen %
-      { width: 18 }, // Método Cobro
-      { width: 22 }, // Proveedor
-      { width: 24 }, // Folio Ticket / Garantía
-    ];
-
     // =========================================================================
-    // HOJA 2: BALANCE DE CAJA (Color Verde)
+    // SECCIÓN 2: GASTOS OPERATIVOS Y SALIDAS DE CAJA CHICA
     // =========================================================================
-    const wsCaja = workbook.addWorksheet("Balance de Caja", {
-      properties: { tabColor: { argb: "FF065F46" } },
-    });
+    wsDetalle.mergeCells(`A${curRow}:Q${curRow}`);
+    const secGastosBanner = wsDetalle.getCell(`A${curRow}`);
+    secGastosBanner.value = "2. GASTOS OPERATIVOS Y SALIDAS DE CAJA CHICA (NO VINCULADOS A ÓRDENES)";
+    secGastosBanner.font = { name: "Segoe UI", size: 10.5, bold: true, color: { argb: "FFFFFFFF" } };
+    secGastosBanner.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF92400E" } };
+    secGastosBanner.alignment = { vertical: "middle", horizontal: "left" };
+    wsDetalle.getRow(curRow).height = 24;
+    curRow++;
 
-    // Fila 1: Título Principal
-    wsCaja.mergeCells("A1:I1");
-    const titleCell2 = wsCaja.getCell("A1");
-    titleCell2.value = `${empresaNombre.toUpperCase()} - BALANCE DE EFECTIVO Y BANCOS (CORTE Z)`;
-    titleCell2.font = { name: "Segoe UI", size: 14, bold: true, color: { argb: "FFFFFFFF" } };
-    titleCell2.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF064E3B" } };
-    titleCell2.alignment = { vertical: "middle", horizontal: "center" };
-    wsCaja.getRow(1).height = 34;
-
-    // Fila 2: Metadatos
-    wsCaja.mergeCells("A2:I2");
-    const metaCell2 = wsCaja.getCell("A2");
-    metaCell2.value = `Sucursal: ${sucursalNombre}   |   Fecha de Cierre: ${fechaTurno}   |   Turno: #${String(turnoId).substring(0, 8).toUpperCase()}   |   Responsable: ${cajeroNombre}`;
-    metaCell2.font = { name: "Segoe UI", size: 10, color: { argb: "FFD1FAE5" } };
-    metaCell2.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF065F46" } };
-    metaCell2.alignment = { vertical: "middle", horizontal: "center" };
-    wsCaja.getRow(2).height = 20;
-
-    // Fila 4: Sección 1 - Arqueo de Fondos
-    wsCaja.mergeCells("A4:I4");
-    const sec1Title = wsCaja.getCell("A4");
-    sec1Title.value = "1. RESUMEN DE EFECTIVO EN CAJA";
-    sec1Title.font = { name: "Segoe UI", size: 11, bold: true, color: { argb: "FF065F46" } };
-    sec1Title.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFECFDF5" } };
-    sec1Title.alignment = { vertical: "middle", horizontal: "left" };
-    wsCaja.getRow(4).height = 24;
-
-    const headersArqueo = [
-      "Fondo / Concepto",
-      "Saldo Apertura ($)",
-      "Cobros en Efectivo ($)",
-      "Salidas / Gastos ($)",
-      "Traspasos Fondos ($)",
-      "Teórico Sistema ($)",
-      "Físico Contado ($)",
-      "Diferencia ($)",
-      "Estatus",
-    ];
-    const r5 = wsCaja.getRow(5);
-    r5.values = headersArqueo;
-    r5.height = 26;
-    r5.eachCell((cell) => {
-      cell.font = { name: "Segoe UI", size: 9.5, bold: true, color: { argb: "FFFFFFFF" } };
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF065F46" } };
-      cell.alignment = { vertical: "middle", horizontal: "center" };
-      cell.border = headerBorder;
-    });
-
-    // Fila Fondo 1
-    const r6 = wsCaja.getRow(6);
-    r6.values = [
-      "Fondo 1: Operativo (Mostrador)",
-      f1Apertura,
-      f1Entradas,
-      f1Salidas,
-      f1TraspasosNetos,
-      teoricoF1,
-      f1Declarado,
-      difF1,
-      Math.abs(difF1) <= 10 ? "Cuadrado" : difF1 > 0 ? "Sobrante" : "Faltante",
-    ];
-    r6.height = 22;
-    r6.eachCell((cell, col) => {
-      cell.font = { name: "Segoe UI", size: 9.5, color: { argb: "FF1E293B" } };
-      cell.border = softBorder;
-      if (col === 1) cell.alignment = { vertical: "middle", horizontal: "left" };
-      else if (col === 9) {
-        cell.alignment = { vertical: "middle", horizontal: "center" };
-        cell.font = {
-          name: "Segoe UI",
-          size: 9.5,
-          bold: true,
-          color: { argb: Math.abs(difF1) <= 10 ? "FF166534" : "FFDC2626" },
-        };
-      } else {
-        cell.numFmt = '"$"#,##0.00';
-        cell.alignment = { vertical: "middle", horizontal: "right" };
-      }
-    });
-
-    // Fila Fondo 2
-    const r7 = wsCaja.getRow(7);
-    r7.values = [
-      "Fondo 2: Reserva (Caja Fuerte)",
-      f2Apertura,
-      0,
-      0,
-      f2TraspasosNetos,
-      teoricoF2,
-      f2Declarado,
-      difF2,
-      Math.abs(difF2) <= 10 ? "Cuadrado" : difF2 > 0 ? "Sobrante" : "Faltante",
-    ];
-    r7.height = 22;
-    r7.eachCell((cell, col) => {
-      cell.font = { name: "Segoe UI", size: 9.5, color: { argb: "FF1E293B" } };
-      cell.border = softBorder;
-      if (col === 1) cell.alignment = { vertical: "middle", horizontal: "left" };
-      else if (col === 9) {
-        cell.alignment = { vertical: "middle", horizontal: "center" };
-        cell.font = {
-          name: "Segoe UI",
-          size: 9.5,
-          bold: true,
-          color: { argb: Math.abs(difF2) <= 10 ? "FF166534" : "FFDC2626" },
-        };
-      } else {
-        cell.numFmt = '"$"#,##0.00';
-        cell.alignment = { vertical: "middle", horizontal: "right" };
-      }
-    });
-
-    // Sección 2: Destino del Efectivo
-    wsCaja.mergeCells("A9:D9");
-    const sec2Title = wsCaja.getCell("A9");
-    sec2Title.value = "2. DESTINO DEL EFECTIVO";
-    sec2Title.font = { name: "Segoe UI", size: 11, bold: true, color: { argb: "FF065F46" } };
-    sec2Title.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFECFDF5" } };
-    wsCaja.getRow(9).height = 24;
-
-    wsCaja.getRow(10).values = ["Concepto", "Monto ($)"];
-    wsCaja.getRow(10).height = 22;
-    wsCaja.getRow(10).getCell(1).font = { name: "Segoe UI", size: 9.5, bold: true };
-    wsCaja.getRow(10).getCell(2).font = { name: "Segoe UI", size: 9.5, bold: true };
-
-    const r11 = wsCaja.getRow(11);
-    r11.values = ["Remesa Retirada a Caja Fuerte / Depósito", remesa];
-    r11.getCell(2).numFmt = '"$"#,##0.00';
-    r11.getCell(2).alignment = { horizontal: "right" };
-    r11.getCell(1).border = softBorder;
-    r11.getCell(2).border = softBorder;
-
-    const r12 = wsCaja.getRow(12);
-    r12.values = ["Fondo Base para Siguiente Turno (Gaveta Mostrador)", fondoSig];
-    r12.getCell(2).numFmt = '"$"#,##0.00';
-    r12.getCell(2).alignment = { horizontal: "right" };
-    r12.getCell(1).border = softBorder;
-    r12.getCell(2).border = softBorder;
-
-    // Sección 3: Bancos SPEI
-    wsCaja.mergeCells("A14:D14");
-    const sec3Title = wsCaja.getCell("A14");
-    sec3Title.value = "3. CONCILIACIÓN DE TRANSFERENCIAS BANCARIAS (SPEI)";
-    sec3Title.font = { name: "Segoe UI", size: 11, bold: true, color: { argb: "FF065F46" } };
-    sec3Title.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFECFDF5" } };
-    wsCaja.getRow(14).height = 24;
-
-    const r15 = wsCaja.getRow(15);
-    r15.values = ["Cuenta Bancaria", "Banco", "No. Transacciones", "Monto Total ($)"];
-    r15.height = 22;
-    r15.eachCell((c) => (c.font = { name: "Segoe UI", size: 9.5, bold: true }));
-
-    let cRow = 16;
-    if (teorico?.bancosSPEI && teorico.bancosSPEI.length > 0) {
-      teorico.bancosSPEI.forEach((b: any) => {
-        const row = wsCaja.getRow(cRow);
-        row.values = [b.alias, b.banco, Number(b.conteo || 0), Number(b.total || 0)];
-        row.getCell(4).numFmt = '"$"#,##0.00';
-        row.getCell(3).alignment = { horizontal: "center" };
-        row.eachCell((cell) => (cell.border = softBorder));
-        cRow++;
-      });
-    } else {
-      const row = wsCaja.getRow(cRow);
-      row.values = ["Sin transferencias SPEI en este turno", "-", 0, 0];
-      row.getCell(4).numFmt = '"$"#,##0.00';
-      row.eachCell((cell) => (cell.border = softBorder));
-      cRow++;
-    }
-
-    // Sección 4: Terminales y Tarjetas
-    cRow++;
-    wsCaja.mergeCells(`A${cRow}:D${cRow}`);
-    const sec4Title = wsCaja.getCell(`A${cRow}`);
-    sec4Title.value = "4. TERMINALES Y OTROS MÉTODOS DE PAGO";
-    sec4Title.font = { name: "Segoe UI", size: 11, bold: true, color: { argb: "FF065F46" } };
-    sec4Title.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFECFDF5" } };
-    wsCaja.getRow(cRow).height = 24;
-
-    cRow++;
-    const rTpvHeader = wsCaja.getRow(cRow);
-    rTpvHeader.values = ["Método", "No. Transacciones", "", "Monto Total ($)"];
-    rTpvHeader.eachCell((c) => (c.font = { name: "Segoe UI", size: 9.5, bold: true }));
-
-    cRow++;
-    const rTpv = wsCaja.getRow(cRow);
-    rTpv.values = [
-      "Terminales TPV (Tarjetas)",
-      Number(teorico?.tarjetasTPV?.conteo || 0),
-      "",
-      Number(teorico?.tarjetasTPV?.total || 0),
-    ];
-    rTpv.getCell(4).numFmt = '"$"#,##0.00';
-    rTpv.eachCell((cell) => (cell.border = softBorder));
-
-    if (teorico?.bnpl && teorico.bnpl.total > 0) {
-      cRow++;
-      const rBnpl = wsCaja.getRow(cRow);
-      rBnpl.values = [
-        "Crédito BNPL (Kueski / Atrato)",
-        Number(teorico.bnpl.conteo || 0),
-        "",
-        Number(teorico.bnpl.total || 0),
-      ];
-      rBnpl.getCell(4).numFmt = '"$"#,##0.00';
-      rBnpl.eachCell((cell) => (cell.border = softBorder));
-    }
-
-    // Total General Cobrado
-    cRow += 2;
-    wsCaja.mergeCells(`A${cRow}:C${cRow}`);
-    const rTotGen = wsCaja.getRow(cRow);
-    rTotGen.getCell(1).value = "TOTAL GENERAL DE COBROS FACTURADOS EN EL TURNO:";
-    rTotGen.getCell(1).font = { name: "Segoe UI", size: 11, bold: true, color: { argb: "FF0F172A" } };
-    const totalCobrosCalculado =
-      Number(teorico?.totalVentasTurno || 0) ||
-      Number(detalleTurno?.totales?.totalVentas || 0) ||
-      (
-        Number(teorico?.fondo1?.entradasEfectivoPOS || 0) +
-        (teorico?.bancosSPEI || []).reduce((acc: number, b: any) => acc + Number(b.total || 0), 0) +
-        Number(teorico?.tarjetasTPV?.total || 0) +
-        Number(teorico?.bnpl?.total || 0)
-      );
-    rTotGen.getCell(4).value = totalCobrosCalculado;
-    rTotGen.getCell(4).numFmt = '"$"#,##0.00';
-    rTotGen.getCell(4).font = { name: "Segoe UI", size: 12, bold: true, color: { argb: "FF064E3B" } };
-    rTotGen.height = 26;
-
-    if (cierreData?.justificacion_descuadre) {
-      cRow += 2;
-      wsCaja.mergeCells(`A${cRow}:G${cRow}`);
-      const justCell = wsCaja.getCell(`A${cRow}`);
-      justCell.value = `JUSTIFICACIÓN DE DESCUADRE REGISTRADA: ${cierreData.justificacion_descuadre}`;
-      justCell.font = { name: "Segoe UI", size: 9.5, italic: true, color: { argb: "FFDC2626" } };
-    }
-
-    // Cuadro de Firmas
-    cRow += 3;
-    wsCaja.getCell(`B${cRow}`).value = "____________________________________";
-    wsCaja.getCell(`E${cRow}`).value = "____________________________________";
-    wsCaja.getCell(`B${cRow}`).alignment = { horizontal: "center" };
-    wsCaja.getCell(`E${cRow}`).alignment = { horizontal: "center" };
-
-    cRow++;
-    wsCaja.getCell(`B${cRow}`).value = `Cajero(a) Entrega Turno\n${cajeroNombre}`;
-    wsCaja.getCell(`E${cRow}`).value = "Administrador / Supervisor\nRecepción y Validación de Fondos";
-    wsCaja.getCell(`B${cRow}`).font = { name: "Segoe UI", size: 9.5, bold: true };
-    wsCaja.getCell(`E${cRow}`).font = { name: "Segoe UI", size: 9.5, bold: true };
-    wsCaja.getCell(`B${cRow}`).alignment = { horizontal: "center", wrapText: true };
-    wsCaja.getCell(`E${cRow}`).alignment = { horizontal: "center", wrapText: true };
-    wsCaja.getRow(cRow).height = 30;
-
-    wsCaja.columns = [
-      { width: 32 }, // A
-      { width: 22 }, // B
-      { width: 24 }, // C
-      { width: 20 }, // D
-      { width: 22 }, // E
-      { width: 20 }, // F
-      { width: 20 }, // G
-      { width: 22 }, // H
-      { width: 16 }, // I
-    ];
-
-    // =========================================================================
-    // HOJA 3: GASTOS Y CAJA CHICA (Color Ámbar)
-    // =========================================================================
-    const wsGastos = workbook.addWorksheet("Gastos y Caja Chica", {
-      properties: { tabColor: { argb: "FF92400E" } },
-    });
-
-    wsGastos.mergeCells("A1:H1");
-    const titleCell3 = wsGastos.getCell("A1");
-    titleCell3.value = `${empresaNombre.toUpperCase()} - GASTOS DE CAJA CHICA Y COMPRAS A PROVEEDORES`;
-    titleCell3.font = { name: "Segoe UI", size: 14, bold: true, color: { argb: "FFFFFFFF" } };
-    titleCell3.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF78350F" } };
-    titleCell3.alignment = { vertical: "middle", horizontal: "center" };
-    wsGastos.getRow(1).height = 34;
-
-    wsGastos.mergeCells("A2:H2");
-    const metaCell3 = wsGastos.getCell("A2");
-    metaCell3.value = `Sucursal: ${sucursalNombre}   |   Fecha: ${fechaTurno}   |   Total Salidas: $${detalleTurno.totales.totalGastos.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`;
-    metaCell3.font = { name: "Segoe UI", size: 10, color: { argb: "FFFEF3C7" } };
-    metaCell3.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF92400E" } };
-    metaCell3.alignment = { vertical: "middle", horizontal: "center" };
-    wsGastos.getRow(2).height = 20;
-
-    const columnasGastos = [
+    const rGHeader = wsDetalle.getRow(curRow);
+    rGHeader.values = [
       "Fecha",
       "Hora",
       "Categoría",
-      "Concepto / Descripción",
-      "Monto ($)",
+      "Concepto / Justificación",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "Monto Salida ($)",
       "Fondo de Salida",
-      "Proveedor",
-      "Folio Ticket / Evidencia",
+      "Proveedor / Beneficiario",
+      "Comprobante / Folio",
+      "",
+      "",
+      "",
     ];
-
-    const r3Gastos = wsGastos.getRow(4);
-    r3Gastos.values = columnasGastos;
-    r3Gastos.height = 26;
-    r3Gastos.eachCell((cell) => {
+    rGHeader.height = 24;
+    rGHeader.eachCell((cell, col) => {
       cell.font = { name: "Segoe UI", size: 9.5, bold: true, color: { argb: "FFFFFFFF" } };
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF92400E" } };
-      cell.alignment = { vertical: "middle", horizontal: "center" };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF78350F" } };
       cell.border = headerBorder;
+      if ([1, 2, 3, 12, 14].includes(col)) cell.alignment = { vertical: "middle", horizontal: "center" };
+      else if (col === 11) cell.alignment = { vertical: "middle", horizontal: "right" };
+      else cell.alignment = { vertical: "middle", horizontal: "left" };
     });
+    wsDetalle.mergeCells(`D${curRow}:J${curRow}`);
+    curRow++;
 
-    let gRow = 5;
     if (detalleTurno.gastos.length === 0) {
-      wsGastos.mergeCells("A5:H5");
-      const emptyG = wsGastos.getCell("A5");
-      emptyG.value = "Sin movimientos de gastos ni salidas de caja chica en este turno.";
-      emptyG.font = { name: "Segoe UI", size: 10, italic: true, color: { argb: "FF64748B" } };
+      wsDetalle.mergeCells(`A${curRow}:Q${curRow}`);
+      const emptyG = wsDetalle.getCell(`A${curRow}`);
+      emptyG.value = "Sin movimientos de gastos menores en este turno.";
+      emptyG.font = { name: "Segoe UI", size: 9.5, italic: true, color: { argb: "FF64748B" } };
       emptyG.alignment = { vertical: "middle", horizontal: "center" };
-      wsGastos.getRow(5).height = 24;
-      gRow = 6;
+      wsDetalle.getRow(curRow).height = 22;
+      curRow++;
     } else {
       detalleTurno.gastos.forEach((g, gIdx) => {
         const rowBg = gIdx % 2 === 1 ? "FFF8FAFC" : "FFFFFFFF";
-        const r = wsGastos.getRow(gRow);
+        const r = wsDetalle.getRow(curRow);
         r.values = [
           g.fecha,
           g.hora,
           g.categoria,
           g.concepto,
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
           g.monto,
           g.fondoNombre,
           g.proveedor || "-",
           g.folioTicket ? `#${g.folioTicket}` : "-",
+          "",
+          "",
+          "",
         ];
         r.height = 22;
         r.eachCell((cell, col) => {
           cell.font = { name: "Segoe UI", size: 9.5, color: { argb: "FF1E293B" } };
           cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } };
           cell.border = softBorder;
-          if ([1, 2, 3, 6, 8].includes(col)) cell.alignment = { vertical: "middle", horizontal: "center" };
-          else if (col === 5) {
+          if ([1, 2, 3, 12, 14].includes(col)) cell.alignment = { vertical: "middle", horizontal: "center" };
+          else if (col === 11) {
             cell.numFmt = '"$"#,##0.00';
             cell.alignment = { vertical: "middle", horizontal: "right" };
+            cell.font = { name: "Segoe UI", size: 9.5, bold: true, color: { argb: "FFDC2626" } };
           } else {
             cell.alignment = { vertical: "middle", horizontal: "left" };
           }
         });
-        gRow++;
+        wsDetalle.mergeCells(`D${curRow}:J${curRow}`);
+        curRow++;
       });
-
-      // Total Gastos
-      const rTotG = wsGastos.getRow(gRow);
-      rTotG.values = ["TOTAL SALIDAS DE CAJA CHICA", "", "", "", detalleTurno.totales.totalGastos, "", "", ""];
-      rTotG.height = 26;
-      rTotG.eachCell((cell, col) => {
-        cell.font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FF0F172A" } };
-        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2E8F0" } };
-        cell.border = {
-          top: { style: "thin", color: { argb: "FF0F172A" } },
-          bottom: { style: "double", color: { argb: "FF0F172A" } },
-        };
-        if (col === 5) {
-          cell.numFmt = '"$"#,##0.00';
-          cell.alignment = { vertical: "middle", horizontal: "right" };
-        }
-      });
-      wsGastos.mergeCells(`A${gRow}:D${gRow}`);
     }
 
-    wsGastos.columns = [
-      { width: 14 }, // Fecha
-      { width: 12 }, // Hora
-      { width: 22 }, // Categoría
-      { width: 36 }, // Concepto
-      { width: 16 }, // Monto
-      { width: 20 }, // Fondo
-      { width: 24 }, // Proveedor
-      { width: 22 }, // Folio
+    // Fila Total Gastos Operativos
+    const rTotG = wsDetalle.getRow(curRow);
+    rTotG.values = [
+      "TOTAL GASTOS OPERATIVOS:",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      totalGastosOperativos,
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+    ];
+    rTotG.height = 24;
+    rTotG.eachCell((cell, col) => {
+      cell.font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FF0F172A" } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2E8F0" } };
+      cell.border = {
+        top: { style: "thin", color: { argb: "FF0F172A" } },
+        bottom: { style: "double", color: { argb: "FF0F172A" } },
+      };
+      if (col === 11) {
+        cell.numFmt = '"$"#,##0.00';
+        cell.alignment = { vertical: "middle", horizontal: "right" };
+      }
+    });
+    wsDetalle.mergeCells(`A${curRow}:J${curRow}`);
+    curRow += 2;
+
+    // =========================================================================
+    // SECCIÓN 3: CONCILIACIÓN MATEMÁTICA DE CAJA CHICA (MOSTRADOR)
+    // =========================================================================
+    wsDetalle.mergeCells(`A${curRow}:Q${curRow}`);
+    const secConcilBanner = wsDetalle.getCell(`A${curRow}`);
+    secConcilBanner.value = "3. CONCILIACIÓN FINAL DE EFECTIVO EN CAJA CHICA (MOSTRADOR)";
+    secConcilBanner.font = { name: "Segoe UI", size: 10.5, bold: true, color: { argb: "FFFFFFFF" } };
+    secConcilBanner.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF047857" } };
+    secConcilBanner.alignment = { vertical: "middle", horizontal: "left" };
+    wsDetalle.getRow(curRow).height = 24;
+    curRow++;
+
+    const concilItems = [
+      ["(+) Fondo de Apertura Inicial en Gaveta", f1Apertura, "Fondo base entregado al iniciar jornada"],
+      ["(+) Cobros en Efectivo de Ventas del Turno", f1Entradas, `${conteoEfectivo} ventas cobradas en efectivo`],
+      ["(-) Salidas de Caja Chica por Refacciones a Proveedores", -totalRefaccionesCajaChica, "Blue, Llantas Plus, Omar, Dar, Pat, San"],
+      ["(-) Gastos Operativos Menores de Mostrador", -totalGastosOperativos, "Consumibles, alimentos o retiros autorizados"],
+      ["(=) Saldo Teórico Final que Debe Haber en Gaveta", teoricoF1, "Efectivo físico esperado por el sistema"],
+      ["(=) Arqueo Físico Declarado por Cajero(a)", f1Declarado, "Conteo ciego de billetes y monedas"],
+      ["(=) Diferencia / Descuadre de Caja", difF1, difF1 === 0 ? "Cuadrado Perfecto ($0.00)" : (difF1 > 0 ? "Sobrante de efectivo" : "Faltante de efectivo")],
+      ["↳ Destino: Fondo Base que se Deja para el Siguiente Turno", fondoSig, "Permanece en gaveta"],
+      ["↳ Destino: Remesa en Efectivo Retirada", remesa, "Entregada a supervisor / caja fuerte"],
     ];
 
-    // Descarga nativa en el navegador (si está en browser)
+    concilItems.forEach(([label, monto, obs], idx) => {
+      const r = wsDetalle.getRow(curRow);
+      r.values = [label, "", "", "", "", "", "", "", "", "", monto, obs, "", "", "", "", ""];
+      r.height = 22;
+      r.eachCell((c, col) => {
+        c.font = { name: "Segoe UI", size: 9.5 };
+        c.border = softBorder;
+        if (col === 1) {
+          c.font = { name: "Segoe UI", size: 9.5, bold: idx === 4 || idx === 5 || idx === 6 };
+          c.alignment = { vertical: "middle", horizontal: "left" };
+        } else if (col === 11) {
+          c.numFmt = '"$"#,##0.00';
+          c.alignment = { vertical: "middle", horizontal: "right" };
+          c.font = {
+            name: "Segoe UI",
+            size: 10,
+            bold: true,
+            color: {
+              argb:
+                idx === 6
+                  ? (Number(monto) === 0 ? "FF166534" : "FFDC2626")
+                  : idx === 4 || idx === 5
+                  ? "FF1E3A8A"
+                  : Number(monto) < 0
+                  ? "FF991B1B"
+                  : "FF0F172A",
+            },
+          };
+        } else if (col === 12) {
+          c.font = { name: "Segoe UI", size: 8.5, italic: true, color: { argb: "FF64748B" } };
+          c.alignment = { vertical: "middle", horizontal: "left" };
+        }
+      });
+      wsDetalle.mergeCells(`A${curRow}:J${curRow}`);
+      wsDetalle.mergeCells(`L${curRow}:Q${curRow}`);
+      curRow++;
+    });
+
+    // Anchos de columna Hoja 2
+    wsDetalle.columns = [
+      { width: 13 }, // 1: No. Orden
+      { width: 12 }, // 2: Hora
+      { width: 26 }, // 3: Cliente
+      { width: 16 }, // 4: Teléfono
+      { width: 28 }, // 5: Vehículo
+      { width: 14 }, // 6: Placas
+      { width: 13 }, // 7: Tipo
+      { width: 34 }, // 8: Concepto
+      { width: 9 },  // 9: Cant
+      { width: 15 }, // 10: P. Unit
+      { width: 16 }, // 11: Importe Venta / Monto Salida
+      { width: 22 }, // 12: Método Cobro / Fondo Salida
+      { width: 22 }, // 13: Proveedor
+      { width: 16 }, // 14: Caja Chica ($)
+      { width: 15 }, // 15: Fondo ($)
+      { width: 16 }, // 16: Pendiente ($)
+      { width: 24 }, // 17: Folio Ticket / Garantía
+    ];
+
+    // =========================================================================
+    // DESCARGA O RETORNO DEL BUFFER
+    // =========================================================================
     const buffer = await workbook.xlsx.writeBuffer();
-    if (typeof window !== "undefined" && typeof document !== "undefined") {
+
+    if (typeof window !== "undefined") {
       const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
       const url = URL.createObjectURL(blob);
-      const safeName = (empresaNombre || "Reporte").replace(/[\s/\\?%*:|"<>]/g, "_");
-      const filename = `Corte_Z_${safeName}_${new Date().toISOString().slice(0, 10)}.xlsx`;
-
+      const filename = `Corte_${empresaNombre.replace(/\s+/g, "_")}_${new Date().toISOString().slice(0, 10)}.xlsx`;
       const a = document.createElement("a");
       a.href = url;
       a.download = filename;
@@ -788,6 +1065,8 @@ export const ReportesExportService = {
         diferenciaF2: 0,
         remesa: resumen.efectivo?.remesa_retirada || 0,
         fondoSiguiente: resumen.efectivo?.fondo_siguiente || 0,
+        teoricoF1: resumen.efectivo?.saldo_teorico || 0,
+        teoricoF2: 0,
         resumenTeorico: {
           fondo1: {
             apertura: resumen.efectivo?.apertura_declarada || 0,
