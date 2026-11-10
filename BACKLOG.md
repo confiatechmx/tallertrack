@@ -4,6 +4,7 @@
 
 ## Pendientes
 - [ ] Refinamiento y Maduración de Lógica Multi-Sucursal (Permisos por sucursal, traspaso de órdenes, aislamiento estricto de almacenes y filtros operativos granulares) #arquitectura #multisucursal @media ➔ [[El Concepto de Sucursal vs Organizacion]]
+- [ ] Botón de cierre rápido en Toasts (Sonner closeButton): permitir descartar inmediatamente alertas y confirmaciones en mostrador y móvil mediante una '×' visible #frontend #ux @baja ➔ [[Design System Dirty Hands UX y Mobile PWA]]
 - [ ] CI/CD y Separación de Entornos #devops @alta <!-- asana:1216816770799595 --> ➔ [[Pipeline CI-CD y Separacion de Entornos (Staging vs Prod)]]
 - [ ] Monitoreo de Errores #devops @alta <!-- asana:1216814440802834 --> ➔ [[Monitoreo de Errores y Trazabilidad en Produccion]]
 - [ ] Recuperación Ante Desastres (PITR) #devops @alta <!-- asana:1216816152285247 --> ➔ [[Politicas de Recuperacion ante Desastres (PITR)]]
