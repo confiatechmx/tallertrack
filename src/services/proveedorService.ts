@@ -21,6 +21,61 @@ export interface CompraConProveedor extends CompraProveedor {
   };
 }
 
+export interface DetalleTicketCompra extends CompraProveedor {
+  proveedor?: {
+    id: string;
+    nombre_comercial: string;
+    razon_social?: string | null;
+    rfc?: string | null;
+    categoria?: string | null;
+    telefono?: string | null;
+    whatsapp?: string | null;
+    email?: string | null;
+    contacto_nombre?: string | null;
+    dias_credito?: number | null;
+    saldo_deudor_actual?: number | null;
+    limite_credito?: number | null;
+  };
+  orden?: {
+    id: string;
+    folio: number;
+    estado?: string;
+    estatus_pago?: string;
+    fecha_ingreso?: string;
+    vehiculo?: {
+      id?: string;
+      marca?: string;
+      modelo?: string;
+      anio?: number | null;
+      placas?: string | null;
+      cliente?: {
+        id?: string;
+        nombre?: string;
+        telefono?: string | null;
+      };
+    };
+  } | null;
+  refacciones?: Array<{
+    id: string;
+    nombre: string;
+    numero_parte: string | null;
+    cantidad: number;
+    costo_unitario: number;
+    precio_unitario: number;
+    subtotal: number;
+    garantia_especifica: string | null;
+    paquete_operacion?: string | null;
+  }>;
+  abonos?: Array<{
+    id: string;
+    monto: number;
+    metodo_pago: string;
+    referencia: string | null;
+    fecha_abono: string;
+    comprobante_url: string | null;
+  }>;
+}
+
 export interface ResumenCxP {
   totalDeudaAcumulada: number;
   proveedoresConDeuda: number;
@@ -415,6 +470,168 @@ export const ProveedorService = {
         comprasVencidas: 0,
         comprasPorVencer: 0,
       };
+    }
+  },
+
+  /**
+   * Obtiene el detalle integral de un ticket de compra a proveedor,
+   * incluyendo proveedor, orden de servicio vinculada, refacciones y abonos aplicados
+   */
+  async obtenerDetalleCompra(
+    compraId: string
+  ): Promise<{ data: DetalleTicketCompra | null; error: string | null }> {
+    try {
+      const { data: compra, error } = await supabase
+        .from("compras_proveedores")
+        .select(`
+          *,
+          proveedor:proveedores (
+            id,
+            nombre_comercial,
+            razon_social,
+            rfc,
+            categoria,
+            telefono,
+            whatsapp,
+            email,
+            contacto_nombre,
+            dias_credito,
+            saldo_deudor_actual,
+            limite_credito
+          )
+        `)
+        .eq("id", compraId)
+        .single();
+
+      if (error) throw error;
+      if (!compra) return { data: null, error: "Ticket no encontrado" };
+
+      // Consultar orden y vehículo si está asociada
+      let ordenDetalle: any = null;
+      if (compra.orden_servicio_id) {
+        const { data: ordData } = await supabase
+          .from("ordenes_servicio")
+          .select(`
+            id,
+            folio,
+            estado,
+            estatus_pago,
+            fecha_ingreso,
+            vehiculos (
+              id,
+              marca,
+              modelo,
+              anio,
+              placas,
+              clientes (
+                id,
+                nombre,
+                telefono
+              )
+            )
+          `)
+          .eq("id", compra.orden_servicio_id)
+          .maybeSingle();
+
+        if (ordData) {
+          const veh = (ordData as any).vehiculos;
+          ordenDetalle = {
+            id: ordData.id,
+            folio: ordData.folio,
+            estado: ordData.estado,
+            estatus_pago: ordData.estatus_pago,
+            fecha_ingreso: ordData.fecha_ingreso,
+            vehiculo: veh
+              ? {
+                  id: veh.id,
+                  marca: veh.marca,
+                  modelo: veh.modelo,
+                  anio: veh.anio,
+                  placas: veh.placas,
+                  cliente: veh.clientes
+                    ? {
+                        id: veh.clientes.id,
+                        nombre: veh.clientes.nombre,
+                        telefono: veh.clientes.telefono,
+                      }
+                    : undefined,
+                }
+              : undefined,
+          };
+        }
+      }
+
+      // Consultar refacciones vinculadas a esta compra
+      let { data: refaccionesData } = await supabase
+        .from("orden_servicio_refacciones")
+        .select("id, nombre, numero_parte, cantidad, costo_unitario, precio_unitario, subtotal, garantia_especifica, paquete_operacion")
+        .eq("compra_proveedor_id", compraId);
+
+      // Fallback si no tienen compra_proveedor_id pero pertenecen a la orden y folio
+      if ((!refaccionesData || refaccionesData.length === 0) && compra.orden_servicio_id && compra.folio_ticket_nota) {
+        const { data: fallbackRefacciones } = await supabase
+          .from("orden_servicio_refacciones")
+          .select("id, nombre, numero_parte, cantidad, costo_unitario, precio_unitario, subtotal, garantia_especifica, paquete_operacion")
+          .eq("orden_servicio_id", compra.orden_servicio_id)
+          .eq("folio_ticket_nota", compra.folio_ticket_nota);
+
+        if (fallbackRefacciones && fallbackRefacciones.length > 0) {
+          refaccionesData = fallbackRefacciones;
+        }
+      }
+
+      // Consultar abonos aplicados a esta compra
+      const { data: abonosData } = await supabase
+        .from("proveedores_abonos")
+        .select("id, monto, metodo_pago, referencia, fecha_abono, comprobante_url")
+        .eq("compra_id", compraId)
+        .order("fecha_abono", { ascending: false });
+
+      const resultado: DetalleTicketCompra = {
+        ...(compra as any),
+        orden: ordenDetalle,
+        refacciones: refaccionesData || [],
+        abonos: abonosData || [],
+      };
+
+      return { data: resultado, error: null };
+    } catch (err: any) {
+      console.error("Error al obtener detalle de compra a proveedor:", err);
+      return { data: null, error: err.message || "Error al obtener detalle del ticket" };
+    }
+  },
+
+  /**
+   * Adjunta o reemplaza la evidencia (foto/PDF) de un ticket existente
+   */
+  async adjuntarEvidenciaCompra(
+    compraId: string,
+    file: File,
+    empresaId: string,
+    proveedorId: string
+  ): Promise<{ publicUrl: string | null; error: string | null }> {
+    try {
+      const uploadRes = await this.subirEvidenciaCompra(file, empresaId, proveedorId);
+      if (uploadRes.error || !uploadRes.publicUrl) {
+        throw new Error(uploadRes.error || "No se pudo subir el comprobante digital");
+      }
+
+      const { error: updateError } = await supabase
+        .from("compras_proveedores")
+        .update({
+          evidencia_url: uploadRes.publicUrl,
+          evidencia_storage_path: uploadRes.storagePath,
+          evidencia_tipo: file.type.includes("pdf") ? "PDF" : "FOTO",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", compraId);
+
+      if (updateError) throw updateError;
+
+      return { publicUrl: uploadRes.publicUrl, error: null };
+    } catch (err: any) {
+      console.error("Error al adjuntar evidencia a ticket:", err);
+      return { publicUrl: null, error: err.message || "Error al adjuntar evidencia" };
     }
   },
 };

@@ -31,11 +31,13 @@ import {
   Proveedor,
   ProveedorInsert,
   CompraConProveedor,
+  DetalleTicketCompra,
   ResumenCxP,
 } from "@/services/proveedorService";
 import { ProveedorEvidenceModal } from "@/components/proveedores/ProveedorEvidenceModal";
 import { RegistrarAbonoModal } from "@/components/proveedores/RegistrarAbonoModal";
 import { TicketEvidenceLightbox } from "@/components/proveedores/TicketEvidenceLightbox";
+import { DetalleTicketProveedorModal } from "@/components/proveedores/DetalleTicketProveedorModal";
 
 export default function ProveedoresPage() {
   const { empresa } = useTenant();
@@ -68,6 +70,19 @@ export default function ProveedoresPage() {
   const [isAbonoModalOpen, setIsAbonoModalOpen] = useState(false);
   const [isNewProveedorModalOpen, setIsNewProveedorModalOpen] = useState(false);
   const [abonoDefaultProveedorId, setAbonoDefaultProveedorId] = useState<string | undefined>();
+  const [abonoDefaultCompraId, setAbonoDefaultCompraId] = useState<string | undefined>();
+  const [abonoDefaultMonto, setAbonoDefaultMonto] = useState<number | undefined>();
+
+  // Ticket Detalle Modal State
+  const [ticketDetalleModal, setTicketDetalleModal] = useState<{
+    isOpen: boolean;
+    compraId: string | null;
+    compra: CompraConProveedor | null;
+  }>({
+    isOpen: false,
+    compraId: null,
+    compra: null,
+  });
 
   // Lightbox State
   const [lightboxData, setLightboxData] = useState<{
@@ -181,6 +196,21 @@ export default function ProveedoresPage() {
       fechaVencimientoGarantia: compra.fecha_vencimiento_garantia || undefined,
       estatusGarantia: compra.estatus_garantia,
     });
+  };
+
+  const handleOpenTicketDetalle = (compra: CompraConProveedor) => {
+    setTicketDetalleModal({
+      isOpen: true,
+      compraId: compra.id,
+      compra,
+    });
+  };
+
+  const handleAbonarTicket = (compra: DetalleTicketCompra) => {
+    setAbonoDefaultProveedorId(compra.proveedor_id);
+    setAbonoDefaultCompraId(compra.id);
+    setAbonoDefaultMonto(compra.monto_saldo_pendiente);
+    setIsAbonoModalOpen(true);
   };
 
   // Filtrado de Compras
@@ -659,11 +689,16 @@ export default function ProveedoresPage() {
                   </tr>
                 ) : (
                   comprasFiltradas.map((compra) => (
-                    <tr key={compra.id} className="hover:bg-slate-50/80 transition-colors">
+                    <tr
+                      key={compra.id}
+                      onClick={() => handleOpenTicketDetalle(compra)}
+                      className="hover:bg-sky-50/60 transition-colors cursor-pointer group"
+                      title="Haz clic para ver el detalle completo de este ticket"
+                    >
                       <td className="py-3 px-3 font-medium text-slate-900 whitespace-nowrap">
                         {compra.fecha_compra}
                       </td>
-                      <td className="py-3 px-3 font-mono font-bold text-slate-900 whitespace-nowrap">
+                      <td className="py-3 px-3 font-mono font-bold text-sky-700 group-hover:text-sky-900 whitespace-nowrap">
                         #{compra.folio_ticket_nota}
                       </td>
                       <td className="py-3 px-3 font-semibold text-slate-800">
@@ -701,16 +736,23 @@ export default function ProveedoresPage() {
                         </span>
                       </td>
                       <td className="py-3 px-3 text-center whitespace-nowrap">
-                        {compra.evidencia_url ? (
-                          <button
-                            onClick={() => handleOpenLightbox(compra)}
-                            className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 mx-auto transition-colors cursor-pointer"
-                          >
-                            <Eye className="w-3.5 h-3.5 text-primary" /> Ver Ticket
-                          </button>
-                        ) : (
-                          <span className="text-[10px] text-slate-400 italic">Sin ticket</span>
-                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenTicketDetalle(compra);
+                          }}
+                          className="px-2.5 py-1 bg-slate-100 hover:bg-sky-100 text-slate-700 hover:text-sky-900 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer border border-slate-200/60"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-sky-600" />
+                          <span>Ver Detalle</span>
+                          {compra.evidencia_url && (
+                            <span
+                              className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"
+                              title="Comprobante digital adjunto"
+                            />
+                          )}
+                        </button>
                       </td>
                     </tr>
                   ))
@@ -882,19 +924,20 @@ export default function ProveedoresPage() {
 
                     {/* Acciones y Ver Ticket */}
                     <div className="mt-4 pt-3 border-t border-slate-100 space-y-2">
-                      {compra.evidencia_url ? (
-                        <button
-                          onClick={() => handleOpenLightbox(compra)}
-                          className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-                        >
-                          <Eye className="w-4 h-4 text-sky-400" />
-                          Ver Ticket / Evidencia Digital
-                        </button>
-                      ) : (
-                        <div className="py-2 text-center text-[11px] text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                          Sin ticket adjunto
-                        </div>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenTicketDetalle(compra)}
+                        className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                      >
+                        <Eye className="w-4 h-4 text-sky-400" />
+                        Ver Detalle del Ticket
+                        {compra.evidencia_url && (
+                          <span
+                            className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"
+                            title="Tiene comprobante digital"
+                          />
+                        )}
+                      </button>
 
                       {/* Selector rápido de estatus */}
                       <div className="flex items-center gap-1.5">
@@ -937,17 +980,40 @@ export default function ProveedoresPage() {
       {/* 2. Modal Registrar Abono */}
       <RegistrarAbonoModal
         isOpen={isAbonoModalOpen}
-        onClose={() => setIsAbonoModalOpen(false)}
+        onClose={() => {
+          setIsAbonoModalOpen(false);
+          setAbonoDefaultCompraId(undefined);
+          setAbonoDefaultMonto(undefined);
+        }}
         empresaId={empresaId}
         defaultProveedorId={abonoDefaultProveedorId}
+        defaultCompraId={abonoDefaultCompraId}
+        defaultMonto={abonoDefaultMonto}
         proveedores={proveedores}
         onAbonoRegistrado={() => {
           setIsAbonoModalOpen(false);
+          setAbonoDefaultCompraId(undefined);
+          setAbonoDefaultMonto(undefined);
           cargarDatosCompletos();
         }}
       />
 
-      {/* 3. Modal Lightbox Evidencia */}
+      {/* 3. Modal Detalle Integral del Ticket / Factura */}
+      <DetalleTicketProveedorModal
+        isOpen={ticketDetalleModal.isOpen}
+        onClose={() =>
+          setTicketDetalleModal({ isOpen: false, compraId: null, compra: null })
+        }
+        compraId={ticketDetalleModal.compraId}
+        compraInicial={ticketDetalleModal.compra}
+        empresaId={empresaId}
+        onAbonarClick={handleAbonarTicket}
+        onTicketActualizado={() => {
+          cargarDatosCompletos();
+        }}
+      />
+
+      {/* 4. Modal Lightbox Evidencia */}
       <TicketEvidenceLightbox
         isOpen={lightboxData.isOpen}
         onClose={() => setLightboxData({ ...lightboxData, isOpen: false })}

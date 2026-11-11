@@ -10,6 +10,8 @@ interface RegistrarAbonoModalProps {
   empresaId: string;
   sucursalId?: string;
   defaultProveedorId?: string;
+  defaultCompraId?: string;
+  defaultMonto?: number;
   proveedores: Proveedor[];
   onAbonoRegistrado?: () => void;
 }
@@ -20,14 +22,16 @@ export function RegistrarAbonoModal({
   empresaId,
   sucursalId,
   defaultProveedorId,
+  defaultCompraId,
+  defaultMonto,
   proveedores,
   onAbonoRegistrado,
 }: RegistrarAbonoModalProps) {
   const [proveedorId, setProveedorId] = useState<string>(defaultProveedorId || "");
-  const [monto, setMonto] = useState<string>("");
+  const [monto, setMonto] = useState<string>(defaultMonto ? defaultMonto.toString() : "");
   const [metodoPago, setMetodoPago] = useState<"EFECTIVO_CAJA" | "TRANSFERENCIA" | "FONDO_RESERVA" | "OTRO">("TRANSFERENCIA");
   const [referencia, setReferencia] = useState<string>("");
-  const [compraId, setCompraId] = useState<string>("");
+  const [compraId, setCompraId] = useState<string>(defaultCompraId || "");
   const [comprasPendientes, setComprasPendientes] = useState<CompraConProveedor[]>([]);
   const [loadingCompras, setLoadingCompras] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -40,6 +44,15 @@ export function RegistrarAbonoModal({
       setProveedorId(proveedores[0].id);
     }
   }, [defaultProveedorId, proveedores]);
+
+  useEffect(() => {
+    if (defaultCompraId) {
+      setCompraId(defaultCompraId);
+    }
+    if (defaultMonto !== undefined && defaultMonto > 0) {
+      setMonto(defaultMonto.toString());
+    }
+  }, [defaultCompraId, defaultMonto, isOpen]);
 
   useEffect(() => {
     if (proveedorId) {
