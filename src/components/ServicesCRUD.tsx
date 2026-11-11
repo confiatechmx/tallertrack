@@ -266,8 +266,9 @@ export default function ServicesCRUD() {
                   required
                   min="0"
                   step="0.01"
-                  value={formData.precio}
-                  onChange={(e) => setFormData(prev => ({ ...prev, precio: parseFloat(e.target.value) }))}
+                  placeholder="0.00"
+                  value={formData.precio === 0 ? "" : formData.precio}
+                  onChange={(e) => setFormData(prev => ({ ...prev, precio: e.target.value === "" ? 0 : parseFloat(e.target.value) || 0 }))}
                   className="w-full bg-white border border-hairline rounded pt-4 pb-1.5 px-2.5 text-xs text-charcoal focus:outline-none focus:border-cova-blue font-mono font-bold"
                 />
               </div>

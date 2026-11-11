@@ -27,8 +27,8 @@ export default function ModalAltaVehiculo({
   const [placas, setPlacas] = useState('');
   const [marca, setMarca] = useState('');
   const [modelo, setModelo] = useState('');
-  const [anio, setAnio] = useState<number>(new Date().getFullYear());
-  const [kilometraje, setKilometraje] = useState<number>(50000);
+  const [anio, setAnio] = useState<number | string>(new Date().getFullYear());
+  const [kilometraje, setKilometraje] = useState<number | string>(50000);
   const [vin, setVin] = useState('');
 
   if (!isOpen) return null;
@@ -50,10 +50,10 @@ export default function ModalAltaVehiculo({
         cliente_id: clienteId,
         marca: marca.trim(),
         modelo: modelo.trim(),
-        anio: anio,
+        anio: Number(anio) || new Date().getFullYear(),
         placas: cleanPlacas && cleanPlacas !== 'MOSTRADOR' ? cleanPlacas : null,
         vin: vin.trim() || null,
-        kilometraje_actual: kilometraje,
+        kilometraje_actual: Number(kilometraje) || 0,
         presion_delantera_psi: 32,
         presion_trasera_psi: 32,
         medida_oem: '205/55 R16',
@@ -160,7 +160,10 @@ export default function ModalAltaVehiculo({
                   type="number"
                   required
                   value={anio}
-                  onChange={(e) => setAnio(parseInt(e.target.value) || new Date().getFullYear())}
+                  onChange={(e) => setAnio(e.target.value === "" ? "" : parseInt(e.target.value) || "")}
+                  onBlur={() => {
+                    if (!anio || Number(anio) < 1900) setAnio(new Date().getFullYear());
+                  }}
                   className="w-full bg-white border border-slate-300 rounded-md shadow-sm px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent tabular-nums"
                 />
               </div>
@@ -176,7 +179,7 @@ export default function ModalAltaVehiculo({
                   required
                   min={0}
                   value={kilometraje}
-                  onChange={(e) => setKilometraje(parseInt(e.target.value) || 0)}
+                  onChange={(e) => setKilometraje(e.target.value === "" ? "" : parseInt(e.target.value) || 0)}
                   className="w-full bg-white border border-slate-300 rounded-md shadow-sm px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent tabular-nums"
                 />
               </div>

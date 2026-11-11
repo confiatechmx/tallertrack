@@ -52,7 +52,19 @@ export default function InventarioDashboard() {
 
   // Form states
   const [formLoading, setFormLoading] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    marca: string;
+    modelo_llanta: string;
+    ancho: number | string;
+    perfil: number | string;
+    rin: number | string;
+    indice_carga_velocidad: string;
+    tipo_terreno: string;
+    stock_actual: number | string;
+    stock_minimo: number | string;
+    precio_venta: number | string;
+    costo_adquisicion: number | string;
+  }>({
     marca: '',
     modelo_llanta: '',
     ancho: 205,
@@ -66,7 +78,7 @@ export default function InventarioDashboard() {
     costo_adquisicion: 1400
   });
 
-  const [quickStockAmount, setQuickStockAmount] = useState<number>(4);
+  const [quickStockAmount, setQuickStockAmount] = useState<number | string>(4);
 
   // Fetch Inventory from Supabase
   const fetchInventory = async () => {
@@ -168,9 +180,19 @@ export default function InventarioDashboard() {
     e.preventDefault();
     setFormLoading(true);
     try {
+      const payload = {
+        ...formData,
+        ancho: Number(formData.ancho) || 205,
+        perfil: Number(formData.perfil) || 55,
+        rin: Number(formData.rin) || 16,
+        stock_actual: Number(formData.stock_actual) || 0,
+        stock_minimo: Number(formData.stock_minimo) || 0,
+        precio_venta: Number(formData.precio_venta) || 0,
+        costo_adquisicion: Number(formData.costo_adquisicion) || 0,
+      };
       const { error } = await supabase
         .from('inventario_llantas')
-        .insert([formData]);
+        .insert([payload]);
 
       if (error) throw error;
       
@@ -190,9 +212,19 @@ export default function InventarioDashboard() {
     if (!selectedTire) return;
     setFormLoading(true);
     try {
+      const payload = {
+        ...formData,
+        ancho: Number(formData.ancho) || 205,
+        perfil: Number(formData.perfil) || 55,
+        rin: Number(formData.rin) || 16,
+        stock_actual: Number(formData.stock_actual) || 0,
+        stock_minimo: Number(formData.stock_minimo) || 0,
+        precio_venta: Number(formData.precio_venta) || 0,
+        costo_adquisicion: Number(formData.costo_adquisicion) || 0,
+      };
       const { error } = await supabase
         .from('inventario_llantas')
-        .update(formData)
+        .update(payload)
         .eq('id', selectedTire.id);
 
       if (error) throw error;
@@ -215,7 +247,7 @@ export default function InventarioDashboard() {
     try {
       const res = await ConcurrencyService.ajustarStock({
         llantaId: selectedTire.id,
-        delta: quickStockAmount,
+        delta: Number(quickStockAmount) || 1,
         permitirNegativo: false,
       });
 
@@ -507,7 +539,10 @@ export default function InventarioDashboard() {
                   required
                   min={1}
                   value={quickStockAmount}
-                  onChange={(e) => setQuickStockAmount(parseInt(e.target.value) || 0)}
+                  onChange={(e) => setQuickStockAmount(e.target.value === "" ? "" : parseInt(e.target.value) || "")}
+                  onBlur={() => {
+                    if (!quickStockAmount || Number(quickStockAmount) < 1) setQuickStockAmount(1);
+                  }}
                   className="w-full bg-white border border-slate-300 rounded-md pt-5 pb-1.5 px-3 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary tabular-nums shadow-sm transition-all"
                 />
               </div>
@@ -602,7 +637,7 @@ export default function InventarioDashboard() {
                     type="number"
                     required
                     value={formData.ancho}
-                    onChange={(e) => setFormData(prev => ({ ...prev, ancho: parseInt(e.target.value) || 0 }))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, ancho: e.target.value === "" ? "" : parseInt(e.target.value) || "" }))}
                     className="w-full bg-white border border-slate-300 rounded-md pt-5 pb-1.5 px-3 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary tabular-nums shadow-sm transition-all"
                   />
                 </div>
@@ -614,7 +649,7 @@ export default function InventarioDashboard() {
                     type="number"
                     required
                     value={formData.perfil}
-                    onChange={(e) => setFormData(prev => ({ ...prev, perfil: parseInt(e.target.value) || 0 }))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, perfil: e.target.value === "" ? "" : parseInt(e.target.value) || "" }))}
                     className="w-full bg-white border border-slate-300 rounded-md pt-5 pb-1.5 px-3 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary tabular-nums shadow-sm transition-all"
                   />
                 </div>
@@ -626,7 +661,7 @@ export default function InventarioDashboard() {
                     type="number"
                     required
                     value={formData.rin}
-                    onChange={(e) => setFormData(prev => ({ ...prev, rin: parseInt(e.target.value) || 0 }))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, rin: e.target.value === "" ? "" : parseInt(e.target.value) || "" }))}
                     className="w-full bg-white border border-slate-300 rounded-md pt-5 pb-1.5 px-3 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary tabular-nums shadow-sm transition-all"
                   />
                 </div>
@@ -671,7 +706,7 @@ export default function InventarioDashboard() {
                     type="number"
                     required
                     value={formData.stock_actual}
-                    onChange={(e) => setFormData(prev => ({ ...prev, stock_actual: parseInt(e.target.value) || 0 }))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, stock_actual: e.target.value === "" ? "" : parseInt(e.target.value) || 0 }))}
                     className="w-full bg-white border border-slate-300 rounded-md pt-5 pb-1.5 px-3 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary tabular-nums shadow-sm transition-all"
                   />
                 </div>
@@ -683,7 +718,7 @@ export default function InventarioDashboard() {
                     type="number"
                     required
                     value={formData.stock_minimo}
-                    onChange={(e) => setFormData(prev => ({ ...prev, stock_minimo: parseInt(e.target.value) || 0 }))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, stock_minimo: e.target.value === "" ? "" : parseInt(e.target.value) || 0 }))}
                     className="w-full bg-white border border-slate-300 rounded-md pt-5 pb-1.5 px-3 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary tabular-nums shadow-sm transition-all"
                   />
                 </div>
@@ -701,7 +736,7 @@ export default function InventarioDashboard() {
                     min={0}
                     step="0.01"
                     value={formData.costo_adquisicion}
-                    onChange={(e) => setFormData(prev => ({ ...prev, costo_adquisicion: parseFloat(e.target.value) || 0 }))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, costo_adquisicion: e.target.value === "" ? "" : parseFloat(e.target.value) || 0 }))}
                     className="w-full bg-white border border-slate-300 rounded-md pt-5 pb-1.5 px-3 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary tabular-nums shadow-sm transition-all"
                   />
                 </div>
@@ -715,7 +750,7 @@ export default function InventarioDashboard() {
                     min={0}
                     step="0.01"
                     value={formData.precio_venta}
-                    onChange={(e) => setFormData(prev => ({ ...prev, precio_venta: parseFloat(e.target.value) || 0 }))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, precio_venta: e.target.value === "" ? "" : parseFloat(e.target.value) || 0 }))}
                     className="w-full bg-white border border-slate-300 rounded-md pt-5 pb-1.5 px-3 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary tabular-nums shadow-sm transition-all"
                   />
                 </div>

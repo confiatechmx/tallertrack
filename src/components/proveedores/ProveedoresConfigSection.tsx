@@ -440,8 +440,9 @@ export function ProveedoresConfigSection({ empresaId, sucursalId }: ProveedoresC
                   <input
                     type="number"
                     min={0}
-                    value={formData.dias_credito}
-                    onChange={(e) => setFormData({ ...formData, dias_credito: parseInt(e.target.value) || 0 })}
+                    placeholder="0"
+                    value={formData.dias_credito === 0 ? "" : formData.dias_credito}
+                    onChange={(e) => setFormData({ ...formData, dias_credito: e.target.value === "" ? 0 : parseInt(e.target.value) || 0 })}
                     className="w-full h-9 px-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-1 focus:ring-primary font-bold"
                   />
                 </div>
@@ -452,9 +453,9 @@ export function ProveedoresConfigSection({ empresaId, sucursalId }: ProveedoresC
                     type="number"
                     min={0}
                     step="100"
-                    value={formData.limite_credito || ""}
                     placeholder="0.00"
-                    onChange={(e) => setFormData({ ...formData, limite_credito: parseFloat(e.target.value) || 0 })}
+                    value={formData.limite_credito === 0 ? "" : formData.limite_credito}
+                    onChange={(e) => setFormData({ ...formData, limite_credito: e.target.value === "" ? 0 : parseFloat(e.target.value) || 0 })}
                     className="w-full h-9 px-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-1 focus:ring-primary font-bold"
                   />
                 </div>

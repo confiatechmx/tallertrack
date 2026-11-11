@@ -46,7 +46,7 @@ export function TenantEstacionesConfig({ empresaId, sucursalId }: TenantEstacion
   const [formCodigo, setFormCodigo] = useState("");
   const [formTipo, setFormTipo] = useState<"FOSA" | "RAMPA" | "PORTERIA" | "COMODIN" | "BAHIA" | "OTRO">("RAMPA");
   const [formDescripcion, setFormDescripcion] = useState("");
-  const [formOrden, setFormOrden] = useState(1);
+  const [formOrden, setFormOrden] = useState<number | string>(1);
   const [formActivo, setFormActivo] = useState(true);
 
   useEffect(() => {
@@ -341,7 +341,10 @@ export function TenantEstacionesConfig({ empresaId, sucursalId }: TenantEstacion
                     min="1"
                     max="99"
                     value={formOrden}
-                    onChange={(e) => setFormOrden(parseInt(e.target.value) || 1)}
+                    onChange={(e) => setFormOrden(e.target.value === "" ? "" : parseInt(e.target.value) || "")}
+                    onBlur={() => {
+                      if (!formOrden || Number(formOrden) < 1) setFormOrden(1);
+                    }}
                     className="w-full h-9 bg-white border border-slate-300 rounded-lg px-2.5 text-xs font-bold text-slate-900 focus:ring-1 focus:ring-emerald-500"
                   />
                 </div>

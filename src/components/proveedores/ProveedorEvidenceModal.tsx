@@ -46,8 +46,9 @@ interface ProveedorEvidenceModalProps {
   defaultDescripcion?: string;
   defaultMonto?: number;
   refaccionesDisponibles?: RefaccionItemParaTicket[];
+  serviciosDisponibles?: Array<{ id: string; nombre: string; precio?: number; cantidad?: number }>;
   preselectedRefaccionId?: string;
-  onCompraRegistrada?: (compra: any, refaccionIdsSeleccionadas?: string[]) => void;
+  onCompraRegistrada?: (compra: any, refaccionIdsSeleccionadas?: string[], servicioIdsSeleccionados?: string[]) => void;
 }
 
 export function ProveedorEvidenceModal({
@@ -61,6 +62,7 @@ export function ProveedorEvidenceModal({
   defaultDescripcion = "",
   defaultMonto = 0,
   refaccionesDisponibles = [],
+  serviciosDisponibles = [],
   preselectedRefaccionId,
   onCompraRegistrada,
 }: ProveedorEvidenceModalProps) {
@@ -75,13 +77,15 @@ export function ProveedorEvidenceModal({
   const [proveedorId, setProveedorId] = useState<string>("");
   const [folioTicket, setFolioTicket] = useState<string>("");
   const [descripcion, setDescripcion] = useState<string>(defaultDescripcion);
-  const [montoCosto, setMontoCosto] = useState<number>(defaultMonto);
+  const [isDescripcionCustom, setIsDescripcionCustom] = useState(false);
+  const [montoCosto, setMontoCosto] = useState<string>(defaultMonto > 0 ? String(defaultMonto) : "");
   const [fuentePago, setFuentePago] = useState<"CAJA_CHICA" | "FONDO_RESERVA" | "TRANSFERENCIA" | "CREDITO_PENDIENTE">("CAJA_CHICA");
   const [mesesGarantia, setMesesGarantia] = useState<number>(1);
   const [notasGarantia, setNotasGarantia] = useState<string>("");
 
-  // Refacciones seleccionadas para vincular a este ticket
+  // Conceptos seleccionados para vincular a este ticket (Refacciones y Servicios)
   const [selectedRefaccionIds, setSelectedRefaccionIds] = useState<string[]>([]);
+  const [selectedServicioIds, setSelectedServicioIds] = useState<string[]>([]);
 
   // File upload state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -89,27 +93,66 @@ export function ProveedorEvidenceModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Helper para armar concepto automático desde los items seleccionados
+  const generarConcepto = (refIds: string[], servIds: string[]): string => {
+    const nombres: string[] = [];
+    refaccionesDisponibles
+      .filter((r) => refIds.includes(r.id))
+      .forEach((r) => {
+        const pn = r.numero_parte ? ` (${r.numero_parte})` : "";
+        nombres.push(`${r.nombre}${pn}`);
+      });
+    serviciosDisponibles
+      .filter((s) => servIds.includes(s.id))
+      .forEach((s) => {
+        nombres.push(s.nombre);
+      });
+    return nombres.join(", ");
+  };
+
   useEffect(() => {
     if (isOpen && empresaId) {
       cargarProveedores();
       if (ordenServicioId) {
         cargarComprasOrden();
       }
-      if (defaultDescripcion) setDescripcion(defaultDescripcion);
-      if (defaultMonto) setMontoCosto(defaultMonto);
+      setIsDescripcionCustom(false);
 
       // Preseleccionar refacciones
+      let initialRefIds: string[] = [];
       if (preselectedRefaccionId) {
-        setSelectedRefaccionIds([preselectedRefaccionId]);
+        initialRefIds = [preselectedRefaccionId];
       } else if (refaccionesDisponibles.length > 0) {
-        // Por defecto, preseleccionar las que no tienen ticket aún
         const sinTicket = refaccionesDisponibles
           .filter((r) => !r.compra_proveedor_id)
           .map((r) => r.id);
-        setSelectedRefaccionIds(sinTicket.length > 0 ? sinTicket : refaccionesDisponibles.map((r) => r.id));
+        initialRefIds = sinTicket.length > 0 ? sinTicket : refaccionesDisponibles.map((r) => r.id);
+      }
+      setSelectedRefaccionIds(initialRefIds);
+      setSelectedServicioIds([]);
+
+      // Prellenar concepto si hay items seleccionados
+      const autoConcepto = generarConcepto(initialRefIds, []);
+      if (autoConcepto) {
+        setDescripcion(autoConcepto);
+      } else if (defaultDescripcion) {
+        setDescripcion(defaultDescripcion);
+      }
+
+      if (defaultMonto > 0) {
+        setMontoCosto(String(defaultMonto));
+      } else {
+        const autoSuma = refaccionesDisponibles
+          .filter((r) => initialRefIds.includes(r.id))
+          .reduce((acc, r) => acc + Number(r.costo_unitario || 0) * Number(r.cantidad || 1), 0);
+        if (autoSuma > 0) {
+          setMontoCosto(String(autoSuma.toFixed(2)));
+        } else {
+          setMontoCosto("");
+        }
       }
     }
-  }, [isOpen, empresaId, ordenServicioId, defaultDescripcion, defaultMonto, preselectedRefaccionId, refaccionesDisponibles]);
+  }, [isOpen, empresaId, ordenServicioId, defaultDescripcion, defaultMonto, preselectedRefaccionId, refaccionesDisponibles, serviciosDisponibles]);
 
   const cargarProveedores = async () => {
     setLoadingProveedores(true);
@@ -164,17 +207,50 @@ export function ProveedorEvidenceModal({
 
   // Alternar selección de una refacción
   const toggleRefaccion = (id: string) => {
-    setSelectedRefaccionIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
+    const next = selectedRefaccionIds.includes(id)
+      ? selectedRefaccionIds.filter((item) => item !== id)
+      : [...selectedRefaccionIds, id];
+    setSelectedRefaccionIds(next);
+
+    if (!isDescripcionCustom) {
+      const nuevo = generarConcepto(next, selectedServicioIds);
+      setDescripcion(nuevo || defaultDescripcion || "");
+    }
+  };
+
+  // Alternar selección de un servicio
+  const toggleServicio = (id: string) => {
+    const next = selectedServicioIds.includes(id)
+      ? selectedServicioIds.filter((item) => item !== id)
+      : [...selectedServicioIds, id];
+    setSelectedServicioIds(next);
+
+    if (!isDescripcionCustom) {
+      const nuevo = generarConcepto(selectedRefaccionIds, next);
+      setDescripcion(nuevo || defaultDescripcion || "");
+    }
   };
 
   // Seleccionar todas o ninguna
+  const totalDisponibles = refaccionesDisponibles.length + serviciosDisponibles.length;
+  const totalSeleccionados = selectedRefaccionIds.length + selectedServicioIds.length;
+
   const toggleSelectAll = () => {
-    if (selectedRefaccionIds.length === refaccionesDisponibles.length) {
+    if (totalSeleccionados === totalDisponibles) {
       setSelectedRefaccionIds([]);
+      setSelectedServicioIds([]);
+      if (!isDescripcionCustom) {
+        setDescripcion(defaultDescripcion || "");
+      }
     } else {
-      setSelectedRefaccionIds(refaccionesDisponibles.map((r) => r.id));
+      const allRefIds = refaccionesDisponibles.map((r) => r.id);
+      const allServIds = serviciosDisponibles.map((s) => s.id);
+      setSelectedRefaccionIds(allRefIds);
+      setSelectedServicioIds(allServIds);
+      if (!isDescripcionCustom) {
+        const nuevo = generarConcepto(allRefIds, allServIds);
+        setDescripcion(nuevo || defaultDescripcion || "");
+      }
     }
   };
 
@@ -184,7 +260,7 @@ export function ProveedorEvidenceModal({
       .filter((r) => selectedRefaccionIds.includes(r.id))
       .reduce((acc, r) => acc + Number(r.costo_unitario || 0) * Number(r.cantidad || 1), 0);
     if (total > 0) {
-      setMontoCosto(Number(total.toFixed(2)));
+      setMontoCosto(String(total.toFixed(2)));
     }
   };
 
@@ -199,7 +275,8 @@ export function ProveedorEvidenceModal({
       setErrorMsg("El folio o número de ticket/nota es obligatorio para la trazabilidad de garantías.");
       return;
     }
-    if (montoCosto <= 0) {
+    const numericMonto = parseFloat(montoCosto) || 0;
+    if (numericMonto <= 0) {
       setErrorMsg("Ingresa un monto de costo válido mayor a cero.");
       return;
     }
@@ -232,6 +309,9 @@ export function ProveedorEvidenceModal({
       const fechaVencGarantia = new Date(today);
       fechaVencGarantia.setMonth(today.getMonth() + mesesGarantia);
 
+      const totalItemsCount = selectedRefaccionIds.length + selectedServicioIds.length;
+      const defaultDesc = `Ticket #${folioTicket.trim()} (${totalItemsCount} conceptos)`;
+
       const compraData: CompraProveedorInsert = {
         empresa_id: empresaId,
         sucursal_id: sucursalId || null,
@@ -240,12 +320,12 @@ export function ProveedorEvidenceModal({
         orden_servicio_id: ordenServicioId || null,
         cotizacion_id: cotizacionId || null,
         folio_ticket_nota: folioTicket.trim(),
-        descripcion: descripcion.trim() || `Ticket #${folioTicket.trim()} (${selectedRefaccionIds.length} refacciones)`,
-        monto_costo: Number(montoCosto.toFixed(2)),
+        descripcion: descripcion.trim() || defaultDesc,
+        monto_costo: Number(numericMonto.toFixed(2)),
         fuente_pago: fuentePago,
         estatus_pago: fuentePago === "CREDITO_PENDIENTE" ? "PENDIENTE" : "PAGADO",
-        monto_pagado: fuentePago === "CREDITO_PENDIENTE" ? 0.0 : Number(montoCosto.toFixed(2)),
-        monto_saldo_pendiente: fuentePago === "CREDITO_PENDIENTE" ? Number(montoCosto.toFixed(2)) : 0.0,
+        monto_pagado: fuentePago === "CREDITO_PENDIENTE" ? 0.0 : Number(numericMonto.toFixed(2)),
+        monto_saldo_pendiente: fuentePago === "CREDITO_PENDIENTE" ? Number(numericMonto.toFixed(2)) : 0.0,
         fecha_compra: today.toISOString().split("T")[0],
         fecha_limite_pago: fechaLimitePago.toISOString().split("T")[0],
         evidencia_url: evidenciaUrl,
@@ -266,7 +346,7 @@ export function ProveedorEvidenceModal({
       }
 
       if (onCompraRegistrada) {
-        onCompraRegistrada(res.data, selectedRefaccionIds);
+        onCompraRegistrada(res.data, selectedRefaccionIds, selectedServicioIds);
       }
 
       onClose();
@@ -285,8 +365,8 @@ export function ProveedorEvidenceModal({
       setErrorMsg("Selecciona un ticket de compra existente.");
       return;
     }
-    if (selectedRefaccionIds.length === 0) {
-      setErrorMsg("Selecciona al menos una refacción para vincular a este ticket.");
+    if (selectedRefaccionIds.length === 0 && selectedServicioIds.length === 0) {
+      setErrorMsg("Selecciona al menos una refacción o servicio para vincular a este ticket.");
       return;
     }
 
@@ -300,10 +380,12 @@ export function ProveedorEvidenceModal({
     setErrorMsg(null);
 
     try {
-      await ProveedorService.vincularRefaccionesATicket(compra, selectedRefaccionIds);
+      if (selectedRefaccionIds.length > 0) {
+        await ProveedorService.vincularRefaccionesATicket(compra, selectedRefaccionIds);
+      }
 
       if (onCompraRegistrada) {
-        onCompraRegistrada(compra, selectedRefaccionIds);
+        onCompraRegistrada(compra, selectedRefaccionIds, selectedServicioIds);
       }
 
       onClose();
@@ -383,14 +465,14 @@ export function ProveedorEvidenceModal({
               </div>
             )}
 
-            {/* SELECCIÓN DE REFACCIONES AMPARADAS (MULTIRREFACCIÓN) */}
-            {refaccionesDisponibles.length > 0 && (
+            {/* SELECCIÓN DE REFACCIONES Y SERVICIOS AMPARADOS */}
+            {(refaccionesDisponibles.length > 0 || serviciosDisponibles.length > 0) && (
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <Package className="w-4 h-4 text-primary" />
                     <span className="text-xs font-bold text-slate-800">
-                      Refacciones amparadas por este ticket ({selectedRefaccionIds.length}/{refaccionesDisponibles.length})
+                      Conceptos amparados por este ticket ({totalSeleccionados}/{totalDisponibles})
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -399,12 +481,13 @@ export function ProveedorEvidenceModal({
                       onClick={toggleSelectAll}
                       className="text-[11px] font-semibold text-primary hover:underline cursor-pointer"
                     >
-                      {selectedRefaccionIds.length === refaccionesDisponibles.length ? "Deseleccionar todas" : "Marcar todas"}
+                      {totalSeleccionados === totalDisponibles ? "Deseleccionar todos" : "Marcar todos"}
                     </button>
                   </div>
                 </div>
 
-                <div className="max-h-40 overflow-y-auto space-y-1.5 divide-y divide-slate-200/60 pr-1">
+                <div className="max-h-48 overflow-y-auto space-y-1.5 divide-y divide-slate-200/60 pr-1">
+                  {/* Refacciones */}
                   {refaccionesDisponibles.map((r) => {
                     const isSelected = selectedRefaccionIds.includes(r.id);
                     const subtotal = Number(r.costo_unitario || 0) * Number(r.cantidad || 1);
@@ -423,9 +506,14 @@ export function ProveedorEvidenceModal({
                             <Square className="w-4 h-4 text-slate-400 shrink-0" />
                           )}
                           <div className="truncate">
-                            <span className="text-xs font-semibold text-slate-800 block truncate">
-                              {r.nombre}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-semibold text-slate-800 truncate">
+                                {r.nombre}
+                              </span>
+                              <span className="text-[9px] px-1.5 py-0.2 rounded font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                Refacción
+                              </span>
+                            </div>
                             <span className="text-[10px] text-slate-400 font-mono">
                               Cant: {r.cantidad || 1} {r.numero_parte ? `• P/N: ${r.numero_parte}` : ""}
                               {r.folio_ticket_nota ? ` • Ticket previo #${r.folio_ticket_nota}` : ""}
@@ -438,6 +526,49 @@ export function ProveedorEvidenceModal({
                             ${subtotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                           </span>
                         </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Servicios */}
+                  {serviciosDisponibles.map((s) => {
+                    const isSelected = selectedServicioIds.includes(s.id);
+                    return (
+                      <div
+                        key={s.id}
+                        onClick={() => toggleServicio(s.id)}
+                        className={`pt-1.5 first:pt-0 flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors ${
+                          isSelected ? "bg-primary/5 border border-primary/20" : "hover:bg-slate-100/70"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          {isSelected ? (
+                            <CheckSquare className="w-4 h-4 text-primary shrink-0" />
+                          ) : (
+                            <Square className="w-4 h-4 text-slate-400 shrink-0" />
+                          )}
+                          <div className="truncate">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-semibold text-slate-800 truncate">
+                                {s.nombre}
+                              </span>
+                              <span className="text-[9px] px-1.5 py-0.2 rounded font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">
+                                Servicio / Maquila
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              Cant: {s.cantidad || 1}
+                            </span>
+                          </div>
+                        </div>
+
+                        {s.precio ? (
+                          <div className="text-right shrink-0 ml-2">
+                            <span className="text-xs font-bold font-mono text-slate-500">
+                              (P. Venta: ${Number(s.precio).toLocaleString("es-MX", { minimumFractionDigits: 2 })})
+                            </span>
+                          </div>
+                        ) : null}
                       </div>
                     );
                   })}
@@ -530,15 +661,37 @@ export function ProveedorEvidenceModal({
             {/* Total del Ticket y Descripción */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Descripción o Concepto del Ticket
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-700">
+                    Descripción o Concepto del Ticket *
+                  </label>
+                  {(selectedRefaccionIds.length > 0 || selectedServicioIds.length > 0) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nuevo = generarConcepto(selectedRefaccionIds, selectedServicioIds);
+                        if (nuevo) {
+                          setDescripcion(nuevo);
+                          setIsDescripcionCustom(false);
+                        }
+                      }}
+                      className="text-[10px] font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1"
+                      title="Rellena con la lista de conceptos vinculados seleccionados"
+                    >
+                      <Wand2 className="w-3 h-3 text-primary" />
+                      Llenar con seleccionados
+                    </button>
+                  )}
+                </div>
                 <input
                   type="text"
                   placeholder="ej. Balatas, Discos y Líquido de Frenos"
                   value={descripcion}
-                  onChange={(e) => setDescripcion(e.target.value)}
-                  className="w-full h-10 px-3 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  onChange={(e) => {
+                    setDescripcion(e.target.value);
+                    setIsDescripcionCustom(true);
+                  }}
+                  className="w-full h-10 px-3 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary font-medium text-slate-800"
                 />
               </div>
 
@@ -550,12 +703,12 @@ export function ProveedorEvidenceModal({
                   <DollarSign className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="number"
-                    step="0.01"
+                    step="any"
                     min="0.01"
                     required
                     placeholder="0.00"
-                    value={montoCosto || ""}
-                    onChange={(e) => setMontoCosto(parseFloat(e.target.value) || 0)}
+                    value={montoCosto}
+                    onChange={(e) => setMontoCosto(e.target.value)}
                     className="w-full h-10 pl-9 pr-3 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary font-bold text-slate-900"
                   />
                 </div>

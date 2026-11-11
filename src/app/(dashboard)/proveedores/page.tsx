@@ -1022,8 +1022,9 @@ export default function ProveedoresPage() {
                   <input
                     type="number"
                     min={0}
-                    value={newProvData.dias_credito}
-                    onChange={(e) => setNewProvData({ ...newProvData, dias_credito: parseInt(e.target.value) || 0 })}
+                    placeholder="0"
+                    value={newProvData.dias_credito === 0 ? "" : newProvData.dias_credito}
+                    onChange={(e) => setNewProvData({ ...newProvData, dias_credito: e.target.value === "" ? 0 : parseInt(e.target.value) || 0 })}
                     className="w-full h-9 px-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-1 focus:ring-primary font-bold"
                   />
                 </div>
@@ -1035,8 +1036,8 @@ export default function ProveedoresPage() {
                     min={0}
                     step="100"
                     placeholder="0.00"
-                    value={newProvData.limite_credito || ""}
-                    onChange={(e) => setNewProvData({ ...newProvData, limite_credito: parseFloat(e.target.value) || 0 })}
+                    value={newProvData.limite_credito === 0 ? "" : newProvData.limite_credito}
+                    onChange={(e) => setNewProvData({ ...newProvData, limite_credito: e.target.value === "" ? 0 : parseFloat(e.target.value) || 0 })}
                     className="w-full h-9 px-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-1 focus:ring-primary font-bold"
                   />
                 </div>

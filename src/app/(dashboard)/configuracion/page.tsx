@@ -786,8 +786,9 @@ function ConfiguracionContent() {
                     <div className="flex items-center gap-1">
                       <input
                         type="number"
-                        value={formEmpresa.tasa_iva}
-                        onChange={(e) => setFormEmpresa({ ...formEmpresa, tasa_iva: parseFloat(e.target.value) || 0 })}
+                        placeholder="0"
+                        value={formEmpresa.tasa_iva === 0 ? "" : formEmpresa.tasa_iva}
+                        onChange={(e) => setFormEmpresa({ ...formEmpresa, tasa_iva: e.target.value === "" ? 0 : parseFloat(e.target.value) || 0 })}
                         className="w-full bg-white border border-slate-200 rounded-lg p-2 text-sm font-bold text-right"
                       />
                       <span className="font-bold text-xs text-slate-500">%</span>
@@ -801,8 +802,9 @@ function ConfiguracionContent() {
                     <div className="flex items-center gap-1">
                       <input
                         type="number"
-                        value={formEmpresa.margen_refacciones_default}
-                        onChange={(e) => setFormEmpresa({ ...formEmpresa, margen_refacciones_default: parseFloat(e.target.value) || 0 })}
+                        placeholder="0"
+                        value={formEmpresa.margen_refacciones_default === 0 ? "" : formEmpresa.margen_refacciones_default}
+                        onChange={(e) => setFormEmpresa({ ...formEmpresa, margen_refacciones_default: e.target.value === "" ? 0 : parseFloat(e.target.value) || 0 })}
                         className="w-full bg-white border border-slate-200 rounded-lg p-2 text-sm font-bold text-right"
                       />
                       <span className="font-bold text-xs text-slate-500">%</span>

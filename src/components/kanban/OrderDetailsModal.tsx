@@ -207,12 +207,14 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   const [proveedoresCatalogo, setProveedoresCatalogo] = useState<Proveedor[]>([]);
   const [selectedProveedorId, setSelectedProveedorId] = useState<string>("");
   const [partProveedor, setPartProveedor] = useState(PROVEEDORES_REFACCIONES[0]);
-  const [partCantidad, setPartCantidad] = useState<number>(1);
+  const [partCantidad, setPartCantidad] = useState<number | string>(1);
   const [partCostoUnitario, setPartCostoUnitario] = useState<string>("");
   const [partMargen, setPartMargen] = useState<string>(
     String(empresa?.margen_refacciones_default ?? 35)
   );
   const [partPrecioVentaManual, setPartPrecioVentaManual] = useState<string>("");
+  const [partSubtotalManual, setPartSubtotalManual] = useState<string>("");
+  const [lastPartPriceEdited, setLastPartPriceEdited] = useState<"unit" | "subtotal">("unit");
   const [partPackage, setPartPackage] = useState<string>("Suspensión y Dirección");
   const [partGarantia, setPartGarantia] = useState<string>("");
   const [orderCompras, setOrderCompras] = useState<any[]>([]);
@@ -275,9 +277,9 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
 
   // Just-In-Time Tire Quoter fields
   const [jitMedidaExpress, setJitMedidaExpress] = useState("");
-  const [jitAncho, setJitAncho] = useState<number>(205);
-  const [jitPerfil, setJitPerfil] = useState<number>(55);
-  const [jitRin, setJitRin] = useState<number>(16);
+  const [jitAncho, setJitAncho] = useState<number | string>(205);
+  const [jitPerfil, setJitPerfil] = useState<number | string>(55);
+  const [jitRin, setJitRin] = useState<number | string>(16);
   const [jitMarca, setJitMarca] = useState("Michelin");
   const [jitModelo, setJitModelo] = useState("Primacy 4");
   const [jitProveedor, setJitProveedor] = useState(PROVEEDORES_LLANTAS[0]);
@@ -649,6 +651,49 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
     }
   };
 
+  // Cálculo bidireccional en Alta Rápida de Refacciones (Precio Unitario <-> Subtotal)
+  const handlePartPrecioUnitarioChange = (val: string) => {
+    setPartPrecioVentaManual(val);
+    setLastPartPriceEdited("unit");
+    const pu = parseFloat(val);
+    const q = Math.max(1, Number(partCantidad) || 1);
+    if (!isNaN(pu) && pu > 0) {
+      const sub = Math.round(pu * q * 100) / 100;
+      setPartSubtotalManual(String(sub));
+    } else if (val === "") {
+      setPartSubtotalManual("");
+    }
+  };
+
+  const handlePartSubtotalChange = (val: string) => {
+    setPartSubtotalManual(val);
+    setLastPartPriceEdited("subtotal");
+    const sub = parseFloat(val);
+    const q = Math.max(1, Number(partCantidad) || 1);
+    if (!isNaN(sub) && sub > 0) {
+      const pu = Math.round((sub / q) * 100) / 100;
+      setPartPrecioVentaManual(String(pu));
+    } else if (val === "") {
+      setPartPrecioVentaManual("");
+    }
+  };
+
+  const handlePartCantidadChange = (val: string) => {
+    setPartCantidad(val);
+    const q = Math.max(1, Number(val) || 1);
+    if (lastPartPriceEdited === "subtotal" && partSubtotalManual) {
+      const sub = parseFloat(partSubtotalManual);
+      if (!isNaN(sub) && sub > 0) {
+        setPartPrecioVentaManual(String(Math.round((sub / q) * 100) / 100));
+      }
+    } else if (partPrecioVentaManual) {
+      const pu = parseFloat(partPrecioVentaManual);
+      if (!isNaN(pu) && pu > 0) {
+        setPartSubtotalManual(String(Math.round(pu * q * 100) / 100));
+      }
+    }
+  };
+
   const handleSelectProveedor = (provIdOrName: string) => {
     const found = proveedoresCatalogo.find((p) => p.id === provIdOrName || p.nombre_comercial === provIdOrName);
     if (found) {
@@ -795,7 +840,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
       premBrands.some((b) => (t.marca || "").toLowerCase().includes(b))
     );
 
-    const baseCost = Math.round(900 + Math.max(0, jitRin - 13) * 320);
+    const baseCost = Math.round(900 + Math.max(0, Number(jitRin || 16) - 13) * 320);
 
     const ecoPreset = foundEco
       ? {
@@ -1407,7 +1452,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
 
   const handleApplyFourTiresPromo = async () => {
     const firstTire = activeTires[0]?.inventario_llantas;
-    const rin = Number(firstTire?.rin) || jitRin || 16;
+    const rin = Number(firstTire?.rin) || Number(jitRin) || 16;
     const bundle = buildFourTiresPromoBundle(rin, 4, availableServices);
 
     setAddingServiceLoading(true);
@@ -1534,11 +1579,16 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   // Handlers for Buyout Parts (Refacciones Sobre Pedido & Garantías)
   const handleAddPart = async () => {
     const pNombre = partNombre.trim();
-    const pPrecio = parseFloat(partPrecioVentaManual) || 0;
+    let pPrecio = parseFloat(partPrecioVentaManual) || 0;
     const pCant = Math.max(1, Number(partCantidad) || 1);
+    const pSubtotalManualVal = parseFloat(partSubtotalManual) || 0;
+
+    if (pPrecio <= 0 && pSubtotalManualVal > 0) {
+      pPrecio = Math.round((pSubtotalManualVal / pCant) * 100) / 100;
+    }
 
     if (!pNombre || pPrecio <= 0) {
-      toast.error("Ingresa el concepto y precio de venta de la refacción");
+      toast.error("Ingresa el concepto y precio de venta o total de la refacción");
       return;
     }
     setAddingPartLoading(true);
@@ -1579,6 +1629,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
         setPartNombre("");
         setPartCantidad(1);
         setPartPrecioVentaManual("");
+        setPartSubtotalManual("");
         setPartGarantia("");
         toast.success("Refacción agregada con éxito");
         onUpdate();
@@ -1774,9 +1825,9 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
         .from("inventario_llantas_base")
         .select("id, marca, modelo_llanta, rin, ancho, perfil, stock_actual, costo_adquisicion, precio_venta")
         .eq("empresa_id", targetEmpresaId)
-        .eq("ancho", jitAncho)
-        .eq("perfil", jitPerfil)
-        .eq("rin", jitRin)
+        .eq("ancho", Number(jitAncho) || 205)
+        .eq("perfil", Number(jitPerfil) || 55)
+        .eq("rin", Number(jitRin) || 16)
         .ilike("marca", jitMarca.trim())
         .limit(1);
 
@@ -1799,9 +1850,9 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
             sucursal_id: targetSucursalId || null,
             marca: jitMarca.trim().toUpperCase(),
             modelo_llanta: jitModelo.trim() || "Sobre Pedido",
-            ancho: jitAncho,
-            perfil: jitPerfil,
-            rin: jitRin,
+            ancho: Number(jitAncho) || 205,
+            perfil: Number(jitPerfil) || 55,
+            rin: Number(jitRin) || 16,
             indice_carga_velocidad: jitIndiceCarga.trim() || "N/A",
             tipo_terreno: jitTipoTerreno || "HT",
             costo_adquisicion: numericJitCosto,
@@ -2479,23 +2530,25 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   const renderPartForm = () => {
     const pPrecio = parseFloat(partPrecioVentaManual) || 0;
     const pCant = Math.max(1, Number(partCantidad) || 1);
-    const subtotalPart = Math.round(pPrecio * pCant * 100) / 100;
+    const subtotalPart = partSubtotalManual !== "" && !isNaN(parseFloat(partSubtotalManual))
+      ? parseFloat(partSubtotalManual)
+      : Math.round(pPrecio * pCant * 100) / 100;
 
     return (
       <div className="p-4 bg-indigo-50/40 border-b border-indigo-200/80 space-y-3.5 animate-in fade-in duration-200">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
             <Package size={15} className="text-indigo-600" />
-            Alta Rápida de Refacción
+            Alta Rápida de Refacción (Cálculo Bidireccional)
           </span>
           <span className="text-[10px] text-slate-500 font-medium">
-            Ingresa concepto y precio al cliente. Los comprobantes y costos de proveedores se registran de forma global en la sección de tickets.
+            Ingresa precio unitario o el total de la refacción y se calculará automáticamente.
           </span>
         </div>
 
         {/* Grid de Alta Rápida */}
-        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-          <div className="sm:col-span-5">
+        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+          <div className="sm:col-span-4">
             <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
               Concepto / Refacción *
             </label>
@@ -2506,7 +2559,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
               value={partNombre}
               onChange={(e) => setPartNombre(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && partNombre.trim() && pPrecio > 0) {
+                if (e.key === "Enter" && partNombre.trim() && (pPrecio > 0 || parseFloat(partSubtotalManual) > 0)) {
                   handleAddPart();
                 }
               }}
@@ -2531,7 +2584,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
             </select>
           </div>
 
-          <div className="sm:col-span-1 min-w-[65px]">
+          <div className="sm:col-span-1 min-w-[55px]">
             <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1 text-center">
               Cant.
             </label>
@@ -2539,27 +2592,53 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
               type="number"
               min="1"
               value={partCantidad}
-              onChange={(e) => setPartCantidad(parseInt(e.target.value) || 1)}
+              onChange={(e) => handlePartCantidadChange(e.target.value)}
+              onBlur={() => {
+                if (!partCantidad || Number(partCantidad) < 1) {
+                  handlePartCantidadChange("1");
+                }
+              }}
               className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-1 text-center font-bold tabular-nums"
             />
           </div>
 
-          <div className="sm:col-span-3">
-            <label className="block text-[10px] font-bold uppercase text-indigo-700 mb-1">
-              P. Venta ($) *
+          <div className="sm:col-span-2">
+            <label className="block text-[10px] font-bold uppercase text-indigo-700 mb-1 flex items-center justify-between">
+              <span>P. Unitario ($)</span>
+              <span className="text-[9px] font-normal text-slate-400">c/u</span>
             </label>
             <input
               type="number"
-              step="10"
+              step="any"
               placeholder="0.00"
               value={partPrecioVentaManual}
-              onChange={(e) => setPartPrecioVentaManual(e.target.value)}
+              onChange={(e) => handlePartPrecioUnitarioChange(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && partNombre.trim() && parseFloat(e.currentTarget.value) > 0) {
+                if (e.key === "Enter" && partNombre.trim() && (parseFloat(e.currentTarget.value) > 0 || parseFloat(partSubtotalManual) > 0)) {
                   handleAddPart();
                 }
               }}
-              className="w-full h-8 text-xs bg-white border border-indigo-300 rounded-md px-2.5 text-indigo-950 font-black tabular-nums font-mono focus:ring-1 focus:ring-indigo-500 outline-none no-spinners"
+              className="w-full h-8 text-xs bg-white border border-indigo-300 rounded-md px-2 text-indigo-950 font-black tabular-nums font-mono focus:ring-1 focus:ring-indigo-500 outline-none no-spinners"
+            />
+          </div>
+
+          <div className="sm:col-span-2">
+            <label className="block text-[10px] font-bold uppercase text-emerald-700 mb-1 flex items-center justify-between">
+              <span>Total ($) *</span>
+              <span className="text-[9px] font-normal text-slate-400">subtotal</span>
+            </label>
+            <input
+              type="number"
+              step="any"
+              placeholder="0.00"
+              value={partSubtotalManual}
+              onChange={(e) => handlePartSubtotalChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && partNombre.trim() && (parseFloat(e.currentTarget.value) > 0 || pPrecio > 0)) {
+                  handleAddPart();
+                }
+              }}
+              className="w-full h-8 text-xs bg-emerald-50/50 border border-emerald-300 rounded-md px-2 text-emerald-950 font-black tabular-nums font-mono focus:ring-1 focus:ring-emerald-500 outline-none no-spinners"
             />
           </div>
         </div>
@@ -2610,7 +2689,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
               </button>
               <button
                 type="button"
-                disabled={!partNombre.trim() || !(parseFloat(partPrecioVentaManual) > 0) || addingPartLoading}
+                disabled={!partNombre.trim() || (!(parseFloat(partPrecioVentaManual) > 0) && !(parseFloat(partSubtotalManual) > 0)) || addingPartLoading}
                 onClick={handleAddPart}
                 className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold disabled:opacity-50 cursor-pointer flex items-center gap-1.5 shadow-xs"
               >
@@ -4236,7 +4315,10 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                   max="335"
                                   step="5"
                                   value={jitAncho}
-                                  onChange={(e) => setJitAncho(parseInt(e.target.value) || 205)}
+                                  onChange={(e) => setJitAncho(e.target.value === "" ? "" : parseInt(e.target.value) || "")}
+                                  onBlur={() => {
+                                    if (!jitAncho || Number(jitAncho) < 135) setJitAncho(205);
+                                  }}
                                   className="w-12 text-center font-bold text-slate-900 border-none outline-none p-0 text-xs"
                                 />
                               </div>
@@ -4249,7 +4331,10 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                   max="85"
                                   step="5"
                                   value={jitPerfil}
-                                  onChange={(e) => setJitPerfil(parseInt(e.target.value) || 55)}
+                                  onChange={(e) => setJitPerfil(e.target.value === "" ? "" : parseInt(e.target.value) || "")}
+                                  onBlur={() => {
+                                    if (!jitPerfil || Number(jitPerfil) < 25) setJitPerfil(55);
+                                  }}
                                   className="w-10 text-center font-bold text-slate-900 border-none outline-none p-0 text-xs"
                                 />
                               </div>
@@ -4260,7 +4345,10 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                   min="12"
                                   max="24"
                                   value={jitRin}
-                                  onChange={(e) => setJitRin(parseInt(e.target.value) || 16)}
+                                  onChange={(e) => setJitRin(e.target.value === "" ? "" : parseInt(e.target.value) || "")}
+                                  onBlur={() => {
+                                    if (!jitRin || Number(jitRin) < 12) setJitRin(16);
+                                  }}
                                   className="w-8 text-center font-bold text-blue-900 bg-transparent border-none outline-none p-0 text-xs"
                                 />
                               </div>
@@ -6139,6 +6227,12 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
             sucursalId={sucursalActiva?.id}
             ordenServicioId={orderId}
             refaccionesDisponibles={partsList}
+            serviciosDisponibles={servicesList.map((s: any) => ({
+              id: s.id,
+              nombre: s.servicios_taller?.nombre || s.concepto_personalizado || "Servicio",
+              precio: s.precio_cobrado,
+              cantidad: s.cantidad || 1,
+            }))}
             preselectedRefaccionId={attachingPartForEvidence?.id}
             defaultDescripcion={
               attachingPartForEvidence
