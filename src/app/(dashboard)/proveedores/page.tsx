@@ -71,7 +71,9 @@ export default function ProveedoresPage() {
   const [isNewProveedorModalOpen, setIsNewProveedorModalOpen] = useState(false);
   const [abonoDefaultProveedorId, setAbonoDefaultProveedorId] = useState<string | undefined>();
   const [abonoDefaultCompraId, setAbonoDefaultCompraId] = useState<string | undefined>();
+  const [abonoDefaultCompraIds, setAbonoDefaultCompraIds] = useState<string[] | undefined>();
   const [abonoDefaultMonto, setAbonoDefaultMonto] = useState<number | undefined>();
+  const [selectedTicketIdsInTable, setSelectedTicketIdsInTable] = useState<string[]>([]);
 
   // Ticket Detalle Modal State
   const [ticketDetalleModal, setTicketDetalleModal] = useState<{
@@ -209,6 +211,7 @@ export default function ProveedoresPage() {
   const handleAbonarTicket = (compra: DetalleTicketCompra) => {
     setAbonoDefaultProveedorId(compra.proveedor_id);
     setAbonoDefaultCompraId(compra.id);
+    setAbonoDefaultCompraIds([compra.id]);
     setAbonoDefaultMonto(compra.monto_saldo_pendiente);
     setIsAbonoModalOpen(true);
   };
@@ -669,6 +672,29 @@ export default function ProveedoresPage() {
             <table className="w-full text-left text-xs text-slate-600">
               <thead className="bg-slate-50 text-slate-700 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200">
                 <tr>
+                  <th className="py-3 px-3 w-8 text-center">
+                    <input
+                      type="checkbox"
+                      title="Seleccionar todos los tickets con saldo"
+                      checked={
+                        comprasFiltradas.filter((c) => c.monto_saldo_pendiente > 0).length > 0 &&
+                        comprasFiltradas
+                          .filter((c) => c.monto_saldo_pendiente > 0)
+                          .every((c) => selectedTicketIdsInTable.includes(c.id))
+                      }
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          const idsConSaldo = comprasFiltradas
+                            .filter((c) => c.monto_saldo_pendiente > 0)
+                            .map((c) => c.id);
+                          setSelectedTicketIdsInTable(idsConSaldo);
+                        } else {
+                          setSelectedTicketIdsInTable([]);
+                        }
+                      }}
+                      className="w-4 h-4 rounded text-primary focus:ring-primary cursor-pointer"
+                    />
+                  </th>
                   <th className="py-3 px-3">Fecha</th>
                   <th className="py-3 px-3">Folio / Ticket</th>
                   <th className="py-3 px-3">Proveedor</th>
@@ -683,7 +709,7 @@ export default function ProveedoresPage() {
               <tbody className="divide-y divide-slate-100">
                 {comprasFiltradas.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-12 text-center text-slate-400">
+                    <td colSpan={10} className="py-12 text-center text-slate-400">
                       No se encontraron compras con los filtros seleccionados.
                     </td>
                   </tr>
@@ -692,9 +718,31 @@ export default function ProveedoresPage() {
                     <tr
                       key={compra.id}
                       onClick={() => handleOpenTicketDetalle(compra)}
-                      className="hover:bg-sky-50/60 transition-colors cursor-pointer group"
+                      className={`hover:bg-sky-50/60 transition-colors cursor-pointer group ${
+                        selectedTicketIdsInTable.includes(compra.id) ? "bg-sky-50/40" : ""
+                      }`}
                       title="Haz clic para ver el detalle completo de este ticket"
                     >
+                      <td className="py-3 px-3 text-center" onClick={(e) => e.stopPropagation()}>
+                        {compra.monto_saldo_pendiente > 0 ? (
+                          <input
+                            type="checkbox"
+                            checked={selectedTicketIdsInTable.includes(compra.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedTicketIdsInTable([...selectedTicketIdsInTable, compra.id]);
+                              } else {
+                                setSelectedTicketIdsInTable(
+                                  selectedTicketIdsInTable.filter((id) => id !== compra.id)
+                                );
+                              }
+                            }}
+                            className="w-4 h-4 rounded text-primary focus:ring-primary cursor-pointer"
+                          />
+                        ) : (
+                          <span className="text-slate-300 text-[10px]">—</span>
+                        )}
+                      </td>
                       <td className="py-3 px-3 font-medium text-slate-900 whitespace-nowrap">
                         {compra.fecha_compra}
                       </td>
@@ -760,6 +808,60 @@ export default function ProveedoresPage() {
               </tbody>
             </table>
           </div>
+
+          {/* BARRA FLOTANTE DE PAGO MULTI-TICKET */}
+          {selectedTicketIdsInTable.length > 0 && (
+            <div className="sticky bottom-4 z-20 bg-slate-900 text-white p-3.5 sm:px-6 sm:py-4 rounded-2xl shadow-2xl border border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in slide-in-from-bottom-3 mt-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-emerald-500/20 text-emerald-400 rounded-xl">
+                  <DollarSign className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="font-bold text-sm text-slate-100 flex items-center gap-2">
+                    <span>{selectedTicketIdsInTable.length} ticket(s) seleccionado(s)</span>
+                    <span className="text-slate-500">•</span>
+                    <span className="text-emerald-400 font-mono font-black text-base">
+                      $
+                      {compras
+                        .filter((c) => selectedTicketIdsInTable.includes(c.id))
+                        .reduce((acc, c) => acc + Number(c.monto_saldo_pendiente || 0), 0)
+                        .toLocaleString("es-MX", { minimumFractionDigits: 2 })}{" "}
+                      MXN
+                    </span>
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    Abona o liquida estos tickets en una sola transferencia o salida de caja
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setSelectedTicketIdsInTable([])}
+                  className="px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl font-semibold text-xs cursor-pointer transition-colors"
+                >
+                  Desmarcar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const ticketsSeleccionados = compras.filter((c) =>
+                      selectedTicketIdsInTable.includes(c.id)
+                    );
+                    const provId = ticketsSeleccionados[0]?.proveedor_id;
+                    setAbonoDefaultProveedorId(provId);
+                    setAbonoDefaultCompraIds(selectedTicketIdsInTable);
+                    setIsAbonoModalOpen(true);
+                  }}
+                  className="h-11 px-5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black rounded-xl text-xs flex items-center gap-2 shadow-lg transition-all cursor-pointer"
+                >
+                  <DollarSign className="w-4 h-4" />
+                  Pagar {selectedTicketIdsInTable.length} Ticket(s) Seleccionado(s)
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Sección de Abonos Históricos */}
           {abonos.length > 0 && (
@@ -983,17 +1085,21 @@ export default function ProveedoresPage() {
         onClose={() => {
           setIsAbonoModalOpen(false);
           setAbonoDefaultCompraId(undefined);
+          setAbonoDefaultCompraIds(undefined);
           setAbonoDefaultMonto(undefined);
         }}
         empresaId={empresaId}
         defaultProveedorId={abonoDefaultProveedorId}
         defaultCompraId={abonoDefaultCompraId}
+        defaultCompraIds={abonoDefaultCompraIds}
         defaultMonto={abonoDefaultMonto}
         proveedores={proveedores}
         onAbonoRegistrado={() => {
           setIsAbonoModalOpen(false);
           setAbonoDefaultCompraId(undefined);
+          setAbonoDefaultCompraIds(undefined);
           setAbonoDefaultMonto(undefined);
+          setSelectedTicketIdsInTable([]);
           cargarDatosCompletos();
         }}
       />

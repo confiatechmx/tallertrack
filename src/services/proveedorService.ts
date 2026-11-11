@@ -11,6 +11,24 @@ export type CompraProveedorInsert = Database["public"]["Tables"]["compras_provee
 export type ProveedorAbono = Database["public"]["Tables"]["proveedores_abonos"]["Row"];
 export type ProveedorAbonoInsert = Database["public"]["Tables"]["proveedores_abonos"]["Insert"];
 
+export interface AbonoMultiTicketItem {
+  compra_id: string;
+  monto: number;
+  folio_ticket_nota?: string;
+}
+
+export interface RegistrarAbonoMultiplesTicketsParams {
+  empresa_id: string;
+  sucursal_id?: string | null;
+  caja_turno_id?: string | null;
+  caja_fondo_id?: string | null;
+  proveedor_id: string;
+  metodo_pago: "EFECTIVO_CAJA" | "TRANSFERENCIA" | "FONDO_RESERVA" | "OTRO";
+  referencia?: string | null;
+  items: AbonoMultiTicketItem[];
+  monto_general_adicional?: number;
+}
+
 export interface CompraConProveedor extends CompraProveedor {
   proveedor?: {
     id: string;
@@ -292,6 +310,92 @@ export const ProveedorService = {
     } catch (err: any) {
       console.error("Error al registrar abono a proveedor:", err);
       return { data: null, error: err.message || "Error al procesar abono" };
+    }
+  },
+
+  /**
+   * Registra el pago / abono a múltiples tickets en una sola operación,
+   * amortizando individualmente cada factura y/o aplicando excedentes a la cuenta corriente
+   */
+  async registrarAbonoMultiplesTickets(
+    params: RegistrarAbonoMultiplesTicketsParams
+  ): Promise<{ success: boolean; abonosCreados: ProveedorAbono[]; error: string | null }> {
+    try {
+      const {
+        empresa_id,
+        sucursal_id,
+        caja_turno_id,
+        caja_fondo_id,
+        proveedor_id,
+        metodo_pago,
+        referencia,
+        items,
+        monto_general_adicional,
+      } = params;
+
+      const abonosCreados: ProveedorAbono[] = [];
+      const totalTickets = items.filter((it) => it.monto > 0).length;
+
+      // 1. Registrar abono por cada ticket seleccionado
+      for (const item of items) {
+        if (item.monto <= 0) continue;
+
+        let refFinal = referencia?.trim() || "";
+        if (totalTickets > 1 && item.folio_ticket_nota) {
+          const tag = `(Ticket #${item.folio_ticket_nota})`;
+          refFinal = refFinal ? `${refFinal} ${tag}` : tag;
+        }
+
+        const payload: ProveedorAbonoInsert = {
+          empresa_id,
+          sucursal_id: sucursal_id || null,
+          caja_turno_id: caja_turno_id || null,
+          caja_fondo_id: caja_fondo_id || null,
+          proveedor_id,
+          compra_id: item.compra_id,
+          monto: Number(item.monto.toFixed(2)),
+          metodo_pago,
+          referencia: refFinal.trim() || null,
+        };
+
+        const { data, error } = await supabase
+          .from("proveedores_abonos")
+          .insert(payload)
+          .select()
+          .single();
+
+        if (error) throw error;
+        if (data) abonosCreados.push(data as ProveedorAbono);
+      }
+
+      // 2. Si hay excedente o abono general sin ticket asignado
+      if (monto_general_adicional && monto_general_adicional > 0) {
+        const payloadGeneral: ProveedorAbonoInsert = {
+          empresa_id,
+          sucursal_id: sucursal_id || null,
+          caja_turno_id: caja_turno_id || null,
+          caja_fondo_id: caja_fondo_id || null,
+          proveedor_id,
+          compra_id: null,
+          monto: Number(monto_general_adicional.toFixed(2)),
+          metodo_pago,
+          referencia: referencia ? `${referencia} (Abono general)` : "Abono general a cuenta corriente",
+        };
+
+        const { data, error } = await supabase
+          .from("proveedores_abonos")
+          .insert(payloadGeneral)
+          .select()
+          .single();
+
+        if (error) throw error;
+        if (data) abonosCreados.push(data as ProveedorAbono);
+      }
+
+      return { success: true, abonosCreados, error: null };
+    } catch (err: any) {
+      console.error("Error al registrar abonos múltiples a proveedor:", err);
+      return { success: false, abonosCreados: [], error: err.message || "Error al procesar el pago" };
     }
   },
 

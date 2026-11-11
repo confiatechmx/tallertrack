@@ -188,6 +188,57 @@ describe("Suite Cova Tires: Pagos Autogestionables, Proveedores y Corte Diario",
       expect(estadosValidos).toContain("EN_RECLAMACION");
       expect(estadosValidos).toContain("APLICADA");
     });
+
+    it("debe registrar abonos múltiples a varios tickets o liquidación total en una sola transacción", async () => {
+      const { supabase } = await import("@/lib/supabase");
+      const insertsRealizados: any[] = [];
+
+      (supabase.from as any).mockReturnValue({
+        insert: vi.fn().mockImplementation((payload) => {
+          insertsRealizados.push(payload);
+          return {
+            select: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({
+                data: { id: `abono-${insertsRealizados.length}`, ...payload },
+                error: null,
+              }),
+            }),
+          };
+        }),
+      });
+
+      const params = {
+        empresa_id: "emp-1",
+        sucursal_id: "suc-1",
+        proveedor_id: "prov-ayon",
+        metodo_pago: "TRANSFERENCIA" as const,
+        referencia: "SPEI-BBVA-123",
+        items: [
+          { compra_id: "compra-1", monto: 1200, folio_ticket_nota: "AY-101" },
+          { compra_id: "compra-2", monto: 2500, folio_ticket_nota: "AY-102" },
+        ],
+        monto_general_adicional: 300,
+      };
+
+      const res = await ProveedorService.registrarAbonoMultiplesTickets(params);
+
+      expect(res.success).toBe(true);
+      expect(res.abonosCreados).toHaveLength(3);
+      expect(insertsRealizados).toHaveLength(3);
+
+      // Verificamos los montos individuales amortizados
+      expect(insertsRealizados[0].compra_id).toBe("compra-1");
+      expect(insertsRealizados[0].monto).toBe(1200);
+      expect(insertsRealizados[0].referencia).toContain("AY-101");
+
+      expect(insertsRealizados[1].compra_id).toBe("compra-2");
+      expect(insertsRealizados[1].monto).toBe(2500);
+      expect(insertsRealizados[1].referencia).toContain("AY-102");
+
+      // Verificamos el abono a cuenta corriente excedente
+      expect(insertsRealizados[2].compra_id).toBeNull();
+      expect(insertsRealizados[2].monto).toBe(300);
+    });
   });
 
   describe("3. Snapshot Consolidado de Corte Diario y Balance Fiscal", () => {
