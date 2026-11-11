@@ -22,9 +22,18 @@ export default function StandaloneOrderPrintPage() {
   const orderId = params?.id;
   const autoPrint = searchParams?.get("auto") === "true";
   const tipoQuery = searchParams?.get("tipo");
+  const vistaQuery = searchParams?.get("vista");
   const [docType, setDocType] = useState<"nota_venta" | "cotizacion">(
     tipoQuery === "cotizacion" ? "cotizacion" : "nota_venta"
   );
+  const [viewMode, setViewMode] = useState<"operaciones" | "clasico">(() => {
+    if (vistaQuery === "clasico" || vistaQuery === "operaciones") return vistaQuery;
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("tallertrack_quote_view_mode");
+      if (saved === "clasico" || saved === "operaciones") return saved;
+    }
+    return "operaciones";
+  });
 
   const [orderData, setOrderData] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
@@ -153,7 +162,39 @@ export default function StandaloneOrderPrintPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap sm:flex-nowrap">
+          {/* View Mode Selector */}
+          <div className="flex items-center bg-slate-800 p-0.5 rounded-lg border border-slate-700">
+            <button
+              type="button"
+              onClick={() => {
+                setViewMode("operaciones");
+                if (typeof window !== "undefined") localStorage.setItem("tallertrack_quote_view_mode", "operaciones");
+              }}
+              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors cursor-pointer ${
+                viewMode === "operaciones"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "text-slate-300 hover:text-white"
+              }`}
+            >
+              🗂️ Operaciones
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setViewMode("clasico");
+                if (typeof window !== "undefined") localStorage.setItem("tallertrack_quote_view_mode", "clasico");
+              }}
+              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors cursor-pointer ${
+                viewMode === "clasico"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "text-slate-300 hover:text-white"
+              }`}
+            >
+              📋 Clásico
+            </button>
+          </div>
+
           {/* Doc Type Selector */}
           <div className="flex items-center bg-slate-800 p-0.5 rounded-lg border border-slate-700">
             <button
@@ -195,11 +236,12 @@ export default function StandaloneOrderPrintPage() {
       {/* Sheet Content */}
       <div className="print:m-0 print:p-0">
         <OrderPrintSheet
-          key={docType}
+          key={`${docType}-${viewMode}`}
           order={orderData}
           mechanicName={orderData.mecanico?.nombre}
           isStandalone={true}
           initialDocType={docType}
+          initialViewMode={viewMode}
         />
       </div>
 

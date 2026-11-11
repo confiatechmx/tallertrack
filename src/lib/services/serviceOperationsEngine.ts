@@ -134,9 +134,50 @@ export const groupItemsByOperation = (
   // Build OperationGroup objects
   const result: OperationGroup[] = [];
   for (const [nombre, items] of groupsMap.entries()) {
-    const categoria = classifyOperationCategory(nombre);
+    let categoria = classifyOperationCategory(nombre);
     const hasTires = items.tires.length > 0;
     const hasMontaje = items.services.some(isMountingService);
+
+    // If category could not be derived from the package name, infer from items
+    if (categoria === "Otro") {
+      if (hasTires) {
+        categoria = "Llantas";
+      } else if (
+        items.parts.some((p) => {
+          const n = (p.nombre || "").toLowerCase();
+          return (
+            n.includes("amortiguador") ||
+            n.includes("base") ||
+            n.includes("rótula") ||
+            n.includes("terminal") ||
+            n.includes("bieleta") ||
+            n.includes("estabilizador") ||
+            n.includes("cacahuate") ||
+            n.includes("horquilla") ||
+            n.includes("suspens")
+          );
+        }) ||
+        items.services.some((s) => {
+          const n = (s.servicios_taller?.nombre || s.nombre || "").toLowerCase();
+          return n.includes("suspens") || n.includes("amortiguador") || n.includes("direcc") || n.includes("alineac");
+        })
+      ) {
+        categoria = "Suspensión";
+      } else if (
+        items.parts.some((p) => {
+          const n = (p.nombre || "").toLowerCase();
+          return n.includes("balata") || n.includes("disco") || n.includes("freno") || n.includes("caliper") || n.includes("tambor");
+        }) ||
+        items.services.some((s) => {
+          const n = (s.servicios_taller?.nombre || s.nombre || "").toLowerCase();
+          return n.includes("freno") || n.includes("balata") || n.includes("rectific");
+        })
+      ) {
+        categoria = "Frenos";
+      } else {
+        categoria = "General";
+      }
+    }
 
     const subtotalTires = items.tires.reduce((acc, t) => {
       const p = Number(t.precio_unitario || 0);
@@ -172,7 +213,7 @@ export const groupItemsByOperation = (
     });
   }
 
-  // Sort groups: Llantas first, then Suspensión, Frenos, General
+  // Sort groups: numbered blocks in order ("Bloque 1", "Operación 2"), then standard category order
   const categoryOrder: Record<string, number> = {
     Llantas: 1,
     Suspensión: 2,
@@ -181,7 +222,15 @@ export const groupItemsByOperation = (
     Otro: 5,
   };
 
-  return result.sort((a, b) => (categoryOrder[a.categoria] || 99) - (categoryOrder[b.categoria] || 99));
+  return result.sort((a, b) => {
+    const numA = a.nombre.match(/\d+/);
+    const numB = b.nombre.match(/\d+/);
+    if (numA && numB) {
+      const diff = parseInt(numA[0], 10) - parseInt(numB[0], 10);
+      if (diff !== 0) return diff;
+    }
+    return (categoryOrder[a.categoria] || 99) - (categoryOrder[b.categoria] || 99);
+  });
 };
 
 /**

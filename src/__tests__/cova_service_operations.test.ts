@@ -217,4 +217,104 @@ describe("Cova Service Operations & Packaging Engine", () => {
     expect(servicioEditado.horas_labor).toBe(1.5);
     expect(servicioEditado.precio_cobrado).toBe(650);
   });
+
+  it("permite distribuir partidas en bloques libres a voluntad del usuario (ej. 2 bloques de suspensión independientes)", () => {
+    // Escenario solicitado por el usuario:
+    // Bloque 1: Amortiguadores y Bases + Mano de obra de instalación de amortiguadores
+    // Bloque 2: Tornillos estabilizadores + Mano de obra de tornillos estabilizadores
+    const services = [
+      {
+        id: "s1",
+        paquete_operacion: "Bloque 1: Amortiguadores y Bases",
+        nombre: "Instalación de amortiguadores delanteros",
+        precio_cobrado: 700,
+        cantidad: 1,
+        subtotal: 700,
+      },
+      {
+        id: "s2",
+        paquete_operacion: "Bloque 2: Tornillos Estabilizadores",
+        nombre: "Instalación de tornillos estabilizadores (cacahuates)",
+        precio_cobrado: 350,
+        cantidad: 1,
+        subtotal: 350,
+      },
+    ];
+
+    const parts = [
+      {
+        id: "p1",
+        paquete_operacion: "Bloque 1: Amortiguadores y Bases",
+        nombre: "Amortiguadores Delanteros Gas",
+        precio_unitario: 1500,
+        cantidad: 2,
+        subtotal: 3000,
+      },
+      {
+        id: "p2",
+        paquete_operacion: "Bloque 1: Amortiguadores y Bases",
+        nombre: "Bases de Amortiguador Delanteras",
+        precio_unitario: 450,
+        cantidad: 2,
+        subtotal: 900,
+      },
+      {
+        id: "p3",
+        paquete_operacion: "Bloque 2: Tornillos Estabilizadores",
+        nombre: "Tornillos Estabilizadores Delanteros SYD",
+        precio_unitario: 280,
+        cantidad: 2,
+        subtotal: 560,
+      },
+    ];
+
+    const groups = groupItemsByOperation([], services, parts);
+
+    // Deben ser exactamente 2 bloques separados, NO fusionados
+    expect(groups).toHaveLength(2);
+
+    const b1 = groups.find((g) => g.nombre === "Bloque 1: Amortiguadores y Bases")!;
+    expect(b1).toBeDefined();
+    expect(b1.parts).toHaveLength(2);
+    expect(b1.services).toHaveLength(1);
+    expect(b1.subtotal).toBe(4600); // 3000 + 900 + 700
+    expect(b1.categoria).toBe("Suspensión");
+
+    const b2 = groups.find((g) => g.nombre === "Bloque 2: Tornillos Estabilizadores")!;
+    expect(b2).toBeDefined();
+    expect(b2.parts).toHaveLength(1);
+    expect(b2.services).toHaveLength(1);
+    expect(b2.subtotal).toBe(910); // 560 + 350
+    expect(b2.categoria).toBe("Suspensión");
+
+    // Ordenamiento numérico: Bloque 1 va antes que Bloque 2
+    expect(groups[0].nombre).toBe("Bloque 1: Amortiguadores y Bases");
+    expect(groups[1].nombre).toBe("Bloque 2: Tornillos Estabilizadores");
+  });
+
+  it("infiere la categoría correcta de un bloque con nombre genérico basado en sus refacciones", () => {
+    const parts = [
+      {
+        id: "p-freno",
+        paquete_operacion: "Operación 1",
+        nombre: "Juego de Balatas Delanteras Cerámicas",
+        precio_unitario: 650,
+        cantidad: 1,
+      },
+    ];
+    const services = [
+      {
+        id: "s-rect",
+        paquete_operacion: "Operación 1",
+        nombre: "Rectificado de Discos",
+        precio_cobrado: 400,
+        cantidad: 1,
+      },
+    ];
+
+    const groups = groupItemsByOperation([], services, parts);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].categoria).toBe("Frenos");
+    expect(groups[0].garantiaTexto).toContain("Garantía Cova Tires: 60 días o 3,000 km");
+  });
 });
