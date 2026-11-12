@@ -36,6 +36,8 @@ import {
   AlertCircle,
   FileText,
   ClipboardCheck,
+  Phone,
+  Gauge,
   Printer,
   Receipt,
   ArrowRight,
@@ -3187,23 +3189,25 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
 
   return (
     <div className="flex flex-col bg-slate-50 text-slate-900">
-      {/* Top Action Header Bar (Shopmonkey Style) */}
-      <div className="bg-white px-5 py-3.5 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-        <div className="flex items-start sm:items-center gap-3">
-          <div className="px-2.5 py-1.5 rounded-md bg-slate-900 text-white font-mono text-sm font-black tracking-tight tabular-nums shrink-0">
-            {folioStr}
+      {/* Top Action Header Bar */}
+      <div className="bg-white px-5 py-3 border-b border-slate-200 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+        {/* Lado Izquierdo: Ficha Rápida del Vehículo y Cliente */}
+        <div className="flex items-start sm:items-center gap-3.5">
+          <div className="px-3 py-1.5 rounded-lg bg-slate-900 text-white font-mono text-base font-black tracking-tight tabular-nums shrink-0 shadow-xs flex flex-col items-center justify-center min-w-[64px]">
+            <span className="text-[8.5px] uppercase font-bold text-slate-400 tracking-widest leading-none mb-0.5">Folio</span>
+            <span>{folioStr}</span>
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <Link
                 href={`/clientes/${c.id}?vehiculoId=${v.id}`}
                 onClick={onClose}
-                className="text-base font-bold text-slate-900 hover:text-blue-600 transition-colors flex items-center gap-1.5"
+                className="text-base sm:text-lg font-black text-slate-900 hover:text-blue-600 transition-colors flex items-center gap-1.5 tracking-tight"
               >
-                {v.marca} {v.modelo} {v.anio ? `(${v.anio})` : ""}
+                {v.marca || "Vehículo"} {v.modelo} {v.anio ? `(${v.anio})` : ""}
                 <ExternalLink size={13} className="text-slate-400" />
               </Link>
-              <span className="font-mono text-xs font-bold uppercase bg-slate-100 text-slate-700 border border-slate-300 px-2 py-0.5 rounded">
+              <span className="font-mono text-xs font-black uppercase bg-slate-100 text-slate-800 border border-slate-300 px-2 py-0.5 rounded shadow-2xs">
                 {v.placas || "SIN PLACA"}
               </span>
               <span
@@ -3219,121 +3223,142 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
               </span>
               {order.aprobado_cliente_nombre && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                  <ShieldCheck size={11} /> Autorizado por {order.aprobado_cliente_nombre}
+                  <ShieldCheck size={11} /> Autorizado
                 </span>
               )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 mt-1">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600 mt-1">
               <Link
                 href={`/clientes/${c.id}?vehiculoId=${v.id}`}
                 onClick={onClose}
-                className="inline-flex items-center gap-1 font-medium text-slate-700 hover:text-blue-600 hover:underline"
+                className="inline-flex items-center gap-1.5 font-bold text-slate-800 hover:text-blue-600 hover:underline"
               >
-                <User size={12} className="text-slate-400" />
-                {c.nombre}
+                <User size={13} className="text-slate-400" />
+                {c.nombre || "Cliente General"}
               </Link>
-              {c.telefono && <span className="tabular-nums">• Tel: {c.telefono}</span>}
-              <span className="tabular-nums">
-                • {Number(order.kilometraje_ingreso || 0).toLocaleString("es-MX")} km
-              </span>
-              {order.bahia_rampa && (
-                <span className="text-slate-700 font-medium">• {order.bahia_rampa}</span>
+              {c.telefono && (
+                <a
+                  href={`tel:${c.telefono}`}
+                  className="inline-flex items-center gap-1 text-slate-500 hover:text-emerald-700 tabular-nums transition-colors"
+                  title="Llamar o copiar teléfono"
+                >
+                  <Phone size={11} className="text-slate-400" />
+                  <span>{c.telefono}</span>
+                </a>
               )}
+              <span className="inline-flex items-center gap-1 text-slate-600 tabular-nums font-medium">
+                <Gauge size={12} className="text-slate-400" />
+                <span>{Number(order.kilometraje_ingreso || 0).toLocaleString("es-MX")} km</span>
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Right Controls: Portal Link, WhatsApp, Status Selectors */}
-        <div className="flex flex-wrap items-center gap-2">
-          <a
-            href={`/orden/${orderId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors shadow-xs"
-          >
-            <ExternalLink size={13} className="text-blue-600" />
-            Portal Cliente
-          </a>
+        {/* Lado Derecho: Controles de Comunicación y Operación Agrupados */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 xl:self-center">
+          {/* Subgrupo 1: Acciones con Cliente */}
+          <div className="flex items-center gap-2">
+            <a
+              href={`/orden/${orderId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors shadow-2xs"
+              title="Abrir portal web del cliente"
+            >
+              <ExternalLink size={13} className="text-blue-600" />
+              <span>Portal</span>
+            </a>
 
-          <button
-            type="button"
-            onClick={handleSendWhatsApp}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors shadow-xs cursor-pointer"
-          >
-            <MessageCircle size={13} />
-            Enviar por WhatsApp
-          </button>
-
-          <select
-            value={order.mecanico_id || ""}
-            onChange={(e) => handleUpdateMechanic(e.target.value)}
-            className="h-8 text-xs font-semibold bg-slate-50 border border-slate-300 rounded-md px-2.5 text-slate-800 focus:outline-none focus:border-blue-600"
-            title="Técnico Asignado"
-          >
-            <option value="">Sin Técnico</option>
-            {mechanics
-              .filter((m) => m.rol === "Mecánico" || m.puesto?.toLowerCase().includes("técnico"))
-              .map((m) => (
-                <option key={m.id} value={m.id}>
-                  🔧 {m.nombre}
-                </option>
-              ))}
-          </select>
-
-          <select
-            value={order.bahia_rampa || ""}
-            onChange={(e) => handleUpdateBahia(e.target.value)}
-            className="h-8 text-xs font-semibold bg-slate-50 border border-slate-300 rounded-md px-2.5 text-slate-800 focus:outline-none focus:border-blue-600"
-            title="Estación de Trabajo / Rampa"
-          >
-            <option value="">Sin Estación</option>
-            {estacionesList.map((b) => (
-              <option key={b} value={b}>
-                📍 {b}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={order.estado}
-            onChange={(e) => handleUpdateStatus(e.target.value)}
-            className="h-8 text-xs font-bold bg-slate-900 text-white border border-slate-900 rounded-md px-2.5 focus:outline-none cursor-pointer"
-          >
-            <option value="Citas del Día">1. Citas del Día</option>
-            <option value="En Inspección">2. En Inspección</option>
-            <option value="En Rampa">3. En Rampa</option>
-            <option value="Listo para Entrega">4. Listo para Entrega</option>
-            <option value="Entregado">5. Entregado / Salida de Taller</option>
-          </select>
-
-          {order.estado === "Listo para Entrega" && (
             <button
               type="button"
-              onClick={async () => {
-                await handleUpdateStatus("Entregado");
-                await handleUpdateSubStatus("Entregado");
-                toast.success("Vehículo marcado como entregado. La orden sale del tablero.");
-                onClose();
-              }}
-              className="h-8 px-2.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-md flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
-              title="Marcar como entregado y archivar del tablero"
+              onClick={handleSendWhatsApp}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors shadow-2xs cursor-pointer"
+              title="Compartir orden por WhatsApp"
             >
-              <CheckCircle2 size={13} /> Entregar Auto
+              <MessageCircle size={13} />
+              <span>WhatsApp</span>
             </button>
-          )}
+          </div>
 
-          <select
-            value={order.sub_estado || "Activa"}
-            onChange={(e) => handleUpdateSubStatus(e.target.value)}
-            className="h-8 text-xs font-semibold bg-white border border-slate-300 rounded-md px-2.5 text-slate-700 focus:outline-none focus:border-blue-600"
-          >
-            <option value="Activa">Sub: Activa</option>
-            <option value="Esperando Aprobación Cliente">Sub: Esperando Aprobación</option>
-            <option value="En Reparación">Sub: En Reparación</option>
-            <option value="Por Cobrar en Caja">Sub: Por Cobrar en Caja</option>
-            <option value="Entregado">Sub: Entregado</option>
-          </select>
+          <div className="hidden sm:block h-6 w-px bg-slate-200 mx-1" />
+
+          {/* Subgrupo 2: Asignación Operativa y Tablero */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Técnico */}
+            <select
+              value={order.mecanico_id || ""}
+              onChange={(e) => handleUpdateMechanic(e.target.value)}
+              className="h-8 text-xs font-semibold bg-white border border-slate-200 rounded-lg px-2.5 text-slate-800 focus:outline-none focus:border-blue-600 shadow-2xs"
+              title="Técnico Asignado"
+            >
+              <option value="">Sin Técnico</option>
+              {mechanics
+                .filter((m) => m.rol === "Mecánico" || m.puesto?.toLowerCase().includes("técnico"))
+                .map((m) => (
+                  <option key={m.id} value={m.id}>
+                    🔧 {m.nombre}
+                  </option>
+                ))}
+            </select>
+
+            {/* Estación / Rampa */}
+            <select
+              value={order.bahia_rampa || ""}
+              onChange={(e) => handleUpdateBahia(e.target.value)}
+              className="h-8 text-xs font-semibold bg-white border border-slate-200 rounded-lg px-2.5 text-slate-800 focus:outline-none focus:border-blue-600 shadow-2xs"
+              title="Estación de Trabajo / Rampa"
+            >
+              <option value="">Sin Estación</option>
+              {estacionesList.map((b) => (
+                <option key={b} value={b}>
+                  📍 {b}
+                </option>
+              ))}
+            </select>
+
+            {/* Estado Kanban */}
+            <select
+              value={order.estado}
+              onChange={(e) => handleUpdateStatus(e.target.value)}
+              className="h-8 text-xs font-bold bg-slate-900 text-white border border-slate-900 rounded-lg px-2.5 focus:outline-none cursor-pointer shadow-2xs"
+            >
+              <option value="Citas del Día">1. Citas del Día</option>
+              <option value="En Inspección">2. En Inspección</option>
+              <option value="En Rampa">3. En Rampa</option>
+              <option value="Listo para Entrega">4. Listo para Entrega</option>
+              <option value="Entregado">5. Entregado / Salida</option>
+            </select>
+
+            {order.estado === "Listo para Entrega" && (
+              <button
+                type="button"
+                onClick={async () => {
+                  await handleUpdateStatus("Entregado");
+                  await handleUpdateSubStatus("Entregado");
+                  toast.success("Vehículo marcado como entregado. La orden sale del tablero.");
+                  onClose();
+                }}
+                className="h-8 px-2.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
+                title="Marcar como entregado y archivar del tablero"
+              >
+                <CheckCircle2 size={13} /> Entregar Auto
+              </button>
+            )}
+
+            {/* Sub-estado */}
+            <select
+              value={order.sub_estado || "Activa"}
+              onChange={(e) => handleUpdateSubStatus(e.target.value)}
+              className="h-8 text-xs font-medium bg-white border border-slate-200 rounded-lg px-2 text-slate-600 focus:outline-none focus:border-blue-600 shadow-2xs"
+            >
+              <option value="Activa">Sub: Activa</option>
+              <option value="Esperando Aprobación Cliente">Sub: Esperando Aprobación</option>
+              <option value="En Reparación">Sub: En Reparación</option>
+              <option value="Por Cobrar en Caja">Sub: Por Cobrar en Caja</option>
+              <option value="Entregado">Sub: Entregado</option>
+            </select>
+          </div>
         </div>
       </div>
 

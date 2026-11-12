@@ -823,8 +823,13 @@ export function KanbanBoard() {
       <Modal
         isOpen={!!selectedOrderId}
         onClose={() => setSelectedOrderId(null)}
-        title="Estación de Trabajo de Orden de Servicio (Shopmonkey Workspace)"
-        description="Cotización de Mano de Obra y Refacciones, Calculadora de Margen, DVI Persistente, Cobranza e Impresión."
+        title={(() => {
+          const active = orders.find((o) => o.id === selectedOrderId);
+          if (!active) return "Orden de Servicio";
+          const folioDisplay = `#${1000 + Number(active.folio || 1)}`;
+          const auto = active.carModel || "";
+          return `Orden de Servicio ${folioDisplay}${auto ? ` · ${auto}` : ""}`;
+        })()}
         size="full"
       >
         {selectedOrderId && (
