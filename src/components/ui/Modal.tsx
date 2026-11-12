@@ -11,6 +11,7 @@ interface ModalProps {
   description?: string;
   size?: "md" | "lg" | "xl" | "2xl" | "full";
   zIndex?: string;
+  hideHeader?: boolean;
   children: React.ReactNode;
 }
 
@@ -29,6 +30,7 @@ export function Modal({
   description,
   size = "lg",
   zIndex = "z-50",
+  hideHeader = false,
   children,
 }: ModalProps) {
   const [isRendered, setIsRendered] = useState(isOpen);
@@ -72,19 +74,21 @@ export function Modal({
           if (!isOpen) setIsRendered(false);
         }}
       >
-        {/* Header */}
-        <div className="px-5 py-3.5 border-b border-slate-200 bg-white flex items-center justify-between shrink-0">
-          <div>
-            <h2 className="text-sm font-bold text-slate-900 tracking-tight">{title}</h2>
-            {description && <p className="text-xs text-slate-500 mt-0.5">{description}</p>}
+        {/* Header (opcional si el contenido provee su propia barra de comando) */}
+        {!hideHeader && (
+          <div className="px-5 py-3.5 border-b border-slate-200 bg-white flex items-center justify-between shrink-0">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 tracking-tight">{title}</h2>
+              {description && <p className="text-xs text-slate-500 mt-0.5">{description}</p>}
+            </div>
+            <button
+              onClick={onClose}
+              className="text-slate-400 hover:text-slate-700 hover:bg-slate-100 p-1.5 rounded-md transition-colors cursor-pointer"
+            >
+              <X size={18} strokeWidth={1.75} />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 hover:bg-slate-100 p-1.5 rounded-md transition-colors cursor-pointer"
-          >
-            <X size={18} strokeWidth={1.75} />
-          </button>
-        </div>
+        )}
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto dense-scrollbar bg-white">

@@ -819,18 +819,13 @@ export function KanbanBoard() {
         />
       </Modal>
 
-      {/* Modal for Full Tabbed Order Workspace */}
+      {/* Modal for Full Tabbed Order Workspace (Unificado con Command Header nativo) */}
       <Modal
         isOpen={!!selectedOrderId}
         onClose={() => setSelectedOrderId(null)}
-        title={(() => {
-          const active = orders.find((o) => o.id === selectedOrderId);
-          if (!active) return "Orden de Servicio";
-          const folioDisplay = `#${1000 + Number(active.folio || 1)}`;
-          const auto = active.carModel || "";
-          return `Orden de Servicio ${folioDisplay}${auto ? ` · ${auto}` : ""}`;
-        })()}
+        title="Orden de Servicio"
         size="full"
+        hideHeader
       >
         {selectedOrderId && (
           <ErrorBoundary fallbackTitle="Error al abrir el detalle de la orden">

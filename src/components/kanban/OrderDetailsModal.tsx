@@ -2355,15 +2355,29 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   const folioStr = `#${1000 + Number(order.folio || 1)}`;
   const assignedMechanic = mechanics.find((m) => m.id === order.mecanico_id);
 
+  // Módulo Opcional: Portal del Cliente (configurable por tenant, apagado por defecto para Taller Cova)
+  const activeEmpresa = order.empresa || empresa;
+  const customMeta = (activeEmpresa?.custom_metadata as any) || {};
+  const tieneModuloPortalCliente = Boolean(
+    customMeta?.modulos?.portal_cliente ?? activeEmpresa?.modulo_portal_cliente ?? false
+  );
+
   const handleSendWhatsApp = () => {
     const cleanPhone = (c.telefono || "8112345678").replace(/\D/g, "");
     const portalUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/orden/${orderId}`;
-    const msg = `Hola *${c.nombre || "Cliente"}*, te saludamos de *${
-      empresa?.nombre_comercial || "Torque & Ruta"
-    }*. 🚗\n\nTu unidad *${v.marca} ${v.modelo}* (${v.placas || "S/P"}) con Orden *${folioStr}* tiene lista su Inspección Digital Multipunto (DVI) y cotización por *$${granTotal.toLocaleString(
+    
+    let msg = `Hola *${c.nombre || "Cliente"}*, te saludamos de *${
+      activeEmpresa?.nombre_comercial || "Cova"
+    }*. 🚗\n\nTu unidad *${v.marca} ${v.modelo}* (${v.placas || "S/P"}) con Orden *${folioStr}* tiene lista su cotización por *$${granTotal.toLocaleString(
       "es-MX",
       { minimumFractionDigits: 2 }
-    )} MXN*.\n\nPuedes revisar las fotos, el diagnóstico técnico y autorizar en 1 clic desde tu celular aquí:\n👉 ${portalUrl}`;
+    )} MXN*.`;
+
+    if (tieneModuloPortalCliente) {
+      msg += `\n\nPuedes revisar los conceptos, diagnóstico y autorizar en 1 clic aquí:\n👉 ${portalUrl}`;
+    } else {
+      msg += `\n\nQuedamos a tus órdenes para cualquier duda o autorización del servicio.`;
+    }
 
     window.open(
       `https://wa.me/52${cleanPhone.slice(-10)}?text=${encodeURIComponent(msg)}`,
@@ -3189,13 +3203,12 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
 
   return (
     <div className="flex flex-col bg-slate-50 text-slate-900">
-      {/* Top Action Header Bar */}
-      <div className="bg-white px-5 py-3 border-b border-slate-200 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
-        {/* Lado Izquierdo: Ficha Rápida del Vehículo y Cliente */}
-        <div className="flex items-start sm:items-center gap-3.5">
-          <div className="px-3 py-1.5 rounded-lg bg-slate-900 text-white font-mono text-base font-black tracking-tight tabular-nums shrink-0 shadow-xs flex flex-col items-center justify-center min-w-[64px]">
-            <span className="text-[8.5px] uppercase font-bold text-slate-400 tracking-widest leading-none mb-0.5">Folio</span>
-            <span>{folioStr}</span>
+      {/* Top Action Header Bar (Command Bar Unificada) */}
+      <div className="bg-white px-5 py-3.5 border-b border-slate-200 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+        {/* Lado Izquierdo: Ficha de Unidad, Cliente y Estado Financiero */}
+        <div className="flex items-center gap-3">
+          <div className="px-2.5 py-1 rounded-md bg-slate-900 text-white font-mono text-sm font-black tracking-tight tabular-nums shrink-0 shadow-2xs">
+            {folioStr}
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-2">
@@ -3228,7 +3241,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
               )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600 mt-1">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-600 mt-1">
               <Link
                 href={`/clientes/${c.id}?vehiculoId=${v.id}`}
                 onClick={onClose}
@@ -3255,10 +3268,10 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
           </div>
         </div>
 
-        {/* Lado Derecho: Controles de Comunicación y Operación Agrupados */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 xl:self-center">
-          {/* Subgrupo 1: Acciones con Cliente */}
-          <div className="flex items-center gap-2">
+        {/* Lado Derecho: Controles Operativos & Botón Cerrar */}
+        <div className="flex flex-wrap items-center gap-2 xl:self-center">
+          {/* Módulo Opcional: Portal Cliente (Oculto si el tenant no lo tiene habilitado) */}
+          {tieneModuloPortalCliente && (
             <a
               href={`/orden/${orderId}`}
               target="_blank"
@@ -3269,96 +3282,106 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
               <ExternalLink size={13} className="text-blue-600" />
               <span>Portal</span>
             </a>
+          )}
 
-            <button
-              type="button"
-              onClick={handleSendWhatsApp}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors shadow-2xs cursor-pointer"
-              title="Compartir orden por WhatsApp"
-            >
-              <MessageCircle size={13} />
-              <span>WhatsApp</span>
-            </button>
-          </div>
+          {/* Botón WhatsApp */}
+          <button
+            type="button"
+            onClick={handleSendWhatsApp}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors shadow-2xs cursor-pointer"
+            title="Compartir cotización por WhatsApp"
+          >
+            <MessageCircle size={14} />
+            <span>WhatsApp</span>
+          </button>
 
-          <div className="hidden sm:block h-6 w-px bg-slate-200 mx-1" />
+          <div className="hidden sm:block h-6 w-px bg-slate-200 mx-0.5" />
 
-          {/* Subgrupo 2: Asignación Operativa y Tablero */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Técnico */}
-            <select
-              value={order.mecanico_id || ""}
-              onChange={(e) => handleUpdateMechanic(e.target.value)}
-              className="h-8 text-xs font-semibold bg-white border border-slate-200 rounded-lg px-2.5 text-slate-800 focus:outline-none focus:border-blue-600 shadow-2xs"
-              title="Técnico Asignado"
-            >
-              <option value="">Sin Técnico</option>
-              {mechanics
-                .filter((m) => m.rol === "Mecánico" || m.puesto?.toLowerCase().includes("técnico"))
-                .map((m) => (
-                  <option key={m.id} value={m.id}>
-                    🔧 {m.nombre}
-                  </option>
-                ))}
-            </select>
-
-            {/* Estación / Rampa */}
-            <select
-              value={order.bahia_rampa || ""}
-              onChange={(e) => handleUpdateBahia(e.target.value)}
-              className="h-8 text-xs font-semibold bg-white border border-slate-200 rounded-lg px-2.5 text-slate-800 focus:outline-none focus:border-blue-600 shadow-2xs"
-              title="Estación de Trabajo / Rampa"
-            >
-              <option value="">Sin Estación</option>
-              {estacionesList.map((b) => (
-                <option key={b} value={b}>
-                  📍 {b}
+          {/* Asignación de Piso: Técnico y Estación */}
+          <select
+            value={order.mecanico_id || ""}
+            onChange={(e) => handleUpdateMechanic(e.target.value)}
+            className="h-8 text-xs font-semibold bg-white border border-slate-200 rounded-lg px-2.5 text-slate-800 focus:outline-none focus:border-blue-600 shadow-2xs"
+            title="Técnico Asignado"
+          >
+            <option value="">Sin Técnico</option>
+            {mechanics
+              .filter((m) => m.rol === "Mecánico" || m.puesto?.toLowerCase().includes("técnico"))
+              .map((m) => (
+                <option key={m.id} value={m.id}>
+                  🔧 {m.nombre}
                 </option>
               ))}
-            </select>
+          </select>
 
-            {/* Estado Kanban */}
-            <select
-              value={order.estado}
-              onChange={(e) => handleUpdateStatus(e.target.value)}
-              className="h-8 text-xs font-bold bg-slate-900 text-white border border-slate-900 rounded-lg px-2.5 focus:outline-none cursor-pointer shadow-2xs"
+          <select
+            value={order.bahia_rampa || ""}
+            onChange={(e) => handleUpdateBahia(e.target.value)}
+            className="h-8 text-xs font-semibold bg-white border border-slate-200 rounded-lg px-2.5 text-slate-800 focus:outline-none focus:border-blue-600 shadow-2xs"
+            title="Estación de Trabajo / Rampa"
+          >
+            <option value="">Sin Estación</option>
+            {estacionesList.map((b) => (
+              <option key={b} value={b}>
+                📍 {b}
+              </option>
+            ))}
+          </select>
+
+          <div className="hidden sm:block h-6 w-px bg-slate-200 mx-0.5" />
+
+          {/* Flujo Kanban */}
+          <select
+            value={order.estado}
+            onChange={(e) => handleUpdateStatus(e.target.value)}
+            className="h-8 text-xs font-bold bg-slate-900 text-white border border-slate-900 rounded-lg px-2.5 focus:outline-none cursor-pointer shadow-2xs"
+          >
+            <option value="Citas del Día">1. Citas del Día</option>
+            <option value="En Inspección">2. En Inspección</option>
+            <option value="En Rampa">3. En Rampa</option>
+            <option value="Listo para Entrega">4. Listo para Entrega</option>
+            <option value="Entregado">5. Entregado / Salida</option>
+          </select>
+
+          {order.estado === "Listo para Entrega" && (
+            <button
+              type="button"
+              onClick={async () => {
+                await handleUpdateStatus("Entregado");
+                await handleUpdateSubStatus("Entregado");
+                toast.success("Vehículo marcado como entregado. La orden sale del tablero.");
+                onClose();
+              }}
+              className="h-8 px-2.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
+              title="Marcar como entregado y archivar del tablero"
             >
-              <option value="Citas del Día">1. Citas del Día</option>
-              <option value="En Inspección">2. En Inspección</option>
-              <option value="En Rampa">3. En Rampa</option>
-              <option value="Listo para Entrega">4. Listo para Entrega</option>
-              <option value="Entregado">5. Entregado / Salida</option>
-            </select>
+              <CheckCircle2 size={13} /> Entregar Auto
+            </button>
+          )}
 
-            {order.estado === "Listo para Entrega" && (
-              <button
-                type="button"
-                onClick={async () => {
-                  await handleUpdateStatus("Entregado");
-                  await handleUpdateSubStatus("Entregado");
-                  toast.success("Vehículo marcado como entregado. La orden sale del tablero.");
-                  onClose();
-                }}
-                className="h-8 px-2.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
-                title="Marcar como entregado y archivar del tablero"
-              >
-                <CheckCircle2 size={13} /> Entregar Auto
-              </button>
-            )}
+          <select
+            value={order.sub_estado || "Activa"}
+            onChange={(e) => handleUpdateSubStatus(e.target.value)}
+            className="h-8 text-xs font-medium bg-white border border-slate-200 rounded-lg px-2 text-slate-600 focus:outline-none focus:border-blue-600 shadow-2xs"
+          >
+            <option value="Activa">Sub: Activa</option>
+            <option value="Esperando Aprobación Cliente">Sub: Esperando Aprobación</option>
+            <option value="En Reparación">Sub: En Reparación</option>
+            <option value="Por Cobrar en Caja">Sub: Por Cobrar en Caja</option>
+            <option value="Entregado">Sub: Entregado</option>
+          </select>
 
-            {/* Sub-estado */}
-            <select
-              value={order.sub_estado || "Activa"}
-              onChange={(e) => handleUpdateSubStatus(e.target.value)}
-              className="h-8 text-xs font-medium bg-white border border-slate-200 rounded-lg px-2 text-slate-600 focus:outline-none focus:border-blue-600 shadow-2xs"
-            >
-              <option value="Activa">Sub: Activa</option>
-              <option value="Esperando Aprobación Cliente">Sub: Esperando Aprobación</option>
-              <option value="En Reparación">Sub: En Reparación</option>
-              <option value="Por Cobrar en Caja">Sub: Por Cobrar en Caja</option>
-              <option value="Entregado">Sub: Entregado</option>
-            </select>
-          </div>
+          <div className="hidden sm:block h-6 w-px bg-slate-200 mx-0.5" />
+
+          {/* Botón de Cierre de Modal */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+            title="Cerrar orden (Esc)"
+          >
+            <X size={18} strokeWidth={2} />
+          </button>
         </div>
       </div>
 
