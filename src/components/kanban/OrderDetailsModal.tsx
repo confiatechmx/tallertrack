@@ -83,7 +83,6 @@ import {
 
 import {
   groupItemsByOperation,
-  buildFourTiresPromoBundle,
   DEFAULT_OPERATION_PACKAGES,
   OperationGroup,
 } from "@/lib/services/serviceOperationsEngine";
@@ -1528,58 +1527,6 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
     const targetPrice = isCurrentlyCortesia ? Number(row.servicios_taller?.precio || 150) : 0;
     const targetCortesia = !isCurrentlyCortesia;
     await handleInlineUpdateServicePrice(row.id, targetPrice, targetCortesia);
-  };
-
-  const handleApplyFourTiresPromo = async () => {
-    const firstTire = activeTires[0]?.inventario_llantas;
-    const rin = Number(firstTire?.rin) || Number(jitRin) || 16;
-    const bundle = buildFourTiresPromoBundle(rin, 4, availableServices);
-
-    setAddingServiceLoading(true);
-    try {
-      const addedServices: any[] = [];
-      for (const item of bundle) {
-        if (!item.servicio_id) continue;
-        const payload = {
-          orden_servicio_id: orderId,
-          servicio_id: item.servicio_id,
-          mecanico_id: order.mecanico_id || null,
-          cantidad: item.cantidad,
-          horas_labor: 0.25,
-          precio_cobrado: item.precio_cobrado,
-          comision_porcentaje: 15,
-          estatus_aprobacion: "Aprobado",
-          notas: item.notas,
-          paquete_operacion: item.paquete_operacion,
-          es_cortesia: item.es_cortesia,
-          garantia_especifica: "Garantía Cova Tires de Montaje y Balanceo (6 meses / 10,000 km)",
-        };
-
-        const { data, error } = await supabase
-          .from("orden_servicio_servicios")
-          .insert(payload)
-          .select(
-            "id, servicio_id, mecanico_id, cantidad, horas_labor, precio_cobrado, comision_porcentaje, estatus_aprobacion, notas, paquete_operacion, es_cortesia, garantia_especifica, servicios_taller(id, nombre, codigo_sku, categoria, horas_estimadas, precio, garantia_meses, condicion_promo)"
-          )
-          .single();
-
-        if (!error && data) {
-          addedServices.push(data);
-        }
-      }
-
-      if (addedServices.length > 0) {
-        setOrder((prev: any) => ({
-          ...prev,
-          orden_servicio_servicios: [...(prev.orden_servicio_servicios || []), ...addedServices],
-        }));
-        onUpdate();
-      }
-    } catch (err: any) {
-      console.error("Error applying 4-tire promo bundle:", err);
-    } finally {
-      setAddingServiceLoading(false);
-    }
   };
 
   const handleToggleServiceApproval = async (row: any) => {
@@ -3594,19 +3541,6 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                   >
                     <FolderTree size={13} />
                     Vista Clásica por Categorías
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleApplyFourTiresPromo}
-                    disabled={addingServiceLoading}
-                    title="Añade automáticamente Montaje y Válvulas a $0.00 como cortesía al vender 4 llantas"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-2xs transition-all cursor-pointer"
-                  >
-                    <Sparkles size={13} />
-                    ⚡ Paquete 4 Llantas (Montaje + Válvulas GRATIS)
                   </button>
                 </div>
               </div>
