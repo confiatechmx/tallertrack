@@ -26,6 +26,7 @@ import {
   FileText,
   Layers,
   FolderTree,
+  ClipboardList,
 } from "lucide-react";
 
 interface OrderPrintSheetProps {
@@ -82,6 +83,13 @@ export function OrderPrintSheet({
     sucursales.find((s) => s.id === order.sucursal_id) ||
     sucursales[0] ||
     null;
+
+  // Visibilidad configurable por tenant para el renglón de inspección e inventario (por defecto oculto)
+  const customMeta = (activeEmpresa?.custom_metadata as any) || {};
+  const tenantDefaultInspeccion = Boolean(
+    customMeta?.impresion?.mostrar_inspeccion ?? activeEmpresa?.impresion_mostrar_inspeccion ?? false
+  );
+  const [mostrarInspeccion, setMostrarInspeccion] = useState<boolean>(tenantDefaultInspeccion);
 
   const v = order.vehiculo || order.vehiculos || {};
   const c = order.cliente || v.clientes || {};
@@ -352,45 +360,47 @@ export function OrderPrintSheet({
           </div>
         </div>
 
-        {/* Franja de Recepción Operativa (Inventario, Combustible, Km, Asesor) */}
-        <div className="pt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[10px]">
-          <div className="flex items-center gap-3">
-            <span className="inline-flex items-center gap-1 font-bold text-slate-800 tabular-nums">
-              <Gauge size={12} className="text-slate-500" />
-              {Number(order.kilometraje_ingreso || 0).toLocaleString("es-MX")} km
-            </span>
-            <span className="inline-flex items-center gap-1 font-semibold text-slate-700">
-              <Fuel size={12} className="text-slate-500" /> Gas:{" "}
-              <strong className="text-slate-900">{order.nivel_gasolina || "3/4"}</strong>
-            </span>
-            <span className="inline-flex items-center gap-1 text-slate-600">
-              <Wrench size={12} className="text-slate-500" />
-              Técnico: <strong className="text-slate-800">{mechanicName || order.mecanico?.nombre || "Carlos Mendoza"}</strong>
-            </span>
-          </div>
+        {/* Franja de Recepción Operativa (Inventario, Combustible, Km, Asesor) - Configurable por Tenant */}
+        {mostrarInspeccion && (
+          <div className="pt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[10px]">
+            <div className="flex items-center gap-3">
+              <span className="inline-flex items-center gap-1 font-bold text-slate-800 tabular-nums">
+                <Gauge size={12} className="text-slate-500" />
+                {Number(order.kilometraje_ingreso || 0).toLocaleString("es-MX")} km
+              </span>
+              <span className="inline-flex items-center gap-1 font-semibold text-slate-700">
+                <Fuel size={12} className="text-slate-500" /> Gas:{" "}
+                <strong className="text-slate-900">{order.nivel_gasolina || "3/4"}</strong>
+              </span>
+              <span className="inline-flex items-center gap-1 text-slate-600">
+                <Wrench size={12} className="text-slate-500" />
+                Técnico: <strong className="text-slate-800">{mechanicName || order.mecanico?.nombre || "Carlos Mendoza"}</strong>
+              </span>
+            </div>
 
-          {/* Checklist compacto en 1 sola fila */}
-          <div className="flex items-center gap-2 text-[9.5px]">
-            <span className="text-slate-400 font-bold uppercase text-[8.5px]">Inventario:</span>
-            {Object.entries(CHECKLIST_LABELS).map(([key, label]) => {
-              const checked = !!checklist[key];
-              return (
-                <span
-                  key={key}
-                  className={`inline-flex items-center gap-0.5 ${
-                    checked ? "text-slate-900 font-medium" : "text-slate-400 line-through text-[8.5px]"
-                  }`}
-                  title={label}
-                >
-                  <span className={checked ? "text-emerald-700 font-black text-[9px]" : "text-slate-400"}>
-                    {checked ? "✓" : "✗"}
+            {/* Checklist compacto en 1 sola fila */}
+            <div className="flex items-center gap-2 text-[9.5px]">
+              <span className="text-slate-400 font-bold uppercase text-[8.5px]">Inventario:</span>
+              {Object.entries(CHECKLIST_LABELS).map(([key, label]) => {
+                const checked = !!checklist[key];
+                return (
+                  <span
+                    key={key}
+                    className={`inline-flex items-center gap-0.5 ${
+                      checked ? "text-slate-900 font-medium" : "text-slate-400 line-through text-[8.5px]"
+                    }`}
+                    title={label}
+                  >
+                    <span className={checked ? "text-emerald-700 font-black text-[9px]" : "text-slate-400"}>
+                      {checked ? "✓" : "✗"}
+                    </span>
+                    <span>{label.replace("Llave / Birlo de seguridad", "Birlo").replace("Llanta de refacción", "Refacción").replace("Gato y herramienta", "Gato").replace("Tarjeta de circulación", "Tarjeta").replace("Objetos de valor retirados", "Sin objetos")}</span>
                   </span>
-                  <span>{label.replace("Llave / Birlo de seguridad", "Birlo").replace("Llanta de refacción", "Refacción").replace("Gato y herramienta", "Gato").replace("Tarjeta de circulación", "Tarjeta").replace("Objetos de valor retirados", "Sin objetos")}</span>
-                </span>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* ─── 3. MOTIVO DE INGRESO & DIAGNÓSTICO TÉCNICO (Ultra compacto a 2 columnas) ─── */}
@@ -413,8 +423,8 @@ export function OrderPrintSheet({
         </div>
       </div>
 
-      {/* Resumen DVI compacto (si existe) */}
-      {rawDvi.length > 0 && (
+      {/* Resumen DVI compacto (si existe y si está habilitada la inspección) */}
+      {mostrarInspeccion && rawDvi.length > 0 && (
         <div className="mb-2 border border-slate-200 rounded px-2.5 py-1 bg-slate-50/70 flex items-center justify-between text-[9.5px]">
           <div className="flex items-center gap-2">
             <span className="font-bold text-slate-700 uppercase tracking-wider text-[8.5px]">
@@ -501,7 +511,7 @@ export function OrderPrintSheet({
                       const sub = t.subtotal != null ? Number(t.subtotal) : unit * qty;
                       return (
                         <tr key={`tire-${t.id}`} className="hover:bg-slate-50/50">
-                          <td className="py-1 px-2.5 text-[9px]"><span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200/60">Neumático</span></td>
+                          <td className="py-1 px-2.5 text-[9px] font-medium text-slate-600">Neumático</td>
                           <td className="py-1 px-2.5 font-medium text-slate-900">
                             {tireName}{" "}
                             <span className="font-mono text-slate-700 font-bold">{medida}</span>
@@ -524,7 +534,7 @@ export function OrderPrintSheet({
                       const sub = r.subtotal != null ? Number(r.subtotal) : unit * qty;
                       return (
                         <tr key={`part-${r.id}`} className="hover:bg-slate-50/50">
-                          <td className="py-1 px-2.5 text-[9px]"><span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-200/60">Refacción</span></td>
+                          <td className="py-1 px-2.5 text-[9px] font-medium text-slate-600">Refacción</td>
                           <td className="py-1 px-2.5 font-medium text-slate-900">
                             {r.nombre}
                             {(r.numero_parte || r.proveedor) && (
@@ -553,7 +563,7 @@ export function OrderPrintSheet({
                       const isCortesia = s.es_cortesia || unit === 0;
                       return (
                         <tr key={`srv-${s.id}`} className="hover:bg-slate-50/50">
-                          <td className="py-1 px-2.5 text-[9px]"><span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200/60">Mano de Obra</span></td>
+                          <td className="py-1 px-2.5 text-[9px] font-medium text-slate-600">Mano de Obra</td>
                           <td className="py-1 px-2.5 font-medium text-slate-900">
                             {srvName}
                             {isCortesia && (
@@ -629,7 +639,7 @@ export function OrderPrintSheet({
                       const sub = t.subtotal != null ? Number(t.subtotal) : unit * qty;
                       return (
                         <tr key={`classic-tire-${t.id}`} className="hover:bg-slate-50/50">
-                          <td className="py-1 px-2.5 text-[9px]"><span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200/60">Neumático</span></td>
+                          <td className="py-1 px-2.5 text-[9px] font-medium text-slate-600">Neumático</td>
                           <td className="py-1 px-2.5 font-medium text-slate-900">
                             {tireName} <span className="font-mono text-slate-700 font-bold">{medida}</span>
                           </td>
@@ -676,7 +686,7 @@ export function OrderPrintSheet({
                       const sub = r.subtotal != null ? Number(r.subtotal) : unit * qty;
                       return (
                         <tr key={`classic-part-${r.id}`} className="hover:bg-slate-50/50">
-                          <td className="py-1 px-2.5 text-[9px]"><span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-200/60">Refacción</span></td>
+                          <td className="py-1 px-2.5 text-[9px] font-medium text-slate-600">Refacción</td>
                           <td className="py-1 px-2.5 font-medium text-slate-900">
                             {r.nombre}
                             {(r.numero_parte || r.proveedor) && (
@@ -730,7 +740,7 @@ export function OrderPrintSheet({
                       const isCortesia = s.es_cortesia || unit === 0;
                       return (
                         <tr key={`classic-srv-${s.id}`} className="hover:bg-slate-50/50">
-                          <td className="py-1 px-2.5 text-[9px]"><span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200/60">Mano de Obra</span></td>
+                          <td className="py-1 px-2.5 text-[9px] font-medium text-slate-600">Mano de Obra</td>
                           <td className="py-1 px-2.5 font-medium text-slate-900">
                             {srvName}
                             {isCortesia && (
@@ -1128,6 +1138,23 @@ export function OrderPrintSheet({
               >
                 <FileText size={13} />
                 Cotización Previa
+              </button>
+            </div>
+
+            {/* Toggle Inspección e Inventario (Configurable por Tenant / Control Rápido) */}
+            <div className="flex items-center bg-slate-800 p-0.5 rounded-lg border border-slate-700">
+              <button
+                type="button"
+                onClick={() => setMostrarInspeccion((prev) => !prev)}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-bold transition-colors cursor-pointer ${
+                  mostrarInspeccion
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "text-slate-400 hover:text-white"
+                }`}
+                title="Mostrar u ocultar renglón de inspección técnica, kilometraje e inventario"
+              >
+                <ClipboardList size={13} />
+                <span>{mostrarInspeccion ? "Inspección: ON" : "Inspección: OFF"}</span>
               </button>
             </div>
 
