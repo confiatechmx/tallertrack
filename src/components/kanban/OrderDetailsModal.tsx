@@ -3205,7 +3205,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
     <div className="flex flex-col bg-slate-50 text-slate-900">
       {/* Top Action Header Bar (Command Bar Unificada) */}
       <div className="bg-white px-5 py-3.5 border-b border-slate-200 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
-        {/* Lado Izquierdo: Ficha de Unidad, Cliente y Estado Financiero */}
+        {/* Lado Izquierdo: Ficha de Unidad y Cliente */}
         <div className="flex items-center gap-3">
           <div className="px-2.5 py-1 rounded-md bg-slate-900 text-white font-mono text-sm font-black tracking-tight tabular-nums shrink-0 shadow-2xs">
             {folioStr}
@@ -3223,17 +3223,6 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
               <span className="font-mono text-xs font-black uppercase bg-slate-100 text-slate-800 border border-slate-300 px-2 py-0.5 rounded shadow-2xs">
                 {v.placas || "SIN PLACA"}
               </span>
-              <span
-                className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
-                  order.estatus_pago === "Pagado"
-                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                    : order.estatus_pago === "Parcial"
-                    ? "bg-amber-50 text-amber-700 border-amber-200"
-                    : "bg-red-50 text-red-700 border-red-200"
-                }`}
-              >
-                Pago: {order.estatus_pago || "Pendiente"}
-              </span>
               {order.aprobado_cliente_nombre && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
                   <ShieldCheck size={11} /> Autorizado
@@ -3241,7 +3230,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
               )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-600 mt-1">
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-slate-600 mt-1">
               <Link
                 href={`/clientes/${c.id}?vehiculoId=${v.id}`}
                 onClick={onClose}
@@ -3251,53 +3240,34 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                 {c.nombre || "Cliente General"}
               </Link>
               {c.telefono && (
-                <a
-                  href={`tel:${c.telefono}`}
-                  className="inline-flex items-center gap-1 text-slate-500 hover:text-emerald-700 tabular-nums transition-colors"
-                  title="Llamar o copiar teléfono"
-                >
-                  <Phone size={11} className="text-slate-400" />
-                  <span>{c.telefono}</span>
-                </a>
+                <div className="inline-flex items-center gap-1.5">
+                  <span className="text-slate-400">•</span>
+                  <a
+                    href={`tel:${c.telefono}`}
+                    className="inline-flex items-center gap-1 text-slate-500 hover:text-emerald-700 tabular-nums transition-colors"
+                    title="Llamar o copiar teléfono"
+                  >
+                    <Phone size={11} className="text-slate-400" />
+                    <span>{c.telefono}</span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={handleSendWhatsApp}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80 hover:bg-emerald-100 transition-colors cursor-pointer"
+                    title="Abrir WhatsApp para contactar al cliente"
+                  >
+                    <MessageCircle size={11} />
+                    <span>WhatsApp</span>
+                  </button>
+                </div>
               )}
-              <span className="inline-flex items-center gap-1 text-slate-600 tabular-nums font-medium">
-                <Gauge size={12} className="text-slate-400" />
-                <span>{Number(order.kilometraje_ingreso || 0).toLocaleString("es-MX")} km</span>
-              </span>
             </div>
           </div>
         </div>
 
-        {/* Lado Derecho: Controles Operativos & Botón Cerrar */}
+        {/* Lado Derecho: Controles de Piso & Botón Cerrar */}
         <div className="flex flex-wrap items-center gap-2 xl:self-center">
-          {/* Módulo Opcional: Portal Cliente (Oculto si el tenant no lo tiene habilitado) */}
-          {tieneModuloPortalCliente && (
-            <a
-              href={`/orden/${orderId}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors shadow-2xs"
-              title="Abrir portal web del cliente"
-            >
-              <ExternalLink size={13} className="text-blue-600" />
-              <span>Portal</span>
-            </a>
-          )}
-
-          {/* Botón WhatsApp */}
-          <button
-            type="button"
-            onClick={handleSendWhatsApp}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors shadow-2xs cursor-pointer"
-            title="Compartir cotización por WhatsApp"
-          >
-            <MessageCircle size={14} />
-            <span>WhatsApp</span>
-          </button>
-
-          <div className="hidden sm:block h-6 w-px bg-slate-200 mx-0.5" />
-
-          {/* Asignación de Piso: Técnico y Estación */}
+          {/* Asignación de Piso: Técnico */}
           <select
             value={order.mecanico_id || ""}
             onChange={(e) => handleUpdateMechanic(e.target.value)}
@@ -3314,6 +3284,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
               ))}
           </select>
 
+          {/* Asignación de Piso: Estación / Rampa */}
           <select
             value={order.bahia_rampa || ""}
             onChange={(e) => handleUpdateBahia(e.target.value)}
@@ -3330,7 +3301,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
 
           <div className="hidden sm:block h-6 w-px bg-slate-200 mx-0.5" />
 
-          {/* Flujo Kanban */}
+          {/* Flujo Kanban Principal */}
           <select
             value={order.estado}
             onChange={(e) => handleUpdateStatus(e.target.value)}
@@ -3358,18 +3329,6 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
               <CheckCircle2 size={13} /> Entregar Auto
             </button>
           )}
-
-          <select
-            value={order.sub_estado || "Activa"}
-            onChange={(e) => handleUpdateSubStatus(e.target.value)}
-            className="h-8 text-xs font-medium bg-white border border-slate-200 rounded-lg px-2 text-slate-600 focus:outline-none focus:border-blue-600 shadow-2xs"
-          >
-            <option value="Activa">Sub: Activa</option>
-            <option value="Esperando Aprobación Cliente">Sub: Esperando Aprobación</option>
-            <option value="En Reparación">Sub: En Reparación</option>
-            <option value="Por Cobrar en Caja">Sub: Por Cobrar en Caja</option>
-            <option value="Entregado">Sub: Entregado</option>
-          </select>
 
           <div className="hidden sm:block h-6 w-px bg-slate-200 mx-0.5" />
 
@@ -5164,6 +5123,13 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
 
                 {/* Quick Actions */}
                 <div className="pt-1 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSendWhatsApp}
+                    className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer"
+                  >
+                    <MessageCircle size={15} /> Enviar Cotización por WhatsApp
+                  </button>
                   {saldoPendiente <= 0.01 ? (
                     <div className="flex flex-col gap-2">
                       <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center justify-between">
