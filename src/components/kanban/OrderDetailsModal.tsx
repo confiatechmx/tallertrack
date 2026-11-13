@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useTransition } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useTenant } from "@/context/TenantContext";
@@ -179,6 +179,13 @@ const DEFAULT_DVI_TEMPLATE = [
 export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsModalProps) {
   const { empresa, sucursalActiva, perfil } = useTenant();
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("cotizacion");
+  const [, startTransition] = useTransition();
+
+  const handleSelectTab = (tab: WorkspaceTab) => {
+    startTransition(() => {
+      setActiveTab(tab);
+    });
+  };
   const [loading, setLoading] = useState(true);
   const [order, setOrder] = useState<any>(null);
   const [mechanics, setMechanics] = useState<any[]>([]);
@@ -3632,7 +3639,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
           {/* Tab 1: Recepción & DVI */}
           <button
             type="button"
-            onClick={() => setActiveTab("dvi")}
+            onClick={() => handleSelectTab("dvi")}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
               activeTab === "dvi"
                 ? "bg-white text-slate-900 shadow-2xs border border-slate-200/80"
@@ -3657,7 +3664,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
           {/* Tab 2: Cotización & Partidas */}
           <button
             type="button"
-            onClick={() => setActiveTab("cotizacion")}
+            onClick={() => handleSelectTab("cotizacion")}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
               activeTab === "cotizacion"
                 ? "bg-white text-slate-900 shadow-2xs border border-slate-200/80"
@@ -3674,7 +3681,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
           {/* Tab 3: Cobro & Caja */}
           <button
             type="button"
-            onClick={() => setActiveTab("pagos")}
+            onClick={() => handleSelectTab("pagos")}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
               activeTab === "pagos"
                 ? "bg-white text-slate-900 shadow-2xs border border-slate-200/80"
@@ -3697,7 +3704,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
           {/* Tab 4: Hoja de Impresión */}
           <button
             type="button"
-            onClick={() => setActiveTab("impresion")}
+            onClick={() => handleSelectTab("impresion")}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
               activeTab === "impresion"
                 ? "bg-white text-slate-900 shadow-2xs border border-slate-200/80"
@@ -3712,7 +3719,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
         {/* Acceso Secundario: Bitácora Forense */}
         <button
           type="button"
-          onClick={() => setActiveTab("auditoria")}
+          onClick={() => handleSelectTab("auditoria")}
           className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === "auditoria"
               ? "bg-white text-slate-900 shadow-2xs border border-slate-200"
@@ -3727,9 +3734,8 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
       {/* Main Content Area */}
       <div className="p-5">
         {/* TAB 1: PARTIDAS Y COTIZACIÓN */}
-        {activeTab === "cotizacion" && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-            {/* Left 8 Cols: Deferred Banner + Labor + Buyouts + Tires */}
+        <div className={activeTab === "cotizacion" ? "grid grid-cols-1 lg:grid-cols-12 gap-5" : "hidden"}>
+          {/* Left 8 Cols: Deferred Banner + Labor + Buyouts + Tires */}
             <div className="lg:col-span-8 space-y-5">
               {/* Alert Banner for Historical Unresolved Deferred Works from Previous Visits */}
               {historicalDeferredWorks.length > 0 && (
@@ -4788,7 +4794,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                   ) : (
                     <button
                       type="button"
-                      onClick={() => setActiveTab("pagos")}
+                      onClick={() => handleSelectTab("pagos")}
                       className="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-emerald-600 text-white text-xs font-black flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
                     >
                       <Banknote size={15} /> Proceder al Cobro en Caja →
@@ -4796,7 +4802,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                   )}
                   <button
                     type="button"
-                    onClick={() => setActiveTab("impresion")}
+                    onClick={() => handleSelectTab("impresion")}
                     className="w-full py-2.5 px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
                   >
                     <Printer size={14} /> Ver Hoja de Recepción Imprimible
@@ -4805,12 +4811,10 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
               </div>
             </div>
           </div>
-        )}
 
         {/* TAB 2: INSPECCIÓN DIGITAL (DVI) Y RECEPCIÓN */}
-        {activeTab === "dvi" && (
-          <div className="space-y-4">
-            {isExpressOrder && dviItems.length === 0 && (
+        <div className={activeTab === "dvi" ? "space-y-4" : "hidden"}>
+          {isExpressOrder && dviItems.length === 0 && (
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-2">
@@ -5260,11 +5264,9 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
             </div>
           </div>
         </div>
-      )}
 
         {/* TAB 3: PAGOS Y COBRANZA */}
-        {activeTab === "pagos" && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <div className={activeTab === "pagos" ? "grid grid-cols-1 lg:grid-cols-12 gap-5" : "hidden"}>
             <div className="lg:col-span-7 space-y-4">
               <div className="bg-white border border-slate-200 rounded-lg shadow-2xs overflow-hidden">
                 <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
@@ -5803,7 +5805,6 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
               )}
             </div>
           </div>
-        )}
 
         {/* Modal de Apertura de Turno de Caja */}
         <AbrirTurnoModal
@@ -5903,7 +5904,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                   type="button"
                   onClick={() => {
                     setIsDeliveryWithBalanceModalOpen(false);
-                    setActiveTab("pagos");
+                    handleSelectTab("pagos");
                   }}
                   className="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-emerald-600 text-white text-xs font-black flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
                 >
