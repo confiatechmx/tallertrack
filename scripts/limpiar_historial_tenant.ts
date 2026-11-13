@@ -192,6 +192,17 @@ async function main() {
   await supabase.from("compras_proveedores").delete().eq("empresa_id", tenant.id);
   await supabase.from("pagos_orden").delete().eq("empresa_id", tenant.id);
 
+  console.log("   💳 Reseteando saldos y estados de cuenta de proveedores a $0.00...");
+  const { error: resetProvsErr } = await supabase
+    .from("proveedores")
+    .update({ saldo_deudor_actual: 0.0, updated_at: new Date().toISOString() })
+    .eq("empresa_id", tenant.id);
+  if (resetProvsErr) {
+    console.error("   ❌ Error al resetear saldos de proveedores:", resetProvsErr.message);
+  } else {
+    console.log("   ✓ Estados de cuenta y saldos de proveedores reseteados a $0.00");
+  }
+
   // 7. Cotizaciones
   console.log("   🗑️  Eliminando cotizaciones y ventas de mostrador...");
   await supabase.from("detalles_cotizacion").delete().eq("empresa_id", tenant.id);
@@ -257,14 +268,21 @@ async function main() {
   const { count: finalCotiz } = await supabase.from("cotizaciones").select("*", { count: "exact", head: true }).eq("empresa_id", tenant.id);
   const { count: finalPagos } = await supabase.from("pagos_orden").select("*", { count: "exact", head: true }).eq("empresa_id", tenant.id);
 
+  const { data: finalProvs } = await supabase
+    .from("proveedores")
+    .select("saldo_deudor_actual")
+    .eq("empresa_id", tenant.id);
+  const totalSaldoDeudor = (finalProvs || []).reduce((acc, p) => acc + Number(p.saldo_deudor_actual || 0), 0);
+
   console.log(`   • Órdenes de servicio:             ${finalOrds || 0}`);
   console.log(`   • Turnos de caja (cortes):         ${finalTurnos || 0}`);
   console.log(`   • Movimientos de caja:             ${finalMovs || 0}`);
   console.log(`   • Compras a proveedores:           ${finalCompras || 0}`);
   console.log(`   • Cotizaciones / ventas mostrador: ${finalCotiz || 0}`);
   console.log(`   • Pagos de órdenes:                ${finalPagos || 0}`);
+  console.log(`   • Saldo deudor proveedores (CxP):  $${totalSaldoDeudor.toFixed(2)}`);
 
-  if (!finalOrds && !finalTurnos && !finalMovs && !finalCompras && !finalCotiz && !finalPagos) {
+  if (!finalOrds && !finalTurnos && !finalMovs && !finalCompras && !finalCotiz && !finalPagos && totalSaldoDeudor === 0) {
     console.log(`\n🎉 ¡El tenant "${tenant.nombre_comercial}" ha quedado 100% limpio y listo para operar desde cero!`);
   } else {
     console.warn("\n⚠️  Algunos registros residuales requieren revisión manual.");

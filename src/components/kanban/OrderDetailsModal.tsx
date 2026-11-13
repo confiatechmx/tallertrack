@@ -60,6 +60,7 @@ import {
   FolderTree,
   Percent,
   Unlock,
+  Lock,
   Coins,
   Split,
   X,
@@ -328,6 +329,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   // Reception fields state
   const [recProblema, setRecProblema] = useState("");
   const [recDiagnostico, setRecDiagnostico] = useState("");
+  const [recNotasInternas, setRecNotasInternas] = useState("");
   const [recBahia, setRecBahia] = useState("");
   const [estacionesList, setEstacionesList] = useState<string[]>(DEFAULT_COVA_ESTACIONES);
   const [recKilometraje, setRecKilometraje] = useState<string>("");
@@ -484,6 +486,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
       // Init reception fields
       setRecProblema(orderData.problema_reportado || orderData.notas_recepcion || "");
       setRecDiagnostico(orderData.diagnostico_tecnico || "");
+      setRecNotasInternas(orderData.notas || "");
       setRecBahia(orderData.bahia_rampa || "");
       setRecKilometraje(String(orderData.kilometraje_ingreso || ""));
       setRecGasolina(orderData.nivel_gasolina || "1/2");
@@ -2191,6 +2194,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   const handleAddDviPoint = async () => {
     if (!newDviPunto.trim()) return;
     setSavingDviLoading(true);
+    const hallazgoTexto = (newDviObs || newDviRec).trim() || null;
     const { data, error } = await supabase
       .from("inspecciones_dvi")
       .insert({
@@ -2198,8 +2202,8 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
         categoria: newDviCategoria,
         punto_inspeccion: newDviPunto.trim(),
         severidad: newDviSeveridad,
-        observaciones: newDviObs.trim() || null,
-        recomendacion: newDviRec.trim() || null,
+        observaciones: hallazgoTexto,
+        recomendacion: hallazgoTexto,
         costo_estimado: parseFloat(newDviCosto) || 0,
         foto_url: newDviFoto.trim() || null,
         estatus_cliente: "Pendiente",
@@ -2280,6 +2284,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
       kilometraje_ingreso: km,
       nivel_gasolina: recGasolina,
       checklist_recepcion: recChecklist,
+      notas: recNotasInternas.trim() || null,
     };
 
     const { error } = await supabase.from("ordenes_servicio").update(updates).eq("id", orderId);
@@ -4884,20 +4889,16 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                        Hallazgo / Diagnóstico Técnico y Acción Recomendada
+                      </label>
                       <input
                         type="text"
-                        placeholder="Hallazgo u observación técnica..."
+                        placeholder="Ej. Balatas delanteras al 15% de vida, requiere reemplazo urgente y rectificado..."
                         value={newDviObs}
                         onChange={(e) => setNewDviObs(e.target.value)}
-                        className="w-full h-8 text-xs bg-white border border-slate-300 rounded px-2.5"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Acción o recomendación al cliente..."
-                        value={newDviRec}
-                        onChange={(e) => setNewDviRec(e.target.value)}
-                        className="w-full h-8 text-xs bg-white border border-slate-300 rounded px-2.5"
+                        className="w-full h-8 text-xs bg-white border border-slate-300 rounded px-2.5 focus:border-blue-500 outline-none"
                       />
                     </div>
 
@@ -4998,21 +4999,15 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                         <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
                           <input
                             type="text"
-                            defaultValue={item.observaciones || ""}
+                            defaultValue={item.observaciones || item.recomendacion || ""}
                             onBlur={(e) =>
-                              handleUpdateDviItem(item.id, { observaciones: e.target.value })
+                              handleUpdateDviItem(item.id, {
+                                observaciones: e.target.value,
+                                recomendacion: e.target.value,
+                              })
                             }
-                            placeholder="Observaciones del técnico..."
-                            className="sm:col-span-5 h-7 text-[11px] bg-white border border-slate-200 rounded px-2 text-slate-700"
-                          />
-                          <input
-                            type="text"
-                            defaultValue={item.recomendacion || ""}
-                            onBlur={(e) =>
-                              handleUpdateDviItem(item.id, { recomendacion: e.target.value })
-                            }
-                            placeholder="Recomendación para el cliente..."
-                            className="sm:col-span-5 h-7 text-[11px] bg-white border border-slate-200 rounded px-2 text-slate-700"
+                            placeholder="Hallazgo técnico y recomendación..."
+                            className="sm:col-span-10 h-7 text-[11px] bg-white border border-slate-200 rounded px-2 text-slate-700 focus:border-blue-400 outline-none"
                           />
                           <input
                             type="number"
@@ -5023,7 +5018,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                               })
                             }
                             placeholder="$ Est."
-                            className="sm:col-span-2 h-7 text-[11px] bg-white border border-slate-200 rounded px-2 text-right font-mono tabular-nums"
+                            className="sm:col-span-2 h-7 text-[11px] bg-white border border-slate-200 rounded px-2 text-right font-mono tabular-nums focus:border-blue-400 outline-none"
                           />
                         </div>
 
@@ -5164,28 +5159,39 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-                    Falla o Solicitud Reportada por el Cliente
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-700">
+                      Motivo de Ingreso / Solicitud del Cliente
+                    </label>
+                    <span className="text-[9.5px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200/60">
+                      Público · Aparece en Ticket, PDF y WhatsApp
+                    </span>
+                  </div>
                   <textarea
                     rows={3}
                     value={recProblema}
                     onChange={(e) => setRecProblema(e.target.value)}
-                    placeholder="Describe el síntoma reportado al ingreso..."
-                    className="w-full text-xs bg-white border border-slate-300 rounded-md p-2.5 text-slate-900"
+                    placeholder="Describe el síntoma o motivo reportado por el cliente al ingresar el vehículo (ej. Ruido al frenar, testigo encendido, vibración)..."
+                    className="w-full text-xs bg-white border border-slate-300 rounded-md p-2.5 text-slate-900 focus:border-blue-500 outline-none"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-                    Diagnóstico Técnico del Especialista
-                  </label>
+                <div className="bg-amber-50/70 border border-amber-200/80 rounded-lg p-3 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                      <Lock size={12} className="text-amber-700" />
+                      <span>Nota Interna del Taller (Privada)</span>
+                    </label>
+                    <span className="text-[9.5px] font-semibold text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded border border-amber-300/70">
+                      🔒 Sólo personal del taller · Oculto al cliente
+                    </span>
+                  </div>
                   <textarea
                     rows={3}
-                    value={recDiagnostico}
-                    onChange={(e) => setRecDiagnostico(e.target.value)}
-                    placeholder="Conclusión técnica tras revisión en rampa..."
-                    className="w-full text-xs bg-white border border-slate-300 rounded-md p-2.5 text-slate-900"
+                    value={recNotasInternas}
+                    onChange={(e) => setRecNotasInternas(e.target.value)}
+                    placeholder="Observaciones internas del taller, condiciones especiales de entrega, acuerdos de crédito/pago, advertencias mecánicas del piso..."
+                    className="w-full text-xs bg-white border border-amber-300 rounded-md p-2.5 text-slate-900 focus:border-amber-500 outline-none placeholder:text-amber-700/50"
                   />
                 </div>
 
@@ -5196,7 +5202,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                   className="w-full py-2.5 px-4 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
                 >
                   <Save size={14} />
-                  {savingReception ? "Guardando..." : "Guardar Recepción y Diagnóstico"}
+                  {savingReception ? "Guardando..." : "Guardar Recepción y Notas"}
                 </button>
               </div>
             </div>

@@ -51,11 +51,22 @@ async function limpiarHistorialCova() {
     }
   }
 
-  // 4. Limpiar compras de proveedores y abonos residuales
+  // 4. Limpiar compras de proveedores, abonos y resetear estados de cuenta
   console.log("🗑️  Limpiando compras de proveedores y abonos...");
   await supabase.from("proveedores_abonos").delete().eq("empresa_id", EMPRESA_ID);
   await supabase.from("compras_proveedores").delete().eq("empresa_id", EMPRESA_ID);
   await supabase.from("pagos_orden").delete().eq("empresa_id", EMPRESA_ID);
+
+  console.log("💳 Reseteando saldos y estados de cuenta de proveedores a $0.00...");
+  const { error: resetProvsErr } = await supabase
+    .from("proveedores")
+    .update({ saldo_deudor_actual: 0.0, updated_at: new Date().toISOString() })
+    .eq("empresa_id", EMPRESA_ID);
+  if (resetProvsErr) {
+    console.error("   ❌ Error al resetear saldos de proveedores:", resetProvsErr.message);
+  } else {
+    console.log("   ✓ Estados de cuenta y saldos de proveedores reseteados a $0.00");
+  }
 
   // 5. Limpiar cotizaciones y ventas mostrador
   console.log("🗑️  Limpiando cotizaciones y ventas de mostrador...");
@@ -106,14 +117,21 @@ async function limpiarHistorialCova() {
   const { count: countCotiz } = await supabase.from("cotizaciones").select("*", { count: "exact", head: true }).eq("empresa_id", EMPRESA_ID);
   const { count: countPagos } = await supabase.from("pagos_orden").select("*", { count: "exact", head: true }).eq("empresa_id", EMPRESA_ID);
 
+  const { data: provsData } = await supabase
+    .from("proveedores")
+    .select("saldo_deudor_actual")
+    .eq("empresa_id", EMPRESA_ID);
+  const totalSaldoDeudor = (provsData || []).reduce((acc, p) => acc + Number(p.saldo_deudor_actual || 0), 0);
+
   console.log(`- Órdenes de servicio: ${countOrds}`);
   console.log(`- Turnos de caja (cortes): ${countTurnos}`);
   console.log(`- Movimientos de caja: ${countMovs}`);
   console.log(`- Compras proveedores: ${countCompras}`);
   console.log(`- Cotizaciones / ventas mostrador: ${countCotiz}`);
   console.log(`- Pagos de órdenes: ${countPagos}`);
+  console.log(`- Saldo deudor total proveedores (CxP): $${totalSaldoDeudor.toFixed(2)}`);
 
-  if (countOrds === 0 && countTurnos === 0 && countMovs === 0 && countCompras === 0 && countCotiz === 0 && countPagos === 0) {
+  if (countOrds === 0 && countTurnos === 0 && countMovs === 0 && countCompras === 0 && countCotiz === 0 && countPagos === 0 && totalSaldoDeudor === 0) {
     console.log("\n🎉 ¡COVA HA QUEDADO 100% LIMPIO Y LISTO PARA EMPEZAR DESDE CERO!");
   } else {
     console.warn("\n⚠️  Algunos registros no se eliminaron por completo.");
