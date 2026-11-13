@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/context/TenantContext";
 import { Loader2, Trash2, Car, Disc, Gauge } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 
 interface VehicleFormProps {
   clientId: string;
@@ -315,36 +316,29 @@ export function VehicleForm({ clientId, initialData, onSuccess, onCancel }: Vehi
       <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-between gap-3 shrink-0 items-center">
         <div>
           {initialData?.id && (
-            <button
-              type="button"
+            <Button
+              variant="destructive"
+              size="xs"
               onClick={handleDelete}
               disabled={loading}
-              className="px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-md transition-colors border border-transparent hover:border-red-200 flex items-center gap-1 cursor-pointer disabled:opacity-50"
+              leftIcon={<Trash2 size={13} />}
             >
-              <Trash2 size={14} /> Eliminar
-            </button>
+              Eliminar
+            </Button>
           )}
         </div>
         <div className="flex gap-2.5">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-4 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-md hover:bg-slate-50 transition-colors cursor-pointer"
-          >
+          <Button variant="outline" size="sm" onClick={onCancel}>
             Cancelar
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
             type="submit"
-            disabled={loading}
-            className="px-4 py-2 text-xs font-bold text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors shadow-xs disabled:opacity-70 flex items-center gap-1.5 cursor-pointer"
+            loading={loading}
           >
-            {loading && <Loader2 size={14} className="animate-spin" />}
-            {loading
-              ? "Guardando..."
-              : initialData?.id
-              ? "Actualizar Vehículo"
-              : "Guardar Vehículo"}
-          </button>
+            {initialData?.id ? "Actualizar Vehículo" : "Guardar Vehículo"}
+          </Button>
         </div>
       </div>
     </form>

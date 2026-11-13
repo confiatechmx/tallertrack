@@ -4,6 +4,8 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/context/TenantContext";
 import { Loader2, Building2, UserCheck, Tag } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { CustomSelect, SelectOption } from "@/components/ui/Select";
 
 export interface ClientFormData {
   id?: string;
@@ -24,6 +26,16 @@ interface ClientFormProps {
 }
 
 const PRESET_TAGS = ["vip", "flotilla", "frecuente", "credito", "corporativo"];
+
+const FUENTE_OPTIONS: SelectOption<string>[] = [
+  { value: "Local", label: "Local / Tráfico de Calle" },
+  { value: "WhatsApp", label: "WhatsApp Directo" },
+  { value: "Referido", label: "Recomendación / Referido" },
+  { value: "Convenio Flotilla", label: "Convenio Flotilla" },
+  { value: "Google", label: "Google Maps / Búsqueda" },
+  { value: "Facebook", label: "Facebook / Instagram" },
+  { value: "Telefono", label: "Llamada Telefónica" },
+];
 
 export function ClientForm({ initialData, onSuccess, onCancel }: ClientFormProps) {
   const { empresa } = useTenant();
@@ -190,20 +202,14 @@ export function ClientForm({ initialData, onSuccess, onCancel }: ClientFormProps
             </div>
             <div>
               <label className={labelClasses}>Fuente de Adquisición</label>
-              <select
-                name="fuente_adquisicion"
-                value={formData.fuente_adquisicion}
-                onChange={handleChange}
-                className={inputClasses}
-              >
-                <option value="Local">Local / Tráfico de Calle</option>
-                <option value="WhatsApp">WhatsApp Directo</option>
-                <option value="Referido">Recomendación / Referido</option>
-                <option value="Convenio Flotilla">Convenio Flotilla</option>
-                <option value="Google">Google Maps / Búsqueda</option>
-                <option value="Facebook">Facebook / Instagram</option>
-                <option value="Telefono">Llamada Telefónica</option>
-              </select>
+              <CustomSelect
+                value={formData.fuente_adquisicion || "Local"}
+                onChange={(val) =>
+                  setFormData((prev) => ({ ...prev, fuente_adquisicion: val }))
+                }
+                options={FUENTE_OPTIONS}
+                variant="default"
+              />
             </div>
           </div>
 
@@ -251,21 +257,17 @@ export function ClientForm({ initialData, onSuccess, onCancel }: ClientFormProps
 
       {/* Footer / Actions */}
       <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-2.5 shrink-0">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-4 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-md hover:bg-slate-50 transition-colors cursor-pointer"
-        >
+        <Button variant="outline" size="sm" onClick={onCancel}>
           Cancelar
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="default"
+          size="sm"
           type="submit"
-          disabled={loading}
-          className="px-4 py-2 text-xs font-bold text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors shadow-xs disabled:opacity-70 flex items-center gap-1.5 cursor-pointer"
+          loading={loading}
         >
-          {loading && <Loader2 size={14} className="animate-spin" />}
-          {loading ? "Guardando..." : initialData?.id ? "Actualizar Cliente" : "Guardar Cliente"}
-        </button>
+          {initialData?.id ? "Actualizar Cliente" : "Guardar Cliente"}
+        </Button>
       </div>
     </form>
   );

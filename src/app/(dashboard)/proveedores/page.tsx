@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Building2,
   Plus,
@@ -24,7 +24,14 @@ import {
   CreditCard,
   ArrowUpRight,
   ArrowDownLeft,
+  LayoutGrid,
+  List,
+  ArrowUpDown,
 } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { SkeletonTableRow } from "@/components/ui/Skeleton";
+import { CustomSelect, SelectOption } from "@/components/ui/Select";
 import { useTenant } from "@/context/TenantContext";
 import {
   ProveedorService,
@@ -64,6 +71,11 @@ export default function ProveedoresPage() {
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<string>("TODAS");
   const [filtroGarantia, setFiltroGarantia] = useState<string>("TODAS");
   const [filtroEstatusPago, setFiltroEstatusPago] = useState<string>("TODOS");
+
+  // Dual View & Sorting for Directorio
+  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+  const [sortField, setSortField] = useState<"nombre" | "saldo" | "limite">("nombre");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   // Modals state
   const [isCompraModalOpen, setIsCompraModalOpen] = useState(false);
@@ -247,6 +259,51 @@ export default function ProveedoresPage() {
 
   const totalGarantiasVigentes = compras.filter((c) => c.estatus_garantia === "VIGENTE").length;
 
+  const filteredAndSortedProveedores = useMemo(() => {
+    return proveedores
+      .filter((prov) => {
+        const matchCat =
+          categoriaSeleccionada === "TODAS" ||
+          (prov.categoria || "SUSPENSION").toUpperCase() ===
+            categoriaSeleccionada.toUpperCase();
+        const q = searchQuery.toLowerCase().trim();
+        const matchQuery =
+          !q ||
+          prov.nombre_comercial.toLowerCase().includes(q) ||
+          (prov.contacto_nombre &&
+            prov.contacto_nombre.toLowerCase().includes(q)) ||
+          (prov.telefono && prov.telefono.includes(q));
+        return matchCat && matchQuery;
+      })
+      .sort((a, b) => {
+        if (sortField === "saldo") {
+          const diff = (a.saldo_deudor_actual || 0) - (b.saldo_deudor_actual || 0);
+          return sortDir === "asc" ? diff : -diff;
+        }
+        if (sortField === "limite") {
+          const diff = (a.limite_credito || 0) - (b.limite_credito || 0);
+          return sortDir === "asc" ? diff : -diff;
+        }
+        const comp = a.nombre_comercial.localeCompare(b.nombre_comercial);
+        return sortDir === "asc" ? comp : -comp;
+      });
+  }, [proveedores, categoriaSeleccionada, searchQuery, sortField, sortDir]);
+
+  const proveedorFilterOptions: SelectOption<string>[] = useMemo(
+    () => [
+      { value: "TODOS", label: "Todos los Proveedores" },
+      ...proveedores.map((p) => ({ value: p.id, label: p.nombre_comercial })),
+    ],
+    [proveedores]
+  );
+
+  const estatusPagoFilterOptions: SelectOption<string>[] = [
+    { value: "TODOS", label: "Todos los Estatus" },
+    { value: "PAGADO", label: "Pagado", dotColor: "bg-emerald-500" },
+    { value: "PENDIENTE", label: "Pendiente (Crédito)", dotColor: "bg-amber-500" },
+    { value: "PARCIAL", label: "Pago Parcial", dotColor: "bg-blue-500" },
+  ];
+
   return (
     <div className="min-h-screen bg-slate-50/70 p-4 md:p-8 space-y-6">
       {/* Encabezado y Acciones Rápidas */}
@@ -266,35 +323,38 @@ export default function ProveedoresPage() {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => {
               setAbonoDefaultProveedorId(undefined);
               setIsAbonoModalOpen(true);
             }}
-            className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300/80 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+            leftIcon={<DollarSign className="w-4 h-4 text-emerald-600" />}
           >
-            <DollarSign className="w-4 h-4 text-emerald-600" />
             Registrar Abono
-          </button>
+          </Button>
 
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => setIsCompraModalOpen(true)}
-            className="px-3.5 py-2 bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-300/80 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+            leftIcon={<Plus className="w-4 h-4 text-blue-600" />}
           >
-            <Plus className="w-4 h-4 text-sky-600" />
             Nueva Compra / Refacción
-          </button>
+          </Button>
 
-          <button
+          <Button
+            variant="default"
+            size="sm"
             onClick={() => {
               setProvErrorMsg(null);
               setIsNewProveedorModalOpen(true);
             }}
-            className="px-3.5 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+            leftIcon={<Building2 className="w-4 h-4" />}
           >
-            <Building2 className="w-4 h-4" />
             Nuevo Proveedor
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -406,7 +466,7 @@ export default function ProveedoresPage() {
       {/* ========================================================================= */}
       {activeTab === "directorio" && (
         <div className="space-y-4">
-          {/* Barra de Filtros por Categoría */}
+          {/* Barra de Filtros y Selector de Vista (Cards / Tabla Densa) */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200/90 shadow-2xs">
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
               {[
@@ -440,185 +500,370 @@ export default function ProveedoresPage() {
               })}
             </div>
 
-            <div className="relative w-full sm:w-64">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Buscar por nombre o teléfono..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-8.5 pl-8 pr-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary focus:bg-white"
-              />
+            <div className="flex items-center gap-2">
+              <div className="relative w-full sm:w-60">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Buscar proveedor o teléfono..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full h-8.5 pl-8 pr-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary focus:bg-white"
+                />
+              </div>
+
+              {/* View Toggle: Cards vs Tabla Densa */}
+              <div className="inline-flex items-center bg-slate-100 border border-slate-200/90 rounded-xl p-0.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("cards")}
+                  className={`p-1.5 rounded-lg text-xs font-semibold flex items-center transition-all cursor-pointer ${
+                    viewMode === "cards"
+                      ? "bg-white text-slate-900 shadow-2xs font-bold"
+                      : "text-slate-500 hover:text-slate-900"
+                  }`}
+                  title="Vista en Tarjetas"
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("table")}
+                  className={`p-1.5 rounded-lg text-xs font-semibold flex items-center transition-all cursor-pointer ${
+                    viewMode === "table"
+                      ? "bg-white text-slate-900 shadow-2xs font-bold"
+                      : "text-slate-500 hover:text-slate-900"
+                  }`}
+                  title="Vista en Tabla Densa"
+                >
+                  <List className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {loading ? (
-            <div className="col-span-full py-16 flex justify-center text-slate-400">
+            <div className="py-16 flex justify-center text-slate-400">
               <Loader2 className="w-8 h-8 animate-spin" />
             </div>
-          ) : proveedores.length === 0 ? (
-            <div className="col-span-full py-16 text-center text-slate-400 text-sm bg-white rounded-2xl border border-slate-200">
-              No hay proveedores registrados. Da de alta al primero usando el botón "+ Nuevo Proveedor".
+          ) : filteredAndSortedProveedores.length === 0 ? (
+            <div className="py-16 text-center text-slate-400 text-sm bg-white rounded-2xl border border-slate-200">
+              No se encontraron proveedores con los filtros actuales.
             </div>
-          ) : (
-            proveedores
-              .filter((prov) => {
-                const matchCat =
-                  categoriaSeleccionada === "TODAS" ||
-                  (prov.categoria || "SUSPENSION").toUpperCase() === categoriaSeleccionada.toUpperCase();
-                const q = searchQuery.toLowerCase().trim();
-                const matchQuery =
-                  !q ||
-                  prov.nombre_comercial.toLowerCase().includes(q) ||
-                  (prov.contacto_nombre && prov.contacto_nombre.toLowerCase().includes(q)) ||
-                  (prov.telefono && prov.telefono.includes(q));
-                return matchCat && matchQuery;
-              })
-              .map((prov) => {
+          ) : viewMode === "cards" ? (
+            /* VISTA DE TARJETAS (CARDS) */
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredAndSortedProveedores.map((prov) => {
                 const cat = (prov.categoria || "SUSPENSION").toUpperCase();
                 const isLlanta = cat === "LLANTAS";
                 const isSuspension = cat === "SUSPENSION";
                 const isTorno = cat === "TORNO_MAQUILA";
-              const tieneDeuda = (prov.saldo_deudor_actual || 0) > 0;
-              const porcentajeCreditoUsado =
-                prov.limite_credito > 0
-                  ? Math.min(100, Math.round(((prov.saldo_deudor_actual || 0) / prov.limite_credito) * 100))
-                  : 0;
+                const tieneDeuda = (prov.saldo_deudor_actual || 0) > 0;
+                const porcentajeCreditoUsado =
+                  prov.limite_credito > 0
+                    ? Math.min(100, Math.round(((prov.saldo_deudor_actual || 0) / prov.limite_credito) * 100))
+                    : 0;
 
-              return (
-                <div
-                  key={prov.id}
-                  className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs flex flex-col justify-between hover:shadow-md transition-shadow"
-                >
-                  <div>
-                    {/* Header Card */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                return (
+                  <div
+                    key={prov.id}
+                    className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs flex flex-col justify-between hover:shadow-md hover:border-slate-300 transition-all"
+                  >
+                    <div>
+                      {/* Header Card */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                            <Badge
+                              variant={isLlanta ? "info" : isSuspension ? "warning" : isTorno ? "secondary" : "neutral"}
+                              size="sm"
+                            >
+                              {isLlanta ? "🛞 Llantas" : isSuspension ? "🔩 Suspensión" : isTorno ? "⚙️ Torno" : "📦 Insumos"}
+                            </Badge>
+                          </div>
+                          <h3 className="font-bold text-slate-900 text-base">{prov.nombre_comercial}</h3>
+                          {prov.razon_social && (
+                            <p className="text-[11px] text-slate-500 line-clamp-1">{prov.razon_social}</p>
+                          )}
+                          {prov.rfc && <p className="text-[10px] text-slate-400 font-mono mt-0.5">RFC: {prov.rfc}</p>}
+                        </div>
+
+                        <div className="flex flex-col items-end gap-1">
+                          {prov.dias_credito > 0 ? (
+                            <Badge variant="outline" size="sm" className="font-mono">
+                              {prov.dias_credito}d crédito
+                            </Badge>
+                          ) : (
+                            <Badge variant="neutral" size="sm">
+                              Contado
+                            </Badge>
+                          )}
+                          <Badge variant="success" size="sm" dot>
+                            {prov.meses_garantia_default}m garantía
+                          </Badge>
+                        </div>
+                      </div>
+
+                      {/* Finanzas & Crédito */}
+                      <div className="mt-4 p-3 bg-slate-50/80 rounded-xl border border-slate-200/60 space-y-2">
+                        <div className="flex justify-between items-baseline">
+                          <span className="text-[11px] text-slate-500 font-medium">Saldo Deudor:</span>
                           <span
-                            className={`px-2 py-0.2 rounded-full text-[9px] font-bold border ${
-                              isLlanta
-                                ? "bg-blue-50 text-blue-700 border-blue-200"
-                                : isSuspension
-                                ? "bg-amber-50 text-amber-700 border-amber-200"
-                                : isTorno
-                                ? "bg-purple-50 text-purple-700 border-purple-200"
-                                : "bg-slate-100 text-slate-700 border-slate-200"
+                            className={`font-black text-base font-mono tabular-nums ${
+                              tieneDeuda ? "text-amber-700" : "text-emerald-700"
                             }`}
                           >
-                            {isLlanta ? "🛞 Llantas" : isSuspension ? "🔩 Suspensión" : isTorno ? "⚙️ Torno" : "📦 Insumos"}
+                            ${Number(prov.saldo_deudor_actual || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                           </span>
                         </div>
-                        <h3 className="font-bold text-slate-900 text-base">{prov.nombre_comercial}</h3>
-                        {prov.razon_social && (
-                          <p className="text-[11px] text-slate-500 line-clamp-1">{prov.razon_social}</p>
-                        )}
-                        {prov.rfc && <p className="text-[10px] text-slate-400 font-mono mt-0.5">RFC: {prov.rfc}</p>}
-                      </div>
 
-                      <div className="flex flex-col items-end gap-1">
-                        {prov.dias_credito > 0 ? (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
-                            {prov.dias_credito} días crédito
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">
-                            Contado
-                          </span>
-                        )}
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-                          <ShieldCheck className="w-3 h-3" /> {prov.meses_garantia_default}m garantía
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Finanzas & Crédito */}
-                    <div className="mt-4 p-3 bg-slate-50 rounded-xl space-y-2">
-                      <div className="flex justify-between items-baseline">
-                        <span className="text-[11px] text-slate-500 font-medium">Saldo Deudor:</span>
-                        <span
-                          className={`font-black text-base ${
-                            tieneDeuda ? "text-amber-700" : "text-emerald-700"
-                          }`}
-                        >
-                          ${Number(prov.saldo_deudor_actual || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                        </span>
-                      </div>
-
-                      {prov.limite_credito > 0 && (
-                        <div>
-                          <div className="flex justify-between text-[10px] text-slate-400">
-                            <span>Límite: ${Number(prov.limite_credito).toLocaleString("es-MX")}</span>
-                            <span>{porcentajeCreditoUsado}% usado</span>
+                        {prov.limite_credito > 0 && (
+                          <div>
+                            <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                              <span>Límite: ${Number(prov.limite_credito).toLocaleString("es-MX")}</span>
+                              <span>{porcentajeCreditoUsado}% usado</span>
+                            </div>
+                            <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden mt-1">
+                              <div
+                                className={`h-full rounded-full transition-all ${
+                                  porcentajeCreditoUsado > 80 ? "bg-red-500" : "bg-blue-600"
+                                }`}
+                                style={{ width: `${porcentajeCreditoUsado}%` }}
+                              />
+                            </div>
                           </div>
-                          <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden mt-1">
-                            <div
-                              className={`h-full rounded-full transition-all ${
-                                porcentajeCreditoUsado > 80 ? "bg-red-500" : "bg-primary"
-                              }`}
-                              style={{ width: `${porcentajeCreditoUsado}%` }}
-                            />
+                        )}
+                      </div>
+
+                      {/* Contacto */}
+                      <div className="mt-3 space-y-1 text-xs text-slate-600">
+                        {prov.contacto_nombre && (
+                          <p className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                            <span>Asesor:</span> <strong className="text-slate-800">{prov.contacto_nombre}</strong>
+                          </p>
+                        )}
+                        {prov.telefono && (
+                          <div className="flex items-center justify-between pt-1">
+                            <span className="flex items-center gap-1 text-[11px] text-slate-500">
+                              <Phone className="w-3.5 h-3.5 text-slate-400" /> {prov.telefono}
+                            </span>
+                            {prov.whatsapp && (
+                              <a
+                                href={`https://wa.me/${prov.whatsapp.replace(/[^0-9]/g, "")}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200/80 hover:bg-emerald-100 rounded-md text-[10px] font-bold flex items-center gap-1 transition-colors"
+                              >
+                                <MessageSquare className="w-3 h-3 text-emerald-600" /> WhatsApp
+                              </a>
+                            )}
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
 
-                    {/* Contacto */}
-                    <div className="mt-3 space-y-1 text-xs text-slate-600">
-                      {prov.contacto_nombre && (
-                        <p className="flex items-center gap-1.5 text-[11px] text-slate-500">
-                          <span>Asesor:</span> <strong className="text-slate-800">{prov.contacto_nombre}</strong>
-                        </p>
-                      )}
-                      {prov.telefono && (
-                        <div className="flex items-center justify-between pt-1">
-                          <span className="flex items-center gap-1 text-[11px] text-slate-500">
-                            <Phone className="w-3.5 h-3.5 text-slate-400" /> {prov.telefono}
-                          </span>
-                          {prov.whatsapp && (
-                            <a
-                              href={`https://wa.me/${prov.whatsapp.replace(/[^0-9]/g, "")}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 rounded text-[10px] font-bold flex items-center gap-1 transition-colors"
-                            >
-                              <MessageSquare className="w-3 h-3 text-emerald-600" /> WhatsApp
-                            </a>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Card Actions */}
-                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        setSelectedProveedorId(prov.id);
-                        setActiveTab("transacciones");
-                      }}
-                      className="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer text-center"
-                    >
-                      Ver Estado de Cuenta
-                    </button>
-                    {tieneDeuda && (
-                      <button
+                    {/* Card Actions */}
+                    <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2">
+                      <Button
+                        variant="secondary"
+                        size="xs"
+                        className="flex-1 text-xs"
                         onClick={() => {
-                          setAbonoDefaultProveedorId(prov.id);
-                          setIsAbonoModalOpen(true);
+                          setSelectedProveedorId(prov.id);
+                          setActiveTab("transacciones");
                         }}
-                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
                       >
-                        <DollarSign className="w-3.5 h-3.5" /> Abonar
-                      </button>
-                    )}
+                        Ver Estado de Cuenta
+                      </Button>
+                      {tieneDeuda && (
+                        <Button
+                          variant="success"
+                          size="xs"
+                          onClick={() => {
+                            setAbonoDefaultProveedorId(prov.id);
+                            setIsAbonoModalOpen(true);
+                          }}
+                          leftIcon={<DollarSign className="w-3 h-3" />}
+                        >
+                          Abonar
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })
+                );
+              })}
+            </div>
+          ) : (
+            /* VISTA DE TABLA DENSA (SHOPMONKEY STYLE) */
+            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50/90 border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    <tr>
+                      <th
+                        className="py-3 px-4 cursor-pointer hover:text-slate-800 select-none"
+                        onClick={() => {
+                          if (sortField === "nombre") {
+                            setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+                          } else {
+                            setSortField("nombre");
+                            setSortDir("asc");
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span>Proveedor</span>
+                          <ArrowUpDown className="w-3 h-3" />
+                        </div>
+                      </th>
+                      <th className="py-3 px-3">Categoría</th>
+                      <th className="py-3 px-3">Condiciones</th>
+                      <th className="py-3 px-3">Contacto</th>
+                      <th
+                        className="py-3 px-3 text-right cursor-pointer hover:text-slate-800 select-none"
+                        onClick={() => {
+                          if (sortField === "limite") {
+                            setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+                          } else {
+                            setSortField("limite");
+                            setSortDir("desc");
+                          }
+                        }}
+                      >
+                        <div className="flex items-center justify-end gap-1.5">
+                          <span>Límite Crédito</span>
+                          <ArrowUpDown className="w-3 h-3" />
+                        </div>
+                      </th>
+                      <th
+                        className="py-3 px-4 text-right cursor-pointer hover:text-slate-800 select-none"
+                        onClick={() => {
+                          if (sortField === "saldo") {
+                            setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+                          } else {
+                            setSortField("saldo");
+                            setSortDir("desc");
+                          }
+                        }}
+                      >
+                        <div className="flex items-center justify-end gap-1.5">
+                          <span>Saldo Deudor</span>
+                          <ArrowUpDown className="w-3 h-3" />
+                        </div>
+                      </th>
+                      <th className="py-3 px-4 text-center">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredAndSortedProveedores.map((prov) => {
+                      const cat = (prov.categoria || "SUSPENSION").toUpperCase();
+                      const isLlanta = cat === "LLANTAS";
+                      const isSuspension = cat === "SUSPENSION";
+                      const isTorno = cat === "TORNO_MAQUILA";
+                      const tieneDeuda = (prov.saldo_deudor_actual || 0) > 0;
+
+                      return (
+                        <tr key={prov.id} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="py-2.5 px-4 font-semibold text-slate-900">
+                            <div>{prov.nombre_comercial}</div>
+                            {prov.razon_social && (
+                              <div className="text-[10px] text-slate-400 font-normal truncate max-w-[200px]">
+                                {prov.razon_social}
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <Badge
+                              variant={isLlanta ? "info" : isSuspension ? "warning" : isTorno ? "secondary" : "neutral"}
+                              size="sm"
+                            >
+                              {isLlanta ? "🛞 Llantas" : isSuspension ? "🔩 Suspensión" : isTorno ? "⚙️ Torno" : "📦 Insumos"}
+                            </Badge>
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <div className="flex items-center gap-1.5">
+                              {prov.dias_credito > 0 ? (
+                                <Badge variant="outline" size="sm" className="font-mono">
+                                  {prov.dias_credito}d
+                                </Badge>
+                              ) : (
+                                <Badge variant="neutral" size="sm">
+                                  Contado
+                                </Badge>
+                              )}
+                              <span className="text-[10px] text-slate-500">
+                                {prov.meses_garantia_default}m g.
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-600">
+                            <div className="text-[11px] font-medium text-slate-800">
+                              {prov.contacto_nombre || "—"}
+                            </div>
+                            {prov.telefono && (
+                              <div className="text-[10px] text-slate-400 font-mono">
+                                {prov.telefono}
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono tabular-nums text-slate-700">
+                            {prov.limite_credito > 0 ? (
+                              `$${Number(prov.limite_credito).toLocaleString("es-MX", { minimumFractionDigits: 2 })}`
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-4 text-right font-mono font-bold tabular-nums">
+                            <span className={tieneDeuda ? "text-amber-700" : "text-emerald-700"}>
+                              ${Number(prov.saldo_deudor_actual || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-4">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <Button
+                                variant="ghost"
+                                size="xs"
+                                onClick={() => {
+                                  setSelectedProveedorId(prov.id);
+                                  setActiveTab("transacciones");
+                                }}
+                              >
+                                Cuenta
+                              </Button>
+                              {tieneDeuda && (
+                                <Button
+                                  variant="success"
+                                  size="xs"
+                                  onClick={() => {
+                                    setAbonoDefaultProveedorId(prov.id);
+                                    setIsAbonoModalOpen(true);
+                                  }}
+                                  leftIcon={<DollarSign className="w-3 h-3" />}
+                                >
+                                  Abonar
+                                </Button>
+                              )}
+                              {prov.whatsapp && (
+                                <a
+                                  href={`https://wa.me/${prov.whatsapp.replace(/[^0-9]/g, "")}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-1 rounded-md text-emerald-600 hover:bg-emerald-50 transition-colors"
+                                  title="Enviar WhatsApp"
+                                >
+                                  <MessageSquare className="w-3.5 h-3.5" />
+                                </a>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
-          </div>
         </div>
       )}
 
@@ -630,29 +875,21 @@ export default function ProveedoresPage() {
           {/* Barra de Filtros */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-slate-100">
             <div className="flex items-center gap-2 flex-wrap">
-              <select
+              <CustomSelect
                 value={selectedProveedorId}
-                onChange={(e) => setSelectedProveedorId(e.target.value)}
-                className="h-9 px-3 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:ring-1 focus:ring-primary"
-              >
-                <option value="TODOS">Todos los Proveedores</option>
-                {proveedores.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nombre_comercial}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setSelectedProveedorId(val)}
+                options={proveedorFilterOptions}
+                variant="default"
+                triggerClassName="h-9 min-w-[200px]"
+              />
 
-              <select
+              <CustomSelect
                 value={filtroEstatusPago}
-                onChange={(e) => setFiltroEstatusPago(e.target.value)}
-                className="h-9 px-3 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:ring-1 focus:ring-primary"
-              >
-                <option value="TODOS">Todos los Estatus de Pago</option>
-                <option value="PAGADO">Pagado</option>
-                <option value="PENDIENTE">Pendiente (A Crédito)</option>
-                <option value="PARCIAL">Pago Parcial</option>
-              </select>
+                onChange={(val) => setFiltroEstatusPago(val)}
+                options={estatusPagoFilterOptions}
+                variant="default"
+                triggerClassName="h-9 min-w-[170px]"
+              />
             </div>
 
             <div className="relative w-full md:w-72">

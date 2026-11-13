@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   CheckCircle2,
 } from "lucide-react";
+import { Badge } from "@/components/ui/Badge";
 
 export type OrderPriority = "low" | "normal" | "high" | "urgent";
 
@@ -219,21 +220,23 @@ export const KanbanCard = memo(function KanbanCard({ order, onClick, onDeliverOr
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
-            <span
-              className={`px-1.5 py-0.2 rounded text-[9px] font-bold uppercase ${
+            <Badge
+              variant={
                 order.estatusPago === "Pagado"
-                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                  ? "success"
                   : order.estatusPago === "Parcial"
-                  ? "bg-amber-50 text-amber-700 border border-amber-200"
-                  : "bg-slate-100 text-slate-500"
-              }`}
+                  ? "warning"
+                  : "neutral"
+              }
+              size="sm"
+              dot={order.estatusPago === "Pagado" || order.estatusPago === "Parcial"}
             >
               {order.estatusPago === "Pagado"
                 ? "Pagado"
                 : order.estatusPago === "Parcial"
                 ? "Parcial"
                 : "Pend."}
-            </span>
+            </Badge>
             <span className="text-xs font-black text-slate-900 font-mono tabular-nums">
               ${order.totalAmount.toLocaleString("es-MX", { maximumFractionDigits: 0 })}
             </span>

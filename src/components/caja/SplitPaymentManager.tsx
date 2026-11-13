@@ -14,6 +14,9 @@ import {
   Split,
 } from "lucide-react";
 import { MetodoPagoTipo, PaymentSplitItem } from "@/services/multiPaymentService";
+import { CustomSelect, SelectOption } from "@/components/ui/Select";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
 
 interface SplitPaymentManagerProps {
   total: number;
@@ -37,6 +40,15 @@ const METODO_OPTIONS: Array<{
   { value: "KueskiPay", label: "KueskiPay (BNPL)", icon: Smartphone, color: "text-amber-600 bg-amber-50 border-amber-200" },
   { value: "Atrato", label: "Atrato Pago", icon: Smartphone, color: "text-indigo-600 bg-indigo-50 border-indigo-200" },
 ];
+
+const SELECT_METODO_OPTIONS: SelectOption<MetodoPagoTipo>[] = METODO_OPTIONS.map((opt) => {
+  const Icon = opt.icon;
+  return {
+    value: opt.value,
+    label: opt.label,
+    icon: <Icon size={14} className="text-zinc-500" />,
+  };
+});
 
 export function SplitPaymentManager({
   total,
@@ -170,22 +182,22 @@ export function SplitPaymentManager({
         </span>
 
         <div className="flex items-center gap-1.5">
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="xs"
             disabled={disabled}
             onClick={() => handleSplitEqually(2)}
-            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded border border-slate-300 transition-colors cursor-pointer"
           >
             Dividir en 2
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="secondary"
+            size="xs"
             disabled={disabled}
             onClick={() => handleSplitEqually(3)}
-            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded border border-slate-300 transition-colors cursor-pointer"
           >
             Dividir en 3
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -209,29 +221,27 @@ export function SplitPaymentManager({
                 </span>
 
                 {/* Method selector */}
-                <select
-                  disabled={disabled}
-                  value={p.metodo}
-                  onChange={(e) => {
-                    const newMetodo = e.target.value as MetodoPagoTipo;
-                    const { comision, neto } = calcularComisionMonto(newMetodo, p.monto, 3);
-                    handleUpdatePayment(p.id, {
-                      metodo: newMetodo,
-                      montoRecibido: newMetodo === "Efectivo" ? p.monto : undefined,
-                      cambio: 0,
-                      plazoMsi: newMetodo === "MSI" ? 3 : undefined,
-                      comisionMonto: comision,
-                      montoNeto: neto,
-                    });
-                  }}
-                  className="flex-1 h-9 bg-white border border-slate-300 rounded-md px-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-primary shadow-xs"
-                >
-                  {METODO_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex-1">
+                  <CustomSelect
+                    disabled={disabled}
+                    value={p.metodo}
+                    onChange={(newMetodo) => {
+                      const m = newMetodo as MetodoPagoTipo;
+                      const { comision, neto } = calcularComisionMonto(m, p.monto, 3);
+                      handleUpdatePayment(p.id, {
+                        metodo: m,
+                        montoRecibido: m === "Efectivo" ? p.monto : undefined,
+                        cambio: 0,
+                        plazoMsi: m === "MSI" ? 3 : undefined,
+                        comisionMonto: comision,
+                        montoNeto: neto,
+                      });
+                    }}
+                    options={SELECT_METODO_OPTIONS}
+                    variant="compact"
+                    triggerClassName="h-9 bg-white border border-slate-200/90 rounded-lg px-2 text-xs font-semibold text-slate-800 shadow-2xs hover:border-slate-300"
+                  />
+                </div>
 
                 {/* Amount input */}
                 <div className="relative w-36">
@@ -444,15 +454,16 @@ export function SplitPaymentManager({
       </div>
 
       {/* Button to add another split payment line */}
-      <button
-        type="button"
+      <Button
+        variant="secondary"
+        size="sm"
         disabled={disabled || restante <= 0}
         onClick={() => handleAddPayment("Efectivo")}
-        className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg border border-slate-300 transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full"
+        leftIcon={<Plus className="w-3.5 h-3.5" />}
       >
-        <Plus className="w-3.5 h-3.5" />
         Agregar otro método de pago {restante > 0 ? `(Faltan $${restante.toFixed(2)})` : ""}
-      </button>
+      </Button>
 
       {/* Financial Status Summary */}
       <div className="bg-slate-100/80 rounded-lg p-2.5 flex flex-col gap-1 border border-slate-200 text-xs">

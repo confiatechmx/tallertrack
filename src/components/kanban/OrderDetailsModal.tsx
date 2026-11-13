@@ -91,6 +91,14 @@ import {
   DEFAULT_OPERATION_PACKAGES,
   OperationGroup,
 } from "@/lib/services/serviceOperationsEngine";
+import {
+  TecnicoSelect,
+  EstacionSelect,
+  StatusBadgeSelect,
+} from "@/components/ui/SpecializedSelects";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { CustomSelect, SelectOption } from "@/components/ui/Select";
 
 interface OrderDetailsModalProps {
   orderId: string;
@@ -116,6 +124,17 @@ const DEFAULT_COVA_ESTACIONES = [
   "Portería",
   "Comodín 1",
   "Comodín 2",
+];
+
+const GARANTIA_PART_OPTIONS: SelectOption<string>[] = [
+  { value: "", label: "Sin garantía" },
+  { value: "30 días", label: "30 días" },
+  { value: "60 días", label: "60 días" },
+  { value: "90 días", label: "90 días (3 meses)" },
+  { value: "6 meses", label: "6 meses" },
+  { value: "1 año", label: "1 año" },
+  { value: "2 años", label: "2 años" },
+  { value: "5 años", label: "5 años" },
 ];
 
 const CHECKLIST_ITEMS = [
@@ -2703,20 +2722,13 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
           <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
             Técnico
           </label>
-          <select
+          <TecnicoSelect
             value={serviceMechanicId}
-            onChange={(e) => setServiceMechanicId(e.target.value)}
-            className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 text-slate-900"
-          >
-            <option value="">Técnico de la orden</option>
-            {mechanics
-              .filter((m) => m.rol === "Mecánico")
-              .map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.nombre} ({m.comision_porcentaje || 15}%)
-                </option>
-              ))}
-          </select>
+            onChange={(val) => setServiceMechanicId(val)}
+            mechanics={mechanics}
+            variant="compact"
+            triggerClassName="h-8 bg-white border border-slate-300 rounded-md"
+          />
         </div>
 
         <div className="sm:col-span-1">
@@ -2937,20 +2949,13 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
               <ShieldCheck size={13} className="text-slate-400" />
               Garantía (Opcional):
             </label>
-            <select
+            <CustomSelect
               value={partGarantia}
-              onChange={(e) => setPartGarantia(e.target.value)}
-              className="h-8 text-xs bg-white border border-slate-300 rounded-md px-2 text-slate-700 font-medium"
-            >
-              <option value="">Sin garantía</option>
-              <option value="30 días">30 días</option>
-              <option value="60 días">60 días</option>
-              <option value="90 días">90 días (3 meses)</option>
-              <option value="6 meses">6 meses</option>
-              <option value="1 año">1 año</option>
-              <option value="2 años">2 años</option>
-              <option value="5 años">5 años</option>
-            </select>
+              onChange={(val) => setPartGarantia(val)}
+              options={GARANTIA_PART_OPTIONS}
+              variant="compact"
+              triggerClassName="h-7 min-w-[120px] bg-white border border-slate-200/90 rounded-md"
+            />
             {partGarantia && partGarantia !== "Sin garantía" && (
               <span className="text-[10px] text-slate-400 font-mono">
                 • Gtía: {partGarantia}
@@ -3507,75 +3512,35 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
           {/* Píldora Segmentada Unificada de Despacho (Técnico | Bahía | Fase Kanban) */}
           <div className="inline-flex items-center bg-slate-100/90 border border-slate-200/90 rounded-lg p-0.5 divide-x divide-slate-200 shadow-2xs">
             {/* Técnico */}
-            <div className="relative flex items-center px-1.5">
-              <select
+            <div className="relative flex items-center px-1">
+              <TecnicoSelect
                 value={order.mecanico_id || ""}
-                onChange={(e) => handleUpdateMechanic(e.target.value)}
-                className="h-7 text-xs font-medium bg-transparent text-slate-700 focus:outline-none cursor-pointer pr-1"
-                title="Técnico Asignado a esta orden"
-              >
-                <option value="">🔧 Sin Técnico</option>
-                {mechanics
-                  .filter((m) => m.rol === "Mecánico" || m.puesto?.toLowerCase().includes("técnico"))
-                  .map((m) => (
-                    <option key={m.id} value={m.id}>
-                      🔧 {m.nombre}
-                    </option>
-                  ))}
-              </select>
+                onChange={(val) => handleUpdateMechanic(val)}
+                mechanics={mechanics}
+              />
             </div>
 
             {/* Bahía / Rampa */}
-            <div className="relative flex items-center px-1.5">
-              <select
+            <div className="relative flex items-center px-1">
+              <EstacionSelect
                 value={order.bahia_rampa || ""}
-                onChange={(e) => handleUpdateBahia(e.target.value)}
-                className="h-7 text-xs font-medium bg-transparent text-slate-700 focus:outline-none cursor-pointer pr-1"
-                title="Estación de Trabajo / Rampa"
-              >
-                <option value="">📍 Sin Estación</option>
-                {estacionesList.map((b) => (
-                  <option key={b} value={b}>
-                    📍 {b}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => handleUpdateBahia(val)}
+                estaciones={estacionesList}
+              />
             </div>
 
-            {/* Fase Kanban con punto de color */}
-            <div className="relative flex items-center px-2 py-0.5">
-              <span
-                className={`w-2 h-2 rounded-full mr-1.5 shrink-0 ${
-                  order.estado === "Listo para Entrega"
-                    ? "bg-emerald-500"
-                    : order.estado === "En Rampa"
-                    ? "bg-blue-600"
-                    : order.estado === "En Inspección"
-                    ? "bg-amber-500"
-                    : order.estado === "Entregado"
-                    ? "bg-slate-400"
-                    : "bg-slate-500"
-                }`}
-              />
-              <select
+            {/* Fase Kanban con selector dinámico */}
+            <div className="relative flex items-center px-1">
+              <StatusBadgeSelect
                 value={order.estado}
-                onChange={(e) => {
-                  const nextVal = e.target.value;
+                onChange={(nextVal) => {
                   if (nextVal === "Entregado") {
                     handleInitiateDelivery();
                   } else {
                     handleUpdateStatus(nextVal);
                   }
                 }}
-                className="h-7 text-xs font-bold bg-transparent text-slate-900 focus:outline-none cursor-pointer pr-1"
-                title="Fase del vehículo en el taller (cambia aquí para saltar etapas)"
-              >
-                <option value="Citas del Día">Citas del Día</option>
-                <option value="En Inspección">En Inspección</option>
-                <option value="En Rampa">En Rampa</option>
-                <option value="Listo para Entrega">Listo para Entrega</option>
-                <option value="Entregado">Entregado / Salida</option>
-              </select>
+              />
             </div>
           </div>
 
@@ -3711,13 +3676,13 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
             <Banknote size={14} className={activeTab === "pagos" ? "text-emerald-600" : "text-slate-400"} />
             <span>Cobro & Caja</span>
             {saldoPendiente <= 0 && granTotal > 0 ? (
-              <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                ✓ Pagado
-              </span>
+              <Badge variant="success" size="sm" dot>
+                Pagado
+              </Badge>
             ) : saldoPendiente > 0 ? (
-              <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-100 text-amber-900 tabular-nums">
-                $${saldoPendiente.toLocaleString("es-MX", { maximumFractionDigits: 0 })}
-              </span>
+              <Badge variant="warning" size="sm" className="font-mono tabular-nums">
+                ${saldoPendiente.toLocaleString("es-MX", { maximumFractionDigits: 0 })}
+              </Badge>
             ) : null}
           </button>
 
@@ -3812,14 +3777,16 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
               )}
 
               {/* TOOLBAR UNIFICADA DE COTIZACIÓN */}
-              <div className="bg-white border border-slate-200 rounded-lg px-4 py-2.5 shadow-2xs flex flex-wrap items-center justify-between gap-2.5">
+              <div className="bg-white border border-slate-200/90 rounded-xl px-4 py-3 shadow-2xs flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
-                  <Layers size={15} className="text-blue-600 shrink-0" />
-                  <span className="text-xs font-bold text-slate-800">
+                  <div className="w-6 h-6 rounded-lg bg-blue-50 border border-blue-200/60 flex items-center justify-center shrink-0">
+                    <Layers size={14} className="text-blue-600" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-900 tracking-tight">
                     Desglose por Paquetes y Operaciones ({operationGroups.length})
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
                   <button
                     type="button"
                     onClick={() => {
@@ -3829,10 +3796,10 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                       setIsAddingPart(false);
                       setIsAddingTire(false);
                     }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-100 hover:bg-slate-200/80 text-slate-800 border border-slate-200 text-xs font-bold transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-800 border border-slate-200/90 shadow-2xs text-xs font-bold active:scale-[0.98] transition-all cursor-pointer"
                     title="Crear un nuevo paquete / operación con mano de obra"
                   >
-                    <Wrench size={12} className="text-blue-600" /> + Mano de Obra
+                    <Wrench size={13} className="text-blue-600" /> + Mano de Obra
                   </button>
                   <button
                     type="button"
@@ -3843,10 +3810,10 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                       setIsAddingService(false);
                       setIsAddingTire(false);
                     }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-100 hover:bg-slate-200/80 text-slate-800 border border-slate-200 text-xs font-bold transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-800 border border-slate-200/90 shadow-2xs text-xs font-bold active:scale-[0.98] transition-all cursor-pointer"
                     title="Crear un nuevo paquete / operación con refacción"
                   >
-                    <Package size={12} className="text-indigo-600" /> + Refacción
+                    <Package size={13} className="text-indigo-600" /> + Refacción
                   </button>
                   <button
                     type="button"
@@ -3857,10 +3824,10 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                       setIsAddingService(false);
                       setIsAddingPart(false);
                     }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-100 hover:bg-slate-200/80 text-slate-800 border border-slate-200 text-xs font-bold transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-800 border border-slate-200/90 shadow-2xs text-xs font-bold active:scale-[0.98] transition-all cursor-pointer"
                     title="Crear un nuevo paquete / operación con neumático"
                   >
-                    <CircleDot size={12} className="text-emerald-600" /> + Neumático
+                    <CircleDot size={13} className="text-emerald-600" /> + Neumático
                   </button>
                 </div>
               </div>
@@ -4665,15 +4632,17 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
 
             {/* Right 4 Cols: Resumen Financiero y Rentabilidad */}
             <div className="lg:col-span-4 space-y-4">
-              <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-2xs space-y-4 sticky top-4">
-                <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div className="bg-white border border-slate-200/90 rounded-xl p-4 shadow-xs space-y-4 sticky top-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                   <div className="flex items-center gap-2">
-                    <TrendingUp size={16} className="text-emerald-600" />
+                    <div className="w-6 h-6 rounded-md bg-emerald-50 border border-emerald-200/60 flex items-center justify-center shrink-0">
+                      <TrendingUp size={14} className="text-emerald-600" />
+                    </div>
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                      Rentabilidad y Resumen Financiero
+                      Rentabilidad y Finanzas
                     </h3>
                   </div>
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/60">
                     IVA {empresa?.tasa_iva ?? 16}%
                   </span>
                 </div>
@@ -4682,27 +4651,27 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between text-slate-600">
                     <span>Mano de Obra ({activeServices.length}):</span>
-                    <span className="font-semibold text-slate-900 tabular-nums">
+                    <span className="font-semibold text-slate-900 tabular-nums font-mono">
                       ${subtotalServicios.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                     </span>
                   </div>
                   <div className="flex justify-between text-slate-600">
                     <span>Refacciones Sobre Pedido ({activeParts.length}):</span>
-                    <span className="font-semibold text-slate-900 tabular-nums">
+                    <span className="font-semibold text-slate-900 tabular-nums font-mono">
                       ${subtotalRefacciones.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                     </span>
                   </div>
                   <div className="flex justify-between text-slate-600">
                     <span>Neumáticos de Stock ({activeTires.length}):</span>
-                    <span className="font-semibold text-slate-900 tabular-nums">
+                    <span className="font-semibold text-slate-900 tabular-nums font-mono">
                       ${subtotalLlantas.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                     </span>
                   </div>
                 </div>
 
                 {/* Internal Shop Costs & Gross Margin Box */}
-                <div className="bg-slate-50 border border-slate-200 rounded-md p-3 space-y-1.5 text-[11px]">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                <div className="bg-slate-50/80 border border-slate-200/90 rounded-xl p-3 space-y-1.5 text-[11px]">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
                     Costos Internos de la Orden
                   </div>
                   <div className="flex justify-between text-slate-600">
@@ -4728,13 +4697,13 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                       -${comisionTecnicoTotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                     </span>
                   </div>
-                  <div className="border-t border-slate-200 pt-2 mt-1 flex justify-between items-center">
+                  <div className="border-t border-slate-200/80 pt-2 mt-1 flex justify-between items-center">
                     <span className="font-bold text-slate-800">Utilidad Bruta Estimada:</span>
                     <div className="text-right">
-                      <span className="font-black text-emerald-700 text-xs tabular-nums">
+                      <span className="font-black text-emerald-700 text-xs tabular-nums font-mono">
                         ${utilidadBruta.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                       </span>
-                      <span className="ml-1.5 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-mono text-[10px] font-bold tabular-nums">
+                      <span className="ml-1.5 px-1.5 py-0.5 rounded-md bg-emerald-100/80 text-emerald-800 font-mono text-[10px] font-bold tabular-nums">
                         {margenBrutoPct.toFixed(1)}%
                       </span>
                     </div>
@@ -4742,24 +4711,24 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                 </div>
 
                 {/* Grand Total & Balance */}
-                <div className="border-t border-slate-200 pt-3 space-y-2">
+                <div className="border-t border-slate-100 pt-3 space-y-2">
                   <div className="flex justify-between items-baseline">
-                    <span className="text-xs font-bold uppercase text-slate-500">Gran Total</span>
-                    <span className="text-xl font-black text-slate-900 tabular-nums">
+                    <span className="text-xs font-bold uppercase text-slate-500 tracking-wider">Gran Total</span>
+                    <span className="text-2xl font-black text-slate-900 tabular-nums font-mono">
                       ${granTotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-slate-500 font-medium">Total Pagado / Abonado:</span>
-                    <span className="font-bold text-emerald-600 tabular-nums">
+                    <span className="font-bold text-emerald-600 tabular-nums font-mono">
                       ${totalPagado.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center p-2.5 rounded-md bg-amber-50 border border-amber-200">
-                    <span className="text-xs font-bold uppercase text-amber-900">
+                  <div className="flex justify-between items-center p-3 rounded-xl bg-amber-50/90 border border-amber-200/80">
+                    <span className="text-xs font-bold uppercase text-amber-900 tracking-wider">
                       Saldo por Cobrar
                     </span>
-                    <span className="text-base font-black text-amber-700 tabular-nums">
+                    <span className="text-lg font-black text-amber-800 tabular-nums font-mono">
                       ${saldoPendiente.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
                     </span>
                   </div>
