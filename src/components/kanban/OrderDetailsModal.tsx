@@ -549,15 +549,23 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
     loadWorkspaceData();
   }, [orderId]);
 
-  // Financial & Profitability calculations
-  const servicesList = order?.orden_servicio_servicios || [];
-  const partsList = order?.orden_servicio_refacciones || [];
-  const tiresList = order?.cotizaciones?.detalles_cotizacion || [];
-  const pagosList = order?.pagos_orden || [];
+  // Financial & Profitability calculations (Memoized strictly to prevent re-render thrashing)
+  const servicesList = useMemo(() => order?.orden_servicio_servicios || [], [order?.orden_servicio_servicios]);
+  const partsList = useMemo(() => order?.orden_servicio_refacciones || [], [order?.orden_servicio_refacciones]);
+  const tiresList = useMemo(() => order?.cotizaciones?.detalles_cotizacion || [], [order?.cotizaciones?.detalles_cotizacion]);
+  const pagosList = useMemo(() => order?.pagos_orden || [], [order?.pagos_orden]);
 
-  const activeServices = servicesList.filter((s: any) => s.estatus_aprobacion !== "Diferido");
-  const activeParts = partsList.filter((r: any) => r.estatus_aprobacion !== "Diferido");
-  const activeTires = tiresList.filter((t: any) => t.estatus_aprobacion !== "Diferido");
+  const activeServices = useMemo(() => {
+    return servicesList.filter((s: any) => s.estatus_aprobacion !== "Diferido");
+  }, [servicesList]);
+
+  const activeParts = useMemo(() => {
+    return partsList.filter((r: any) => r.estatus_aprobacion !== "Diferido");
+  }, [partsList]);
+
+  const activeTires = useMemo(() => {
+    return tiresList.filter((t: any) => t.estatus_aprobacion !== "Diferido");
+  }, [tiresList]);
 
   // Recomendaciones / Trabajos Pospuestos para la orden actual
   const currentDeferredServices = useMemo(() => {
@@ -604,52 +612,75 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
     return groupItemsByOperation(activeTires, activeServices, activeParts);
   }, [activeTires, activeServices, activeParts]);
 
-  const subtotalServicios = activeServices.reduce(
-    (acc: number, s: any) => acc + Number(s.precio_cobrado || 0) * Number(s.cantidad || 1),
-    0
-  );
-  const subtotalRefacciones = activeParts.reduce(
-    (acc: number, r: any) => acc + Number(r.subtotal || 0),
-    0
-  );
-  const costoRefacciones = activeParts.reduce(
-    (acc: number, r: any) => acc + Number(r.costo_unitario || 0) * Number(r.cantidad || 1),
-    0
-  );
-  const totalComprasProveedores = (orderCompras || []).reduce(
-    (acc: number, c: any) => acc + Number(c.monto_costo || 0),
-    0
-  );
+  const subtotalServicios = useMemo(() => {
+    return activeServices.reduce(
+      (acc: number, s: any) => acc + Number(s.precio_cobrado || 0) * Number(s.cantidad || 1),
+      0
+    );
+  }, [activeServices]);
+
+  const subtotalRefacciones = useMemo(() => {
+    return activeParts.reduce((acc: number, r: any) => acc + Number(r.subtotal || 0), 0);
+  }, [activeParts]);
+
+  const costoRefacciones = useMemo(() => {
+    return activeParts.reduce(
+      (acc: number, r: any) => acc + Number(r.costo_unitario || 0) * Number(r.cantidad || 1),
+      0
+    );
+  }, [activeParts]);
+
+  const totalComprasProveedores = useMemo(() => {
+    return (orderCompras || []).reduce((acc: number, c: any) => acc + Number(c.monto_costo || 0), 0);
+  }, [orderCompras]);
+
   const costoRefaccionesOrden = totalComprasProveedores > 0 ? totalComprasProveedores : costoRefacciones;
-  const subtotalLlantas = activeTires.reduce(
-    (acc: number, t: any) => acc + Number(t.subtotal || 0),
-    0
-  );
-  const costoLlantas = activeTires.reduce(
-    (acc: number, t: any) =>
-      acc +
-      Number(t.inventario_llantas?.costo_adquisicion || Number(t.precio_unitario || 0) * 0.72) *
-        Number(t.cantidad || 1),
-    0
-  );
 
-  const comisionTecnicoTotal = activeServices.reduce((acc: number, s: any) => {
-    const lineTotal = Number(s.precio_cobrado || 0) * Number(s.cantidad || 1);
-    const pct = Number(s.comision_porcentaje ?? 15);
-    return acc + lineTotal * (pct / 100);
-  }, 0);
+  const subtotalLlantas = useMemo(() => {
+    return activeTires.reduce((acc: number, t: any) => acc + Number(t.subtotal || 0), 0);
+  }, [activeTires]);
 
-  const granTotal = subtotalServicios + subtotalRefacciones + subtotalLlantas;
-  const costoTotalDirecto = costoRefaccionesOrden + costoLlantas + comisionTecnicoTotal;
+  const costoLlantas = useMemo(() => {
+    return activeTires.reduce(
+      (acc: number, t: any) =>
+        acc +
+        Number(t.inventario_llantas?.costo_adquisicion || Number(t.precio_unitario || 0) * 0.72) *
+          Number(t.cantidad || 1),
+      0
+    );
+  }, [activeTires]);
+
+  const comisionTecnicoTotal = useMemo(() => {
+    return activeServices.reduce((acc: number, s: any) => {
+      const lineTotal = Number(s.precio_cobrado || 0) * Number(s.cantidad || 1);
+      const pct = Number(s.comision_porcentaje ?? 15);
+      return acc + lineTotal * (pct / 100);
+    }, 0);
+  }, [activeServices]);
+
+  const granTotal = useMemo(() => {
+    return subtotalServicios + subtotalRefacciones + subtotalLlantas;
+  }, [subtotalServicios, subtotalRefacciones, subtotalLlantas]);
+
+  const costoTotalDirecto = useMemo(() => {
+    return costoRefaccionesOrden + costoLlantas + comisionTecnicoTotal;
+  }, [costoRefaccionesOrden, costoLlantas, comisionTecnicoTotal]);
+
   const utilidadBruta = granTotal - costoTotalDirecto;
   const margenBrutoPct = granTotal > 0 ? (utilidadBruta / granTotal) * 100 : 0;
 
-  const totalPagado = pagosList
-    .filter((p: any) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO") && !p.deleted_at)
-    .reduce((acc: number, p: any) => acc + Number(p.monto_total || 0), 0);
-  const totalDescuentosEnPagos = pagosList
-    .filter((p: any) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO") && !p.deleted_at)
-    .reduce((acc: number, p: any) => acc + Number(p.descuento_aplicado || 0), 0);
+  const totalPagado = useMemo(() => {
+    return pagosList
+      .filter((p: any) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO") && !p.deleted_at)
+      .reduce((acc: number, p: any) => acc + Number(p.monto_total || 0), 0);
+  }, [pagosList]);
+
+  const totalDescuentosEnPagos = useMemo(() => {
+    return pagosList
+      .filter((p: any) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO") && !p.deleted_at)
+      .reduce((acc: number, p: any) => acc + Number(p.descuento_aplicado || 0), 0);
+  }, [pagosList]);
+
   const totalDescuentoOrden = Math.max(Number(order?.descuento_efectivo_monto || 0), totalDescuentosEnPagos);
   const saldoPendiente = Math.max(0, granTotal - totalPagado - totalDescuentoOrden);
 
@@ -5806,7 +5837,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
         />
         {/* MODAL DE CONFIRMACIÓN: ENTREGA CON SALDO PENDIENTE */}
         {isDeliveryWithBalanceModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 animate-in fade-in duration-150">
             <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-amber-300 overflow-hidden">
               {/* Header de Alerta */}
               <div className="bg-amber-500 text-white px-5 py-4 flex items-center justify-between">

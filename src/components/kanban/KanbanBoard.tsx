@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useDeferredValue } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -108,6 +108,7 @@ export function KanbanBoard() {
   // Filters & View Mode
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
   const [searchQuery, setSearchQuery] = useState("");
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const [selectedMechanicFilter, setSelectedMechanicFilter] = useState<string>("ALL");
   const [selectedPaymentFilter, setSelectedPaymentFilter] = useState<string>("ALL");
   const [selectedEtapaFilter, setSelectedEtapaFilter] = useState<string>("ACTIVAS");
@@ -138,8 +139,8 @@ export function KanbanBoard() {
     }
   }, [searchParams]);
 
-  const fetchOrders = useCallback(async () => {
-    setLoading(true);
+  const fetchOrders = useCallback(async (isInitial = false) => {
+    if (isInitial) setLoading(true);
     const [{ data, error }, { data: empData }] = await Promise.all([
       supabase
         .from("ordenes_servicio")
@@ -298,7 +299,7 @@ export function KanbanBoard() {
   }, [empresa?.id, sucursales]);
 
   useEffect(() => {
-    fetchOrders();
+    fetchOrders(true);
   }, [fetchOrders]);
 
   const sensors = useSensors(
@@ -440,7 +441,7 @@ export function KanbanBoard() {
         return false;
       }
       // Lifecycle Stage filter (unless user is searching explicitly by text)
-      if (!searchQuery.trim()) {
+      if (!deferredSearchQuery.trim()) {
         if (selectedEtapaFilter === "ACTIVAS" && order.columnId === "Entregado") {
           return false;
         }
@@ -449,8 +450,8 @@ export function KanbanBoard() {
         }
       }
       // Search query
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
+      if (deferredSearchQuery.trim()) {
+        const query = deferredSearchQuery.toLowerCase();
         const folioStr = `#${1000 + Number(order.folio || 1)}`.toLowerCase();
         const matchFolio = folioStr.includes(query);
         const matchName = order.customerName.toLowerCase().includes(query);
@@ -467,7 +468,7 @@ export function KanbanBoard() {
     selectedMechanicFilter,
     selectedPaymentFilter,
     selectedEtapaFilter,
-    searchQuery,
+    deferredSearchQuery,
   ]);
 
   const ordersByColumn = useMemo(() => {
@@ -623,7 +624,7 @@ export function KanbanBoard() {
 
             <button
               type="button"
-              onClick={fetchOrders}
+              onClick={() => fetchOrders(true)}
               title="Actualizar tablero"
               className="h-8 px-2.5 rounded-md border border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors cursor-pointer"
             >
@@ -856,7 +857,7 @@ export function KanbanBoard() {
           initialDiferidoId={initialDiferidoId}
           onSuccess={(createdOrderId) => {
             setIsOrderModalOpen(false);
-            fetchOrders();
+            fetchOrders(false);
             if (createdOrderId) {
               setSelectedOrderId(createdOrderId);
             }
@@ -878,7 +879,7 @@ export function KanbanBoard() {
             <OrderDetailsModal
               orderId={selectedOrderId}
               onClose={() => setSelectedOrderId(null)}
-              onUpdate={fetchOrders}
+              onUpdate={() => fetchOrders(false)}
             />
           </ErrorBoundary>
         )}
