@@ -2,9 +2,14 @@
 import TenantBrandLogo from "@/components/brand/TenantBrandLogo";
 import { groupItemsByOperation } from "@/lib/services/serviceOperationsEngine";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useTenant } from "@/context/TenantContext";
+import {
+  calcularTotalTarjeta,
+  prorratearPreciosParaTarjeta,
+  type PricingEngineItem,
+} from "@/services/pricingEngineService";
 import {
   Printer,
   CheckCircle2,
@@ -27,6 +32,8 @@ import {
   Layers,
   FolderTree,
   ClipboardList,
+  Banknote,
+  CreditCard,
 } from "lucide-react";
 
 interface OrderPrintSheetProps {
@@ -165,7 +172,6 @@ export function OrderPrintSheet({
     return acc + val;
   }, 0);
   const subtotalDiferidoItems = subtotalDiferidoServicios + subtotalDiferidoRefacciones + subtotalDiferidoLlantas;
-  const operationGroups = groupItemsByOperation(tires, services, parts);
 
   const hasDeferred =
     deferredServices.length > 0 ||
@@ -183,6 +189,92 @@ export function OrderPrintSheet({
     (p: any) => (p.estatus === "Aprobado" || !p.estatus || p.estatus.toLowerCase() !== "cancelado") && !p.deleted_at
   );
 
+  const isPaidWithCard = pagosAprobados.some((p: any) => {
+    const prov = (p.proveedor_pago || "").toLowerCase();
+    const met = (p.metodo_detalle || "").toLowerCase();
+    return prov.includes("tarjeta") || prov.includes("mercado") || prov.includes("banbajío") || met.includes("tpv");
+  });
+
+  const [pricingMode, setPricingMode] = useState<"efectivo" | "tarjeta">(() => {
+    return isPaidWithCard ? "tarjeta" : "efectivo";
+  });
+
+  const tieneRefacciones = (parts.length + tires.length) > 0;
+  const tarjetaAjustePct = Number(activeEmpresa?.tarjeta_ajuste_porcentaje ?? 4.3);
+  const precioTarjetaCotizado = calcularTotalTarjeta({
+    monto: granTotal,
+    porcentaje: tarjetaAjustePct,
+    tieneRefacciones,
+  });
+
+  const engineItems: PricingEngineItem[] = useMemo(() => [
+    ...services.map((s: any) => ({
+      id: `srv-${s.id}`,
+      tipo: "servicio" as const,
+      nombre: s.servicios_taller?.nombre || s.servicio?.nombre || s.concepto_personalizado || "Servicio",
+      cantidad: Number(s.cantidad || 1),
+      precioUnitario: Number(s.precio_cobrado || 0),
+      subtotal: Number(s.precio_cobrado || 0) * Number(s.cantidad || 1),
+    })),
+    ...parts.map((r: any) => ({
+      id: `ref-${r.id}`,
+      tipo: "refaccion" as const,
+      nombre: r.nombre,
+      cantidad: Number(r.cantidad || 1),
+      precioUnitario: Number(r.precio_unitario || 0),
+      subtotal: r.subtotal != null ? Number(r.subtotal) : Number(r.precio_unitario || 0) * Number(r.cantidad || 1),
+    })),
+    ...tires.map((t: any) => ({
+      id: `tire-${t.id}`,
+      tipo: "llanta" as const,
+      nombre: t.inventario_llantas ? `${t.inventario_llantas.marca} ${t.inventario_llantas.modelo_llanta}` : (t.nombre || "Neumático"),
+      cantidad: Number(t.cantidad || 1),
+      precioUnitario: Number(t.precio_unitario || 0),
+      subtotal: t.subtotal != null ? Number(t.subtotal) : Number(t.precio_unitario || 0) * Number(t.cantidad || 1),
+    })),
+  ], [services, parts, tires]);
+
+  const pricingProrrateo = useMemo(() => {
+    if (pricingMode !== "tarjeta" || !tieneRefacciones) return null;
+    return prorratearPreciosParaTarjeta(engineItems, { porcentajeTarjeta: tarjetaAjustePct });
+  }, [pricingMode, tieneRefacciones, engineItems, tarjetaAjustePct]);
+
+  const displayServices = services;
+  const displayParts = useMemo(() => {
+    if (!pricingProrrateo) return parts;
+    return parts.map((r: any) => {
+      const match = pricingProrrateo.itemsProrrateados.find((p) => p.id === `ref-${r.id}`);
+      if (!match) return r;
+      return { ...r, precio_unitario: match.precioUnitarioFinal, subtotal: match.subtotalFinal };
+    });
+  }, [parts, pricingProrrateo]);
+
+  const displayTires = useMemo(() => {
+    if (!pricingProrrateo) return tires;
+    return tires.map((t: any) => {
+      const match = pricingProrrateo.itemsProrrateados.find((p) => p.id === `tire-${t.id}`);
+      if (!match) return t;
+      return { ...t, precio_unitario: match.precioUnitarioFinal, subtotal: match.subtotalFinal };
+    });
+  }, [tires, pricingProrrateo]);
+
+  const displaySubtotalRefacciones = useMemo(() => {
+    return displayParts.reduce((acc: number, r: any) => {
+      const val = r.subtotal != null ? Number(r.subtotal) : Number(r.precio_unitario || 0) * Number(r.cantidad || 1);
+      return acc + val;
+    }, 0);
+  }, [displayParts]);
+
+  const displaySubtotalLlantas = useMemo(() => {
+    return displayTires.reduce((acc: number, t: any) => {
+      const val = t.subtotal != null ? Number(t.subtotal) : Number(t.precio_unitario || 0) * Number(t.cantidad || 1);
+      return acc + val;
+    }, 0);
+  }, [displayTires]);
+
+  const displayGranTotal = pricingProrrateo ? pricingProrrateo.granTotalTarjeta : granTotal;
+  const operationGroups = groupItemsByOperation(displayTires, displayServices, displayParts);
+
   // Cash Discount Configuration & Calculation
   const descuentoEfectivoHabilitado = Boolean(activeEmpresa?.descuento_efectivo_habilitado);
   const descuentoEfectivoPct = Number(
@@ -190,22 +282,18 @@ export function OrderPrintSheet({
   );
   const descuentoEfectivoMonto = Number(order?.descuento_efectivo_monto || 0);
 
-  // Precios según forma de pago autogestionable por tenant
-  const tarjetaAjustePct = Number(activeEmpresa?.tarjeta_ajuste_porcentaje ?? 4.3);
-  const precioTarjetaCotizado = Math.round(granTotal * (1 + (tarjetaAjustePct / 100)) * 100) / 100;
-
   const totalPagado = pagosAprobados.reduce((acc: number, p: any) => acc + Number(p.monto_total || 0), 0);
   const totalDescuentosEnPagos = pagosAprobados.reduce(
     (acc: number, p: any) => acc + Number(p.descuento_aplicado || 0),
     0
   );
   const totalDescuentoEfectivo = Math.max(descuentoEfectivoMonto, totalDescuentosEnPagos);
-  const saldoPendiente = Math.max(0, granTotal - totalPagado - totalDescuentoEfectivo);
+  const saldoPendiente = Math.max(0, displayGranTotal - totalPagado - totalDescuentoEfectivo);
   const estaLiquidado = order.estatus_pago === "Pagado" || saldoPendiente <= 0;
 
   const tasaIva = Number(activeEmpresa?.tasa_iva ?? 16);
-  const subtotalSinIva = Math.round((granTotal / (1 + tasaIva / 100)) * 100) / 100;
-  const ivaCalculado = Math.round((granTotal - subtotalSinIva) * 100) / 100;
+  const subtotalSinIva = Math.round((displayGranTotal / (1 + tasaIva / 100)) * 100) / 100;
+  const ivaCalculado = Math.round((displayGranTotal - subtotalSinIva) * 100) / 100;
 
   const handlePrint = () => {
     window.print();
@@ -609,14 +697,14 @@ export function OrderPrintSheet({
           /* VISTA CLÁSICA DESGLOSADA POR CATEGORÍAS */
           <div className="space-y-2.5">
             {/* 1. Neumáticos */}
-            {tires.length > 0 && (
+            {displayTires.length > 0 && (
               <div className="border border-slate-200 rounded-md overflow-hidden bg-white shadow-2xs">
                 <div className="bg-slate-50/90 px-3 py-1.5 border-b border-slate-200 flex items-center justify-between">
                   <span className="text-[10px] font-bold text-slate-900 uppercase tracking-tight flex items-center gap-1.5">
-                    🛞 Neumáticos y Ruedas ({tires.length})
+                    🛞 Neumáticos y Ruedas ({displayTires.length})
                   </span>
                   <span className="text-[9.5px] font-mono font-bold text-slate-900">
-                    Subtotal Neumáticos: ${subtotalLlantas.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
+                    Subtotal Neumáticos: ${displaySubtotalLlantas.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
                   </span>
                 </div>
                 <table className="w-full text-left border-collapse">
@@ -630,7 +718,7 @@ export function OrderPrintSheet({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-[10px]">
-                    {tires.map((t: any) => {
+                    {displayTires.map((t: any) => {
                       const tire = t.inventario_llantas || t.llanta;
                       const medida = tire ? `${tire.ancho}/${tire.perfil} R${tire.rin}` : "";
                       const tireName = tire ? `${tire.marca} ${tire.modelo_llanta}` : (t.nombre || "Neumático");
@@ -659,14 +747,14 @@ export function OrderPrintSheet({
             )}
 
             {/* 2. Refacciones */}
-            {parts.length > 0 && (
+            {displayParts.length > 0 && (
               <div className="border border-slate-200 rounded-md overflow-hidden bg-white shadow-2xs">
                 <div className="bg-slate-50/90 px-3 py-1.5 border-b border-slate-200 flex items-center justify-between">
                   <span className="text-[10px] font-bold text-slate-900 uppercase tracking-tight flex items-center gap-1.5">
-                    🔩 Refacciones y Materiales ({parts.length})
+                    🔩 Refacciones y Materiales ({displayParts.length})
                   </span>
                   <span className="text-[9.5px] font-mono font-bold text-slate-900">
-                    Subtotal Refacciones: ${subtotalRefacciones.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
+                    Subtotal Refacciones: ${displaySubtotalRefacciones.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
                   </span>
                 </div>
                 <table className="w-full text-left border-collapse">
@@ -680,7 +768,7 @@ export function OrderPrintSheet({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-[10px]">
-                    {parts.map((r: any) => {
+                    {displayParts.map((r: any) => {
                       const qty = Number(r.cantidad || 1);
                       const unit = Number(r.precio_unitario || 0);
                       const sub = r.subtotal != null ? Number(r.subtotal) : unit * qty;
@@ -827,11 +915,11 @@ export function OrderPrintSheet({
                   Precios según forma de pago
                 </span>
                 <div className="flex justify-between items-center py-0.5 text-[10px]">
-                  <span className="text-slate-600">• Efectivo / Transferencia:</span>
+                  <span className="text-slate-600">• Precio Promoción (Efectivo / Transferencia):</span>
                   <span className="font-mono font-bold text-slate-900">${granTotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN</span>
                 </div>
                 <div className="flex justify-between items-center py-0.5 text-[10px] border-t border-slate-200 mt-0.5 pt-0.5">
-                  <span className="text-slate-600">• Pago con Tarjeta:</span>
+                  <span className="text-slate-600">• Pago con Tarjeta TPV:</span>
                   <span className="font-mono font-bold text-slate-900">${precioTarjetaCotizado.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN</span>
                 </div>
               </div>
@@ -853,9 +941,9 @@ export function OrderPrintSheet({
               </span>
             </div>
             <div className="flex justify-between text-xs sm:text-sm font-black text-slate-900 border-t border-slate-200 pt-1">
-              <span>{docType === "nota_venta" ? "TOTAL VENTA:" : "GRAN TOTAL:"}</span>
+              <span>{docType === "nota_venta" ? "TOTAL VENTA:" : (pricingMode === "tarjeta" ? "TOTAL TARIFA TARJETA:" : "PRECIO PROMOCIÓN:")}</span>
               <span className="tabular-nums" style={{ color: primaryColor }}>
-                ${granTotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
+                ${displayGranTotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
               </span>
             </div>
 
@@ -1138,6 +1226,36 @@ export function OrderPrintSheet({
               >
                 <FileText size={13} />
                 Cotización Previa
+              </button>
+            </div>
+
+            {/* Toggle Modalidad de Precio (Promoción Efectivo vs Tarjeta +4.3% Prorrateada) */}
+            <div className="flex items-center bg-slate-800 p-0.5 rounded-lg border border-slate-700">
+              <button
+                type="button"
+                onClick={() => setPricingMode("efectivo")}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-bold transition-colors cursor-pointer ${
+                  pricingMode === "efectivo"
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "text-slate-300 hover:text-white"
+                }`}
+                title="Mostrar precios base de promoción (efectivo / transferencia)"
+              >
+                <Banknote size={13} />
+                <span>Promoción (Efectivo)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPricingMode("tarjeta")}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-bold transition-colors cursor-pointer ${
+                  pricingMode === "tarjeta"
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "text-slate-300 hover:text-white"
+                }`}
+                title="Prorratear ajuste de tarjeta (+4.3%) a la decena superior en refacciones"
+              >
+                <CreditCard size={13} />
+                <span>Tarifa Tarjeta (+4.3%)</span>
               </button>
             </div>
 

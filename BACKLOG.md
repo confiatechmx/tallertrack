@@ -3,6 +3,7 @@
 # Backlog del Proyecto - TallerTrack
 
 ## Pendientes
+- [ ] Blindar RLS en Tablas de Caja (Activar RLS en caja_fondos, cuentas_bancarias, caja_turnos, caja_arqueos_denominaciones, caja_traspasos_fondos con políticas de tenant) #seguridad #rls @alta ➔ [[Aislamiento de Datos con Row Level Security (RLS)]]
 - [ ] Refinamiento y Maduración de Lógica Multi-Sucursal (Permisos por sucursal, traspaso de órdenes, aislamiento estricto de almacenes y filtros operativos granulares) #arquitectura #multisucursal @media ➔ [[El Concepto de Sucursal vs Organizacion]]
 - [ ] Botón de cierre rápido en Toasts (Sonner closeButton): permitir descartar inmediatamente alertas y confirmaciones en mostrador y móvil mediante una '×' visible #frontend #ux @baja ➔ [[Design System Dirty Hands UX y Mobile PWA]]
 - [ ] CI/CD y Separación de Entornos #devops @alta <!-- asana:1216816770799595 --> ➔ [[Pipeline CI-CD y Separacion de Entornos (Staging vs Prod)]]

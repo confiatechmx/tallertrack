@@ -10,6 +10,7 @@ import { calcularCuotasBNPL } from "@/lib/bnpl";
 import { ReceiptModal } from "@/components/caja/ReceiptModal";
 import { OrderPrintSheet } from "./OrderPrintSheet";
 import { AuditTimeline } from "@/components/audit/AuditTimeline";
+import { calcularTotalTarjeta } from "@/services/pricingEngineService";
 import { TicketEvidenceLightbox } from "@/components/proveedores/TicketEvidenceLightbox";
 import { ProveedorEvidenceModal } from "@/components/proveedores/ProveedorEvidenceModal";
 import { ProveedorService, type Proveedor } from "@/services/proveedorService";
@@ -690,6 +691,25 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
 
   const totalDescuentoOrden = Math.max(Number(order?.descuento_efectivo_monto || 0), totalDescuentosEnPagos);
   const saldoPendiente = Math.max(0, granTotal - totalPagado - totalDescuentoOrden);
+
+  // Motor de Precios Modo Cova (Sobretasa Tarjeta +4.3% redondeada a la decena superior en refacciones)
+  const tieneRefacciones = (activeParts.length + activeTires.length) > 0;
+
+  const precioTarjetaCalculado = useMemo(() => {
+    return calcularTotalTarjeta({
+      monto: granTotal,
+      porcentaje: Number(empresa?.tarjeta_ajuste_porcentaje ?? 4.3),
+      tieneRefacciones,
+    });
+  }, [granTotal, empresa?.tarjeta_ajuste_porcentaje, tieneRefacciones]);
+
+  const montoTarjetaPendiente = useMemo(() => {
+    return calcularTotalTarjeta({
+      monto: saldoPendiente,
+      porcentaje: Number(empresa?.tarjeta_ajuste_porcentaje ?? 4.3),
+      tieneRefacciones,
+    });
+  }, [saldoPendiente, empresa?.tarjeta_ajuste_porcentaje, tieneRefacciones]);
 
   // POS Cash Discount & Tender calculations
   const hasCashDiscount = Boolean(
@@ -2438,7 +2458,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
           detalle = `Efectivo en Mostrador (Entregó: ${cashGivenNum.toLocaleString("es-MX")} • Cambio: ${changeDueNum.toLocaleString("es-MX")})`;
         } else if (posPaymentMethod === "TPV") {
           dbProvider = tpvType.includes("BanBajío") ? "BanBajío" : "Mercado Pago";
-          amountNum = Math.round(saldoPendiente * (1 + Number(empresa?.tarjeta_ajuste_porcentaje ?? 4.3) / 100) * 100) / 100;
+          amountNum = montoTarjetaPendiente;
           finalAhorro = 0;
           detalle = tpvType;
           ref = tpvAuth.trim() || `TPV-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -2497,7 +2517,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
         setSelectedReceiptPayment(newPago);
 
         const nuevoPagado = totalPagado + amountNum;
-        const saldoRequerido = posPaymentMethod === "TPV" ? Math.round(saldoPendiente * (1 + Number(empresa?.tarjeta_ajuste_porcentaje ?? 4.3) / 100) * 100) / 100 : saldoPendiente;
+        const saldoRequerido = posPaymentMethod === "TPV" ? montoTarjetaPendiente : saldoPendiente;
         const nuevoEstatus = (amountNum >= saldoRequerido - 0.5 || nuevoPagado >= granTotal - 0.5) ? "Pagado" : "Parcial";
         const ordUpdate: any = { estatus_pago: nuevoEstatus };
 
@@ -4747,12 +4767,12 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                   <div className="p-2.5 rounded-md bg-slate-50 border border-slate-200 text-xs flex flex-col gap-1.5">
                     <span className="text-[11px] font-bold text-slate-700">Precios según forma de pago:</span>
                     <div className="flex items-center justify-between text-slate-700">
-                      <span>• Efectivo / Transferencia:</span>
+                      <span>• Precio Promoción (Efectivo / Transferencia):</span>
                       <span className="font-mono font-bold text-slate-900">${granTotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex items-center justify-between text-slate-700">
-                      <span>• Pago con Tarjeta:</span>
-                      <span className="font-mono font-bold text-slate-900">${(Math.round(granTotal * (1 + Number(empresa?.tarjeta_ajuste_porcentaje ?? 4.3) / 100) * 100) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+                      <span>• Pago con Tarjeta TPV:</span>
+                      <span className="font-mono font-bold text-slate-900">${precioTarjetaCalculado.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
                     </div>
                   </div>
                 </div>
@@ -5627,7 +5647,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                       <div className="flex items-center justify-between p-2.5 rounded-lg bg-blue-50/70 border border-blue-200/80">
                         <span className="text-xs font-bold text-slate-700">Monto con Tarjeta TPV:</span>
                         <span className="text-sm font-black font-mono text-slate-900">
-                          ${(Math.round(saldoPendiente * (1 + Number(empresa?.tarjeta_ajuste_porcentaje ?? 4.3) / 100) * 100) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
+                          ${montoTarjetaPendiente.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
                         </span>
                       </div>
                       <div>
@@ -5796,7 +5816,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                       : posPaymentMethod === "Efectivo"
                       ? `COBRAR ${saldoPendiente.toLocaleString("es-MX", { minimumFractionDigits: 2 })} E IMPRIMIR RECIBO →`
                       : posPaymentMethod === "TPV"
-                      ? `COBRAR ${(Math.round(saldoPendiente * (1 + Number(empresa?.tarjeta_ajuste_porcentaje ?? 4.3) / 100) * 100) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })} E IMPRIMIR RECIBO →`
+                      ? `COBRAR ${montoTarjetaPendiente.toLocaleString("es-MX", { minimumFractionDigits: 2 })} E IMPRIMIR RECIBO →`
                       : posPaymentMethod === "SPLIT"
                       ? `COBRAR ${saldoPendiente.toLocaleString("es-MX", { minimumFractionDigits: 2 })} (PAGO DIVIDIDO) →`
                       : `COBRAR ${saldoPendiente.toLocaleString("es-MX", { minimumFractionDigits: 2 })} E IMPRIMIR RECIBO →`}

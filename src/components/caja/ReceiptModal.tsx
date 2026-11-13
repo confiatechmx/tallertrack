@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { prorratearPreciosParaTarjeta, type PricingEngineItem } from "@/services/pricingEngineService";
 import {
   Printer,
   X,
@@ -153,9 +154,66 @@ export function ReceiptModal({
     0
   );
   const computedTotal = subtotalServicios + subtotalRefacciones + subtotalLlantas;
-  const total = Number(order.granTotal || computedTotal);
 
   const pagosList = order.pagos_orden || order.pagos || [];
+
+  const isPaidWithCard = pagosList.some((p: any) => {
+    const prov = (p.proveedor_pago || "").toLowerCase();
+    const met = (p.metodo_detalle || "").toLowerCase();
+    return prov.includes("tarjeta") || prov.includes("mercado") || prov.includes("banbajío") || met.includes("tpv");
+  }) || (payment?.metodo_detalle || payment?.proveedor_pago || "").toLowerCase().includes("tpv") || (payment?.proveedor_pago || "").toLowerCase().includes("tarjeta");
+
+  const tieneRefacciones = (refacciones.length + llantas.length) > 0;
+  const tarjetaAjustePct = Number(empresa?.tarjeta_ajuste_porcentaje ?? 4.3);
+
+  const receiptEngineItems: PricingEngineItem[] = [
+    ...servicios.map((s: any) => ({
+      id: `srv-${s.id}`,
+      tipo: "servicio" as const,
+      nombre: s.servicios_taller?.nombre || s.servicio?.nombre || s.nombre || "Servicio",
+      cantidad: Number(s.cantidad || 1),
+      precioUnitario: Number(s.precio_cobrado || 0),
+      subtotal: Number(s.precio_cobrado || 0) * Number(s.cantidad || 1),
+    })),
+    ...refacciones.map((r: any) => ({
+      id: `ref-${r.id}`,
+      tipo: "refaccion" as const,
+      nombre: r.nombre,
+      cantidad: Number(r.cantidad || 1),
+      precioUnitario: Number(r.precio_unitario || 0),
+      subtotal: Number(r.subtotal || (r.precio_unitario || 0) * (r.cantidad || 1)),
+    })),
+    ...llantas.map((l: any) => ({
+      id: `lla-${l.id}`,
+      tipo: "llanta" as const,
+      nombre: l.nombre || "Neumático",
+      cantidad: Number(l.cantidad || 1),
+      precioUnitario: Number(l.precio_unitario || 0),
+      subtotal: Number(l.subtotal || (l.precio_unitario || 0) * (l.cantidad || 1)),
+    })),
+  ];
+
+  const receiptProrrateo = isPaidWithCard && tieneRefacciones
+    ? prorratearPreciosParaTarjeta(receiptEngineItems, { porcentajeTarjeta: tarjetaAjustePct })
+    : null;
+
+  const displayRefacciones = receiptProrrateo
+    ? refacciones.map((r: any) => {
+        const match = receiptProrrateo.itemsProrrateados.find((p) => p.id === `ref-${r.id}`);
+        if (!match) return r;
+        return { ...r, precio_unitario: match.precioUnitarioFinal, subtotal: match.subtotalFinal };
+      })
+    : refacciones;
+
+  const displayLlantas = receiptProrrateo
+    ? llantas.map((l: any) => {
+        const match = receiptProrrateo.itemsProrrateados.find((p) => p.id === `lla-${l.id}`);
+        if (!match) return l;
+        return { ...l, precio_unitario: match.precioUnitarioFinal, subtotal: match.subtotalFinal };
+      })
+    : llantas;
+
+  const total = receiptProrrateo ? receiptProrrateo.granTotalTarjeta : Number(order.granTotal || computedTotal);
   const totalPagadoHistorico = pagosList
     .filter((p: any) => (p.estatus === "Aprobado" || p.estatus === "COMPLETADO") && !p.deleted_at)
     .reduce((acc: number, p: any) => acc + Number(p.monto_total || 0), 0);
@@ -423,7 +481,7 @@ export function ReceiptModal({
                 </td>
               </tr>
             ))}
-            {refacciones.map((r: any) => (
+            {displayRefacciones.map((r: any) => (
               <tr key={`ref-${r.id}`} className="hover:bg-slate-50/50">
                 <td className="py-2 px-3.5 font-semibold text-slate-600 text-[9.5px]">Refacción</td>
                 <td className="py-2 px-3.5 text-slate-900 font-medium">
@@ -438,7 +496,7 @@ export function ReceiptModal({
                 </td>
               </tr>
             ))}
-            {llantas.map((l: any) => {
+            {displayLlantas.map((l: any) => {
               const tire = l.inventario_llantas || l.llanta;
               const tireName = tire ? `${tire.marca} ${tire.modelo_llanta}` : (l.nombre || "Neumático");
               const medida = tire ? `${tire.ancho}/${tire.perfil} R${tire.rin}` : "";
