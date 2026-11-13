@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { memo, useMemo } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { KanbanCard, Order } from "./KanbanCard";
@@ -14,7 +14,7 @@ interface KanbanColumnProps {
   onDeliverOrder?: (orderId: string) => void;
 }
 
-export function KanbanColumn({
+export const KanbanColumn = memo(function KanbanColumn({
   id,
   title,
   accentColor = "#2563EB",
@@ -83,4 +83,4 @@ export function KanbanColumn({
       </div>
     </div>
   );
-}
+});

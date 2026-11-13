@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { memo } from "react";
 import Link from "next/link";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -62,7 +62,7 @@ const priorityBorders: Record<OrderPriority, string> = {
   urgent: "border-l-rose-500",
 };
 
-export function KanbanCard({ order, onClick, onDeliverOrder }: KanbanCardProps) {
+export const KanbanCard = memo(function KanbanCard({ order, onClick, onDeliverOrder }: KanbanCardProps) {
   const {
     attributes,
     listeners,
@@ -259,4 +259,4 @@ export function KanbanCard({ order, onClick, onDeliverOrder }: KanbanCardProps) 
       </div>
     </div>
   );
-}
+});

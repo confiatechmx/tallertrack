@@ -31,14 +31,41 @@ import {
   ShieldCheck,
   RefreshCw,
   CheckCircle2,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useTenant } from "@/context/TenantContext";
+import dynamic from "next/dynamic";
 import { Modal } from "../ui/Modal";
-import { OrderForm } from "./OrderForm";
-import { OrderDetailsModal } from "./OrderDetailsModal";
 import { ErrorBoundary } from "../common/ErrorBoundary";
+
+const OrderForm = dynamic(
+  () => import("./OrderForm").then((mod) => mod.OrderForm),
+  {
+    loading: () => (
+      <div className="p-8 flex items-center justify-center gap-2 text-slate-500">
+        <Loader2 className="animate-spin text-blue-600" size={20} />
+        <span className="text-xs font-medium">Cargando formulario...</span>
+      </div>
+    ),
+    ssr: false,
+  }
+);
+
+const OrderDetailsModal = dynamic(
+  () => import("./OrderDetailsModal").then((mod) => mod.OrderDetailsModal),
+  {
+    loading: () => (
+      <div className="p-12 flex flex-col items-center justify-center gap-3 text-slate-600 min-h-[400px]">
+        <Loader2 className="animate-spin text-blue-600" size={32} />
+        <span className="text-sm font-semibold text-slate-800">Cargando workspace de la orden...</span>
+        <span className="text-xs text-slate-400">Optimizando módulos y rentabilidad en tiempo real</span>
+      </div>
+    ),
+    ssr: false,
+  }
+);
 
 const defaultColumns = [
   { id: "Citas del Día", title: "Citas del Día", color: "#64748B" },
@@ -173,7 +200,9 @@ export function KanbanBoard() {
           )
         `
         )
-        .eq("empresa_id", empresa?.id || "b2ad09db-0a34-4876-9ca3-d584c40bd294").order("folio", { ascending: false }),
+        .eq("empresa_id", empresa?.id || "b2ad09db-0a34-4876-9ca3-d584c40bd294")
+        .order("folio", { ascending: false })
+        .limit(100),
       supabase.from("empleados").select("id, nombre, color_avatar, rol").eq("empresa_id", empresa?.id || "b2ad09db-0a34-4876-9ca3-d584c40bd294").eq("activo", true),
     ]);
 
@@ -366,7 +395,11 @@ export function KanbanBoard() {
     }
   };
 
-  const handleDeliverOrder = async (orderId: string) => {
+  const handleCardClick = useCallback((id: string) => {
+    setSelectedOrderId(id);
+  }, []);
+
+  const handleDeliverOrder = useCallback(async (orderId: string) => {
     try {
       const { error } = await supabase
         .from("ordenes_servicio")
@@ -388,7 +421,7 @@ export function KanbanBoard() {
       console.error("Error entregando vehículo:", err);
       toast.error("Error al procesar la entrega");
     }
-  };
+  }, []);
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
@@ -436,6 +469,19 @@ export function KanbanBoard() {
     selectedEtapaFilter,
     searchQuery,
   ]);
+
+  const ordersByColumn = useMemo(() => {
+    const map: Record<string, Order[]> = {};
+    columns.forEach((c) => {
+      map[c.id] = [];
+    });
+    filteredOrders.forEach((o) => {
+      if (map[o.columnId]) {
+        map[o.columnId].push(o);
+      }
+    });
+    return map;
+  }, [columns, filteredOrders]);
 
   const totalValorEnPiso = useMemo(
     () => filteredOrders.reduce((acc, o) => acc + (o.totalAmount || 0), 0),
@@ -642,8 +688,8 @@ export function KanbanBoard() {
                     id={col.id}
                     title={col.title}
                     accentColor={col.color}
-                    orders={filteredOrders.filter((o) => o.columnId === col.id)}
-                    onCardClick={(id) => setSelectedOrderId(id)}
+                    orders={ordersByColumn[col.id] || []}
+                    onCardClick={handleCardClick}
                     onDeliverOrder={handleDeliverOrder}
                   />
                 </div>

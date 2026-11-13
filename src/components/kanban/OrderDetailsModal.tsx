@@ -428,10 +428,21 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
         )
         .eq("id", orderId)
         .single(),
-      supabase.from("empleados").select("*").eq("activo", true).order("nombre"),
-      supabase.from("servicios_taller").select("*").eq("activo", true).order("nombre"),
-      supabase.from("inventario_llantas").select("*").order("marca"),
-      supabase.from("configuracion_pagos").select("*").eq("activo", true),
+      supabase
+        .from("empleados")
+        .select("id, nombre, color_avatar, rol, activo")
+        .eq("activo", true)
+        .order("nombre"),
+      supabase
+        .from("servicios_taller")
+        .select("id, nombre, codigo_sku, categoria, horas_estimadas, precio, garantia_meses, condicion_promo, activo")
+        .eq("activo", true)
+        .order("nombre"),
+      supabase
+        .from("inventario_llantas")
+        .select("id, marca, modelo_llanta, rin, ancho, perfil, stock_actual, costo_adquisicion, precio_venta")
+        .order("marca"),
+      supabase.from("configuracion_pagos").select("id, proveedor, activo").eq("activo", true),
       supabase
         .from("inspecciones_dvi")
         .select("*")
@@ -870,6 +881,24 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
       }
     });
     return Array.from(sizes);
+  }, [availableTires]);
+
+  const serviceCatalogOptions = useMemo(() => {
+    return availableServices.map((s) => (
+      <option key={s.id} value={s.id}>
+        {s.nombre} (${Number(s.precio).toLocaleString("es-MX")})
+      </option>
+    ));
+  }, [availableServices]);
+
+  const tireCatalogOptions = useMemo(() => {
+    return availableTires.map((t) => (
+      <option key={t.id} value={t.id}>
+        {t.marca} {t.modelo_llanta} ({t.ancho}/{t.perfil} R{t.rin}) •{" "}
+        {Number(t.stock_actual) > 0 ? `Stock: ${t.stock_actual}` : "Sobre Pedido / JIT"} • $
+        {Number(t.precio_venta).toLocaleString("es-MX")}
+      </option>
+    ));
   }, [availableTires]);
 
   const matchingSizes = useMemo(() => {
@@ -2593,11 +2622,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
               className="text-[10.5px] h-6 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded px-1.5 text-slate-700 cursor-pointer font-medium max-w-[210px] truncate"
             >
               <option value="">Elegir del catálogo...</option>
-              {availableServices.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.nombre} (${Number(s.precio).toLocaleString("es-MX")})
-                </option>
-              ))}
+              {serviceCatalogOptions}
             </select>
           </div>
         </div>
@@ -3321,11 +3346,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
               className="flex-1 h-8 text-xs bg-white border border-slate-300 rounded-md px-2 text-slate-900"
             >
               <option value="">Seleccionar medida y modelo del catálogo...</option>
-              {availableTires.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.marca} {t.modelo_llanta} ({t.ancho}/{t.perfil} R{t.rin}) • {Number(t.stock_actual) > 0 ? `Stock: ${t.stock_actual}` : "Sobre Pedido / JIT"} • ${Number(t.precio_venta).toLocaleString("es-MX")}
-                </option>
-              ))}
+              {tireCatalogOptions}
             </select>
             <div className="flex items-center gap-1">
               {[1, 2, 4].map((q) => (

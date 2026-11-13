@@ -1,4 +1,4 @@
-import ExcelJS from "exceljs";
+import type ExcelJS from "exceljs";
 import * as XLSX from "xlsx";
 import {
   TurnoDetalleCompleto,
@@ -62,7 +62,9 @@ export const ReportesExportService = {
     cierreData,
     detalleTurno,
   }: ExportarCorteParams) {
-    const workbook = new ExcelJS.Workbook();
+    const ExcelJSModule = await import("exceljs");
+    const ExcelJSClass = (ExcelJSModule.default || ExcelJSModule) as any;
+    const workbook: ExcelJS.Workbook = new ExcelJSClass.Workbook();
     workbook.creator = "TallerTrack";
     workbook.lastModifiedBy = cajeroNombre;
     workbook.created = new Date();
