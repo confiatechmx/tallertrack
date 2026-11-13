@@ -63,6 +63,7 @@ import {
   Coins,
   Split,
   X,
+  ShieldAlert,
 } from "lucide-react";
 
 import {
@@ -540,6 +541,47 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   const activeServices = servicesList.filter((s: any) => s.estatus_aprobacion !== "Diferido");
   const activeParts = partsList.filter((r: any) => r.estatus_aprobacion !== "Diferido");
   const activeTires = tiresList.filter((t: any) => t.estatus_aprobacion !== "Diferido");
+
+  // Recomendaciones / Trabajos Pospuestos para la orden actual
+  const currentDeferredServices = useMemo(() => {
+    return servicesList.filter((s: any) => s.estatus_aprobacion === "Diferido");
+  }, [servicesList]);
+
+  const currentDeferredParts = useMemo(() => {
+    return partsList.filter((r: any) => r.estatus_aprobacion === "Diferido");
+  }, [partsList]);
+
+  const currentDeferredTires = useMemo(() => {
+    return tiresList.filter((t: any) => t.estatus_aprobacion === "Diferido");
+  }, [tiresList]);
+
+  const totalCurrentDeferredCount =
+    currentDeferredServices.length + currentDeferredParts.length + currentDeferredTires.length;
+
+  const totalCurrentDeferredAmount = useMemo(() => {
+    const srv = currentDeferredServices.reduce(
+      (acc: number, s: any) => acc + Number(s.precio_cobrado || 0) * Number(s.cantidad || 1),
+      0
+    );
+    const prt = currentDeferredParts.reduce(
+      (acc: number, r: any) =>
+        acc + Number(r.subtotal != null ? r.subtotal : Number(r.precio_unitario || 0) * Number(r.cantidad || 1)),
+      0
+    );
+    const tir = currentDeferredTires.reduce(
+      (acc: number, t: any) =>
+        acc + Number(t.subtotal != null ? t.subtotal : Number(t.precio_unitario || 0) * Number(t.cantidad || 1)),
+      0
+    );
+    return srv + prt + tir;
+  }, [currentDeferredServices, currentDeferredParts, currentDeferredTires]);
+
+  // Trabajos diferidos históricos de visitas anteriores (excluye estrictamente lo pospuesto en la orden actual)
+  const historicalDeferredWorks = useMemo(() => {
+    return deferredWorks.filter(
+      (dif) => String(dif.orden_origen_id || "") !== String(orderId) && !dif.resuelto
+    );
+  }, [deferredWorks, orderId]);
 
   const operationGroups = useMemo(() => {
     return groupItemsByOperation(activeTires, activeServices, activeParts);
@@ -1559,17 +1601,18 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
       const v = order.vehiculos;
       const c = v?.clientes;
       if (v?.id && c?.id) {
+        const srvConcept = row.concepto_personalizado || row.servicios_taller?.nombre || "Mano de Obra";
         const { data: newDif } = await supabase
           .from("trabajos_diferidos")
           .insert({
             vehiculo_id: v.id,
             cliente_id: c.id,
             orden_origen_id: orderId,
-            concepto: row.servicios_taller?.nombre || "Servicio Diferido",
+            concepto: srvConcept,
             categoria: row.servicios_taller?.categoria || "Mecánica General",
             severidad: "amarillo",
-            costo_estimado: Number(row.precio_cobrado || 0),
-            notas: row.notas || "Diferido desde orden de servicio",
+            costo_estimado: Number(row.precio_cobrado || 0) * Number(row.cantidad || 1),
+            notas: row.notas || "Pospuesto por el cliente en orden de servicio (deslinde legal)",
             resuelto: false,
           })
           .select("*")
@@ -1585,7 +1628,43 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
           s.id === row.id ? { ...s, estatus_aprobacion: "Diferido" } : s
         ),
       }));
+      toast.success("Mano de obra pospuesta para próxima visita (deslinde legal).");
       onUpdate();
+    } else {
+      toast.error("Error al posponer mano de obra: " + error.message);
+    }
+  };
+
+  const handleReactivateService = async (row: any) => {
+    const { error } = await supabase
+      .from("orden_servicio_servicios")
+      .update({ estatus_aprobacion: "Aprobado" })
+      .eq("id", row.id);
+
+    if (!error) {
+      const srvConcept = row.concepto_personalizado || row.servicios_taller?.nombre || "";
+      if (srvConcept) {
+        await supabase
+          .from("trabajos_diferidos")
+          .update({ resuelto: true })
+          .eq("orden_origen_id", orderId)
+          .ilike("concepto", `%${srvConcept}%`);
+
+        setDeferredWorks((prev) =>
+          prev.filter((d) => !(d.orden_origen_id === orderId && d.concepto.includes(srvConcept)))
+        );
+      }
+
+      setOrder((prev: any) => ({
+        ...prev,
+        orden_servicio_servicios: (prev.orden_servicio_servicios || []).map((s: any) =>
+          s.id === row.id ? { ...s, estatus_aprobacion: "Aprobado" } : s
+        ),
+      }));
+      toast.success("Mano de obra autorizada e integrada a la orden de hoy.");
+      onUpdate();
+    } else {
+      toast.error("Error al autorizar mano de obra: " + error.message);
     }
   };
 
@@ -1713,7 +1792,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
             categoria: "Refacciones",
             severidad: "amarillo",
             costo_estimado: Number(part.subtotal || 0),
-            notas: `Proveedor: ${part.proveedor || "Externo"}`,
+            notas: `Pospuesto por cliente · Proveedor: ${part.proveedor || "Externo"}`,
             resuelto: false,
           })
           .select("*")
@@ -1727,7 +1806,42 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
           r.id === part.id ? { ...r, estatus_aprobacion: "Diferido" } : r
         ),
       }));
+      toast.success("Refacción pospuesta para próxima visita (deslinde legal).");
       onUpdate();
+    } else {
+      toast.error("Error al posponer refacción: " + error.message);
+    }
+  };
+
+  const handleReactivatePart = async (part: any) => {
+    const { error } = await supabase
+      .from("orden_servicio_refacciones")
+      .update({ estatus_aprobacion: "Aprobado" })
+      .eq("id", part.id);
+
+    if (!error) {
+      if (part.nombre) {
+        await supabase
+          .from("trabajos_diferidos")
+          .update({ resuelto: true })
+          .eq("orden_origen_id", orderId)
+          .ilike("concepto", `%${part.nombre}%`);
+
+        setDeferredWorks((prev) =>
+          prev.filter((d) => !(d.orden_origen_id === orderId && d.concepto.includes(part.nombre)))
+        );
+      }
+
+      setOrder((prev: any) => ({
+        ...prev,
+        orden_servicio_refacciones: (prev.orden_servicio_refacciones || []).map((r: any) =>
+          r.id === part.id ? { ...r, estatus_aprobacion: "Aprobado" } : r
+        ),
+      }));
+      toast.success("Refacción autorizada e integrada a la orden de hoy.");
+      onUpdate();
+    } else {
+      toast.error("Error al autorizar refacción: " + error.message);
     }
   };
 
@@ -3468,22 +3582,22 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
             {/* Left 8 Cols: Deferred Banner + Labor + Buyouts + Tires */}
             <div className="lg:col-span-8 space-y-5">
-              {/* Alert Banner for Unresolved Deferred Works */}
-              {deferredWorks.length > 0 && (
+              {/* Alert Banner for Historical Unresolved Deferred Works from Previous Visits */}
+              {historicalDeferredWorks.length > 0 && (
                 <div className="bg-amber-50/90 border border-amber-300 rounded-lg p-3.5 shadow-2xs">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <AlertTriangle size={16} className="text-amber-600 shrink-0" />
+                      <Clock size={16} className="text-amber-600 shrink-0" />
                       <h4 className="text-xs font-bold text-amber-950 uppercase tracking-wide">
-                        Trabajos Diferidos Pendientes en este Vehículo ({deferredWorks.length})
+                        Recomendaciones Pendientes de Visitas Anteriores ({historicalDeferredWorks.length})
                       </h4>
                     </div>
                     <span className="text-[10px] font-semibold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
-                      Oportunidad de Venta / Upsell
+                      Historial del Vehículo / Upsell
                     </span>
                   </div>
                   <div className="divide-y divide-amber-200/70">
-                    {deferredWorks.map((dif) => (
+                    {historicalDeferredWorks.map((dif) => (
                       <div
                         key={dif.id}
                         className="py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
@@ -3900,10 +4014,10 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                             <button
                                               type="button"
                                               onClick={() => handleDeferPart(r)}
-                                              title="Diferir para próxima visita"
-                                              className="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 cursor-pointer"
+                                              title="Posponer para próxima visita (deslinde legal)"
+                                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 cursor-pointer"
                                             >
-                                              Diferir
+                                              <Clock size={10} /> Posponer
                                             </button>
                                           )}
                                           <button
@@ -4042,10 +4156,10 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                             <button
                                               type="button"
                                               onClick={() => handleDeferService(s)}
-                                              title="Diferir mano de obra"
-                                              className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 cursor-pointer"
+                                              title="Posponer para próxima visita (deslinde legal)"
+                                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 cursor-pointer"
                                             >
-                                              Diferir
+                                              <Clock size={10} /> Posponer
                                             </button>
                                           )}
                                           <button
@@ -4124,7 +4238,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                       <div className="flex items-center gap-2">
                         <Wrench size={15} className="text-blue-600" />
                         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                          Mano de Obra y Servicios ({servicesList.length})
+                          Mano de Obra y Servicios ({activeServices.length})
                         </h3>
                       </div>
                       <button
@@ -4138,7 +4252,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
 
                 {isAddingService && renderServiceForm()}
 
-                {servicesList.length === 0 ? (
+                {activeServices.length === 0 ? (
                   <div className="p-6 text-center text-xs text-slate-400">
                     No hay mano de obra cargada en esta orden.
                   </div>
@@ -4157,7 +4271,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 text-xs">
-                        {servicesList.map((row: any) => {
+                        {activeServices.map((row: any) => {
                           const mech = mechanics.find(
                             (m) => m.id === (row.mecanico_id || order.mecanico_id)
                           );
@@ -4363,10 +4477,10 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                     <button
                                       type="button"
                                       onClick={() => handleDeferService(row)}
-                                      title="Enviar a Trabajos Diferidos para próxima visita"
-                                      className="px-2 py-1 rounded text-[10px] font-semibold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 cursor-pointer"
+                                      title="Posponer para próxima visita (deslinde legal)"
+                                      className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 cursor-pointer"
                                     >
-                                      Diferir
+                                      <Clock size={10} /> Posponer
                                     </button>
                                   )}
                                   <button
@@ -4501,7 +4615,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
 
                 {isAddingPart && renderPartForm()}
 
-                {partsList.length === 0 ? (
+                {activeParts.length === 0 ? (
                   <div className="p-6 text-center text-xs text-slate-400">
                     No hay refacciones externas (buyouts) en esta orden.
                   </div>
@@ -4519,7 +4633,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 text-xs">
-                        {partsList.map((part: any) => {
+                        {activeParts.map((part: any) => {
                           const isDeferred = part.estatus_aprobacion === "Diferido";
                           return (
                             <tr
@@ -4647,9 +4761,10 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                                     <button
                                       type="button"
                                       onClick={() => handleDeferPart(part)}
-                                      className="px-2 py-1 rounded text-[10px] font-semibold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 cursor-pointer"
+                                      title="Posponer para próxima visita (deslinde legal)"
+                                      className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 cursor-pointer"
                                     >
-                                      Diferir
+                                      <Clock size={10} /> Posponer
                                     </button>
                                   )}
                                   <button
@@ -4868,6 +4983,157 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                     </table>
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* SECCIÓN: RECOMENDACIONES TÉCNICAS DECLINADAS HOY · DESLINDE LEGAL */}
+          {totalCurrentDeferredCount > 0 && (
+            <div className="bg-slate-50/90 border border-slate-300 rounded-lg shadow-2xs overflow-hidden">
+              <div className="px-4 py-3 bg-slate-100/90 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <ShieldAlert size={16} className="text-amber-700 shrink-0" />
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                      Recomendaciones Técnicas Declinadas Hoy · Deslinde Legal ({totalCurrentDeferredCount})
+                    </h3>
+                    <span className="text-[10px] text-slate-500 font-medium">
+                      Pospuestas para próximas visitas · Excluidas 100% del saldo a cobrar hoy
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-bold font-mono text-slate-700 bg-slate-200/80 px-2 py-0.5 rounded">
+                    Monto Referencial: ${totalCurrentDeferredAmount.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-50/50 border-b border-amber-200/60 text-[11px] text-slate-700 flex items-start gap-2">
+                <AlertTriangle size={14} className="text-amber-600 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Nota de Deslinde de Responsabilidad:</strong> El cliente fue informado del desgaste o falla en estas partidas y decidió posponer la reparación para una fecha posterior. Aparecen registradas en la nota de servicio como evidencia técnica y quedan archivadas en el historial del vehículo.
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-100/70 text-[10px] uppercase font-bold text-slate-500">
+                      <th className="py-2 px-3">Tipo</th>
+                      <th className="py-2 px-3">Concepto / Partida Pospuesta</th>
+                      <th className="py-2 px-3 text-center">Cant.</th>
+                      <th className="py-2 px-3 text-right">Cotizado Ref.</th>
+                      <th className="py-2 px-3 text-center">Estatus</th>
+                      <th className="py-2 px-3 text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200/60 bg-white">
+                    {currentDeferredServices.map((s: any) => {
+                      const srvName = s.concepto_personalizado || s.servicios_taller?.nombre || "Mano de Obra";
+                      const qty = Number(s.cantidad || 1);
+                      const unit = Number(s.precio_cobrado || 0);
+                      const sub = unit * qty;
+                      return (
+                        <tr key={`def-srv-${s.id}`} className="hover:bg-slate-50/60">
+                          <td className="py-2.5 px-3 font-semibold text-emerald-800 text-[11px]">
+                            🔧 Mano Obra
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span className="font-semibold text-slate-900">{srvName}</span>
+                            {s.servicios_taller?.categoria && (
+                              <span className="text-[10px] text-slate-500 ml-1.5 font-medium">
+                                ({s.servicios_taller.categoria})
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 text-center font-mono text-slate-700">
+                            {qty}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono text-slate-400 line-through">
+                            ${sub.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
+                              Pospuesto
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-right">
+                            <div className="inline-flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleReactivateService(s)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 transition-colors cursor-pointer"
+                                title="Autorizar e incluir en la orden de hoy"
+                              >
+                                <Check size={12} strokeWidth={2.5} /> Autorizar hoy
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveService(s.id)}
+                                className="p-1 text-slate-400 hover:text-red-600 transition-colors cursor-pointer"
+                                title="Eliminar partida definitivamente"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+
+                    {currentDeferredParts.map((part: any) => {
+                      const qty = Number(part.cantidad || 1);
+                      const sub = part.subtotal != null ? Number(part.subtotal) : Number(part.precio_unitario || 0) * qty;
+                      return (
+                        <tr key={`def-part-${part.id}`} className="hover:bg-slate-50/60">
+                          <td className="py-2.5 px-3 font-semibold text-indigo-800 text-[11px]">
+                            🔩 Refacción
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span className="font-semibold text-slate-900">{part.nombre}</span>
+                            {part.numero_parte && (
+                              <span className="text-[10px] text-slate-500 ml-1.5 font-mono">
+                                (P/N: {part.numero_parte})
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 text-center font-mono text-slate-700">
+                            {qty}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono text-slate-400 line-through">
+                            ${sub.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
+                              Pospuesto
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-right">
+                            <div className="inline-flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleReactivatePart(part)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 transition-colors cursor-pointer"
+                                title="Autorizar e incluir en la orden de hoy"
+                              >
+                                <Check size={12} strokeWidth={2.5} /> Autorizar hoy
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRemovePart(part.id)}
+                                className="p-1 text-slate-400 hover:text-red-600 transition-colors cursor-pointer"
+                                title="Eliminar partida definitivamente"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
