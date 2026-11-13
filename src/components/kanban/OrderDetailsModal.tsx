@@ -3317,11 +3317,11 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
 
   return (
     <div className="flex flex-col bg-slate-50 text-slate-900">
-      {/* Top Action Header Bar (Command Bar Unificada) */}
-      <div className="relative bg-white px-5 py-3 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3 pr-14">
+      {/* Top Action Header Bar (Command Bar Unificada estilo Shopmonkey / Linear) */}
+      <div className="relative bg-white px-5 py-3 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center justify-between gap-3 pr-14">
         {/* Lado Izquierdo: Ficha de Unidad y Cliente */}
         <div className="flex items-center gap-3">
-          <div className="px-2.5 py-1 rounded-md bg-slate-900 text-white font-mono text-sm font-black tracking-tight tabular-nums shrink-0 shadow-2xs">
+          <div className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-xs font-bold tracking-tight tabular-nums shrink-0 border border-slate-200">
             {folioStr}
           </div>
           <div>
@@ -3334,7 +3334,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                 {v.marca || "Vehículo"} {v.modelo} {v.anio ? `(${v.anio})` : ""}
                 <ExternalLink size={13} className="text-slate-400" />
               </Link>
-              <span className="font-mono text-xs font-black uppercase bg-slate-100 text-slate-800 border border-slate-300 px-2 py-0.5 rounded shadow-2xs">
+              <span className="font-mono text-xs font-black uppercase bg-zinc-900 text-white px-2 py-0.5 rounded shadow-2xs">
                 {v.placas || "SIN PLACA"}
               </span>
             </div>
@@ -3374,57 +3374,77 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
           </div>
         </div>
 
-        {/* Lado Derecho: Controles de Piso & Acción Inteligente */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Asignación de Piso: Técnico */}
-          <select
-            value={order.mecanico_id || ""}
-            onChange={(e) => handleUpdateMechanic(e.target.value)}
-            className="h-8 text-xs font-medium bg-slate-100 hover:bg-slate-200/70 border border-slate-200 rounded-lg px-2.5 text-slate-700 focus:outline-none focus:border-blue-500 transition-colors cursor-pointer"
-            title="Técnico Asignado a esta orden"
-          >
-            <option value="">🔧 Sin Técnico</option>
-            {mechanics
-              .filter((m) => m.rol === "Mecánico" || m.puesto?.toLowerCase().includes("técnico"))
-              .map((m) => (
-                <option key={m.id} value={m.id}>
-                  🔧 {m.nombre}
-                </option>
-              ))}
-          </select>
+        {/* Lado Derecho: Segmented Properties Bar (Linear / Shopmonkey Style) + Acción Inteligente */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Píldora Segmentada Unificada de Despacho (Técnico | Bahía | Fase Kanban) */}
+          <div className="inline-flex items-center bg-slate-100/90 border border-slate-200/90 rounded-lg p-0.5 divide-x divide-slate-200 shadow-2xs">
+            {/* Técnico */}
+            <div className="relative flex items-center px-1.5">
+              <select
+                value={order.mecanico_id || ""}
+                onChange={(e) => handleUpdateMechanic(e.target.value)}
+                className="h-7 text-xs font-medium bg-transparent text-slate-700 focus:outline-none cursor-pointer pr-1"
+                title="Técnico Asignado a esta orden"
+              >
+                <option value="">🔧 Sin Técnico</option>
+                {mechanics
+                  .filter((m) => m.rol === "Mecánico" || m.puesto?.toLowerCase().includes("técnico"))
+                  .map((m) => (
+                    <option key={m.id} value={m.id}>
+                      🔧 {m.nombre}
+                    </option>
+                  ))}
+              </select>
+            </div>
 
-          {/* Asignación de Piso: Estación / Rampa */}
-          <select
-            value={order.bahia_rampa || ""}
-            onChange={(e) => handleUpdateBahia(e.target.value)}
-            className="h-8 text-xs font-medium bg-slate-100 hover:bg-slate-200/70 border border-slate-200 rounded-lg px-2.5 text-slate-700 focus:outline-none focus:border-blue-500 transition-colors cursor-pointer"
-            title="Estación de Trabajo / Rampa"
-          >
-            <option value="">📍 Sin Estación</option>
-            {estacionesList.map((b) => (
-              <option key={b} value={b}>
-                📍 {b}
-              </option>
-            ))}
-          </select>
+            {/* Bahía / Rampa */}
+            <div className="relative flex items-center px-1.5">
+              <select
+                value={order.bahia_rampa || ""}
+                onChange={(e) => handleUpdateBahia(e.target.value)}
+                className="h-7 text-xs font-medium bg-transparent text-slate-700 focus:outline-none cursor-pointer pr-1"
+                title="Estación de Trabajo / Rampa"
+              >
+                <option value="">📍 Sin Estación</option>
+                {estacionesList.map((b) => (
+                  <option key={b} value={b}>
+                    📍 {b}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <div className="hidden sm:block h-5 w-px bg-slate-200 mx-0.5" />
+            {/* Fase Kanban con punto de color */}
+            <div className="relative flex items-center px-2 py-0.5">
+              <span
+                className={`w-2 h-2 rounded-full mr-1.5 shrink-0 ${
+                  order.estado === "Listo para Entrega"
+                    ? "bg-emerald-500"
+                    : order.estado === "En Rampa"
+                    ? "bg-blue-600"
+                    : order.estado === "En Inspección"
+                    ? "bg-amber-500"
+                    : order.estado === "Entregado"
+                    ? "bg-slate-400"
+                    : "bg-slate-500"
+                }`}
+              />
+              <select
+                value={order.estado}
+                onChange={(e) => handleUpdateStatus(e.target.value)}
+                className="h-7 text-xs font-bold bg-transparent text-slate-900 focus:outline-none cursor-pointer pr-1"
+                title="Fase del vehículo en el taller (cambia aquí para saltar etapas)"
+              >
+                <option value="Citas del Día">Citas del Día</option>
+                <option value="En Inspección">En Inspección</option>
+                <option value="En Rampa">En Rampa</option>
+                <option value="Listo para Entrega">Listo para Entrega</option>
+                <option value="Entregado">Entregado / Salida</option>
+              </select>
+            </div>
+          </div>
 
-          {/* Selector de Fase Kanban (Atajo rápido para saltar etapas) */}
-          <select
-            value={order.estado}
-            onChange={(e) => handleUpdateStatus(e.target.value)}
-            className="h-8 text-xs font-semibold bg-slate-100 hover:bg-slate-200/70 text-slate-800 border border-slate-200 rounded-lg px-2.5 focus:outline-none cursor-pointer transition-colors"
-            title="Fase del vehículo en el tablero (cambia aquí si deseas saltar etapas)"
-          >
-            <option value="Citas del Día">1. Citas del Día</option>
-            <option value="En Inspección">2. En Inspección</option>
-            <option value="En Rampa">3. En Rampa</option>
-            <option value="Listo para Entrega">4. Listo para Entrega</option>
-            <option value="Entregado">5. Entregado / Salida</option>
-          </select>
-
-          {/* Botón de Acción Inteligente según Fase del Vehículo */}
+          {/* Botón de Acción Inteligente según Fase */}
           {order.estado === "Citas del Día" && (
             <button
               type="button"
@@ -3432,8 +3452,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                 await handleUpdateStatus("En Inspección");
                 toast.success("Vehículo pasado a Inspección.");
               }}
-              className="h-8 px-2.5 text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
-              title="Avanzar orden a Inspección & DVI"
+              className="h-8 px-3 text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <span>Iniciar Inspección</span>
               <ArrowRight size={12} />
@@ -3447,8 +3466,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                 await handleUpdateStatus("En Rampa");
                 toast.success("Vehículo pasado a Rampa para trabajo de taller.");
               }}
-              className="h-8 px-2.5 text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
-              title="Avanzar orden a Rampa"
+              className="h-8 px-3 text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <span>Subir a Rampa</span>
               <ArrowRight size={12} />
@@ -3462,8 +3480,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                 await handleUpdateStatus("Listo para Entrega");
                 toast.success("Vehículo marcado como Listo para Entrega.");
               }}
-              className="h-8 px-2.5 text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
-              title="Finalizar trabajo de piso y marcar listo para entrega"
+              className="h-8 px-3 text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <span>Marcar Listo</span>
               <ArrowRight size={12} />
@@ -3476,7 +3493,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
               onClick={async () => {
                 if (saldoPendiente > 0) {
                   toast.warning(
-                    `Atención: La orden tiene un saldo pendiente de ${saldoPendiente.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN. Se marca como entregado.`
+                    `Atención: La orden tiene un saldo pendiente de $${saldoPendiente.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN. Se marca como entregado.`
                   );
                 }
                 await handleUpdateStatus("Entregado");
@@ -3484,8 +3501,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                 toast.success("Vehículo marcado como entregado. La orden sale del tablero.");
                 onClose();
               }}
-              className="h-8 px-3 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
-              title="Marcar como entregado y archivar del tablero"
+              className="h-8 px-3.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
             >
               <CheckCircle2 size={13} />
               <span>Entregar Auto</span>
@@ -3511,27 +3527,23 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
         </button>
       </div>
 
-      {/* Guided Lifecycle Stepper Navigation */}
-      <div className="bg-slate-50/90 px-5 py-2.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 overflow-x-auto no-scrollbar">
-        <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
-          {/* Step 1: Recepción & DVI */}
+      {/* Workspace Navigation Tabs (Sub-navegación limpia estilo Shopmonkey sin números conflictivos) */}
+      <div className="bg-slate-100/70 px-5 py-2 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-1 bg-slate-200/60 p-1 rounded-xl">
+          {/* Tab 1: Recepción & DVI */}
           <button
             type="button"
             onClick={() => setActiveTab("dvi")}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
               activeTab === "dvi"
-                ? "bg-white text-slate-900 shadow-xs border border-slate-200"
-                : "text-slate-500 hover:text-slate-900 hover:bg-white/60"
+                ? "bg-white text-slate-900 shadow-2xs border border-slate-200/80"
+                : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
             }`}
           >
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
-              activeTab === "dvi" ? "bg-slate-900 text-white" : "bg-slate-200 text-slate-600"
-            }`}>
-              1
-            </span>
+            <ClipboardCheck size={14} className={activeTab === "dvi" ? "text-blue-600" : "text-slate-400"} />
             <span>{isExpressOrder ? "Recepción Express" : "Recepción & DVI"}</span>
             {isExpressOrder ? (
-              <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-slate-100 text-slate-500 border border-slate-200">
+              <span className="px-1.5 py-0.2 rounded text-[9.5px] font-semibold bg-slate-100 text-slate-500 border border-slate-200">
                 Sin DVI
               </span>
             ) : dviRedCount > 0 ? (
@@ -3543,71 +3555,57 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
             ) : null}
           </button>
 
-          <span className="text-slate-300 font-bold text-xs hidden sm:inline">➔</span>
-
-          {/* Step 2: Partidas & Cotización */}
+          {/* Tab 2: Cotización & Partidas */}
           <button
             type="button"
             onClick={() => setActiveTab("cotizacion")}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
               activeTab === "cotizacion"
-                ? "bg-white text-slate-900 shadow-xs border border-slate-200"
-                : "text-slate-500 hover:text-slate-900 hover:bg-white/60"
+                ? "bg-white text-slate-900 shadow-2xs border border-slate-200/80"
+                : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
             }`}
           >
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
-              activeTab === "cotizacion" ? "bg-slate-900 text-white" : "bg-slate-200 text-slate-600"
-            }`}>
-              2
-            </span>
+            <Tag size={14} className={activeTab === "cotizacion" ? "text-blue-600" : "text-slate-400"} />
             <span>Cotización</span>
             <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-100 text-slate-700 tabular-nums font-semibold">
               {activeServices.length + activeParts.length + activeTires.length}
             </span>
           </button>
 
-          <span className="text-slate-300 font-bold text-xs hidden sm:inline">➔</span>
-
-          {/* Step 3: Cobro & Caja */}
+          {/* Tab 3: Cobro & Caja */}
           <button
             type="button"
             onClick={() => setActiveTab("pagos")}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
               activeTab === "pagos"
-                ? "bg-white text-slate-900 shadow-xs border border-slate-200"
-                : "text-slate-500 hover:text-slate-900 hover:bg-white/60"
+                ? "bg-white text-slate-900 shadow-2xs border border-slate-200/80"
+                : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
             }`}
           >
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
-              activeTab === "pagos" ? "bg-slate-900 text-white" : "bg-slate-200 text-slate-600"
-            }`}>
-              3
-            </span>
+            <Banknote size={14} className={activeTab === "pagos" ? "text-emerald-600" : "text-slate-400"} />
             <span>Cobro & Caja</span>
-            {order.estatus_pago === "Pagado" ? (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-100 text-emerald-700 font-bold">
+            {saldoPendiente <= 0 && granTotal > 0 ? (
+              <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
                 ✓ Pagado
               </span>
-            ) : (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-100 text-amber-800 font-bold tabular-nums">
-                ${saldoPendiente.toLocaleString("es-MX", { maximumFractionDigits: 0 })}
+            ) : saldoPendiente > 0 ? (
+              <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-100 text-amber-900 tabular-nums">
+                $${saldoPendiente.toLocaleString("es-MX", { maximumFractionDigits: 0 })}
               </span>
-            )}
+            ) : null}
           </button>
 
-          <span className="text-slate-300 font-bold text-xs hidden sm:inline">➔</span>
-
-          {/* Step 4: Hoja de Impresión */}
+          {/* Tab 4: Hoja de Impresión */}
           <button
             type="button"
             onClick={() => setActiveTab("impresion")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
               activeTab === "impresion"
-                ? "bg-white text-slate-900 shadow-xs border border-slate-200"
-                : "text-slate-500 hover:text-slate-900 hover:bg-white/60"
+                ? "bg-white text-slate-900 shadow-2xs border border-slate-200/80"
+                : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
             }`}
           >
-            <Printer size={13} />
+            <Printer size={14} className={activeTab === "impresion" ? "text-indigo-600" : "text-slate-400"} />
             <span>Imprimir</span>
           </button>
         </div>
@@ -3616,9 +3614,9 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
         <button
           type="button"
           onClick={() => setActiveTab("auditoria")}
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === "auditoria"
-              ? "bg-white text-slate-900 shadow-xs border border-slate-200"
+              ? "bg-white text-slate-900 shadow-2xs border border-slate-200"
               : "text-slate-400 hover:text-slate-700 hover:bg-white/60"
           }`}
           title="Ver bitácora de cambios y auditoría forense"
@@ -3627,7 +3625,6 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
           <span>Bitácora</span>
         </button>
       </div>
-
       {/* Main Content Area */}
       <div className="p-5">
         {/* TAB 1: PARTIDAS Y COTIZACIÓN */}
@@ -3689,91 +3686,63 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                 </div>
               )}
 
-              {/* QUOTE TOOLBAR & QUICK PROMOS */}
-              <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-2xs flex flex-wrap items-center justify-between gap-2.5">
-                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-md">
+              {/* TOOLBAR UNIFICADA DE COTIZACIÓN */}
+              <div className="bg-white border border-slate-200 rounded-lg px-4 py-2.5 shadow-2xs flex flex-wrap items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2">
+                  <Layers size={15} className="text-blue-600 shrink-0" />
+                  <span className="text-xs font-bold text-slate-800">
+                    Desglose por Paquetes y Operaciones ({operationGroups.length})
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <button
                     type="button"
-                    onClick={() => handleSetQuoteViewMode("operaciones")}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
-                      quoteViewMode === "operaciones"
-                        ? "bg-white text-blue-700 shadow-2xs border border-slate-200"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
+                    onClick={() => {
+                      const nextNum = operationGroups.length + 1;
+                      setServicePackage(`Operación ${nextNum}`);
+                      setIsAddingService(true);
+                      setIsAddingPart(false);
+                      setIsAddingTire(false);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-100 hover:bg-slate-200/80 text-slate-800 border border-slate-200 text-xs font-bold transition-colors cursor-pointer"
+                    title="Crear un nuevo paquete / operación con mano de obra"
                   >
-                    <Layers size={13} />
-                    Vista por Paquetes / Operaciones
+                    <Wrench size={12} className="text-blue-600" /> + Mano de Obra
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleSetQuoteViewMode("clasico")}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
-                      quoteViewMode === "clasico"
-                        ? "bg-white text-blue-700 shadow-2xs border border-slate-200"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
+                    onClick={() => {
+                      const nextNum = operationGroups.length + 1;
+                      setPartPackage(`Operación ${nextNum}`);
+                      setIsAddingPart(true);
+                      setIsAddingService(false);
+                      setIsAddingTire(false);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-100 hover:bg-slate-200/80 text-slate-800 border border-slate-200 text-xs font-bold transition-colors cursor-pointer"
+                    title="Crear un nuevo paquete / operación con refacción"
                   >
-                    <FolderTree size={13} />
-                    Vista Clásica por Categorías
+                    <Package size={12} className="text-indigo-600" /> + Refacción
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextNum = operationGroups.length + 1;
+                      setTirePackage(`Operación ${nextNum}`);
+                      setIsAddingTire(true);
+                      setIsAddingService(false);
+                      setIsAddingPart(false);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-100 hover:bg-slate-200/80 text-slate-800 border border-slate-200 text-xs font-bold transition-colors cursor-pointer"
+                    title="Crear un nuevo paquete / operación con neumático"
+                  >
+                    <CircleDot size={12} className="text-emerald-600" /> + Neumático
                   </button>
                 </div>
               </div>
 
-              {quoteViewMode === "operaciones" ? (
-                <div className="space-y-4">
-                  {/* Action Bar in Operaciones mode */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 bg-blue-50/50 border border-blue-200 rounded-lg px-3 py-2">
-                    <span className="text-xs font-bold text-blue-950 flex items-center gap-1.5">
-                      <Layers size={14} className="text-blue-600" />
-                      Desglose Segmentado por Operación ({operationGroups.length} paquetes)
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const nextNum = operationGroups.length + 1;
-                          setServicePackage(`Operación ${nextNum}`);
-                          setIsAddingService(true);
-                          setIsAddingPart(false);
-                          setIsAddingTire(false);
-                        }}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold cursor-pointer shadow-2xs"
-                        title="Crear un nuevo bloque de trabajo con mano de obra"
-                      >
-                        <Wrench size={12} className="text-blue-600" /> + Mano de Obra (Nuevo Bloque)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const nextNum = operationGroups.length + 1;
-                          setPartPackage(`Operación ${nextNum}`);
-                          setIsAddingPart(true);
-                          setIsAddingService(false);
-                          setIsAddingTire(false);
-                        }}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold cursor-pointer shadow-2xs"
-                        title="Crear un nuevo bloque de trabajo con refacción"
-                      >
-                        <Package size={12} className="text-indigo-600" /> + Refacción (Nuevo Bloque)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const nextNum = operationGroups.length + 1;
-                          setTirePackage(`Operación ${nextNum}`);
-                          setIsAddingTire(true);
-                          setIsAddingService(false);
-                          setIsAddingPart(false);
-                        }}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold cursor-pointer shadow-2xs"
-                        title="Crear un nuevo bloque de trabajo con neumáticos"
-                      >
-                        <CircleDot size={12} className="text-blue-600" /> + Neumático (Nuevo Bloque)
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Add drawers if active */}
+              {/* RENDER DIRECTO DE PAQUETES / OPERACIONES */}
+              <div className="space-y-4">
+                {/* Add drawers if active */}
                   {isAddingService && renderServiceForm()}
                   {isAddingPart && renderPartForm()}
                   {isAddingTire && renderTireForm()}
@@ -4282,764 +4251,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                       );
                     })
                   )}
-                </div>
-              ) : (
-                <div className="space-y-5">
-                  {/* 1. MANO DE OBRA (SERVICIOS DE TALLER) */}
-                  <div className="bg-white border border-slate-200 rounded-lg shadow-2xs overflow-hidden">
-                    <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Wrench size={15} className="text-blue-600" />
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                          Mano de Obra y Servicios ({activeServices.length})
-                        </h3>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setIsAddingService(!isAddingService)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors cursor-pointer"
-                      >
-                        <Plus size={13} /> Agregar Mano de Obra
-                      </button>
-                    </div>
-
-                {isAddingService && renderServiceForm()}
-
-                {activeServices.length === 0 ? (
-                  <div className="p-6 text-center text-xs text-slate-400">
-                    No hay mano de obra cargada en esta orden.
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="border-b border-slate-200 bg-slate-50/60 text-[10px] uppercase font-bold text-slate-500">
-                          <th className="py-2 px-3">Servicio / Mano de Obra</th>
-                          <th className="py-2 px-3">Técnico</th>
-                          <th className="py-2 px-3 text-center">Hrs</th>
-                          <th className="py-2 px-3 text-right">Comisión Téc.</th>
-                          <th className="py-2 px-3 text-center">Estatus</th>
-                          <th className="py-2 px-3 text-right">Importe</th>
-                          <th className="py-2 px-3 text-right">Acciones</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 text-xs">
-                        {activeServices.map((row: any) => {
-                          const mech = mechanics.find(
-                            (m) => m.id === (row.mecanico_id || order.mecanico_id)
-                          );
-                          const pct = Number(row.comision_porcentaje ?? 15);
-                          const importe = Number(row.precio_cobrado || 0) * Number(row.cantidad || 1);
-                          const comisionMonto = importe * (pct / 100);
-                          const isDeferred = row.estatus_aprobacion === "Diferido";
-                          const isCortesia = row.es_cortesia || Number(row.precio_cobrado) === 0;
-                          const isEditing = editingServiceId === row.id;
-
-                          return (
-                            <tr
-                              key={row.id}
-                              className={isDeferred ? "bg-slate-50 opacity-60" : "hover:bg-slate-50/80"}
-                            >
-                              <td className="py-2.5 px-3">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  {inlineEdit?.itemId === row.id && inlineEdit?.field === "nombre" ? (
-                                    <input
-                                      type="text"
-                                      autoFocus
-                                      value={inlineEdit?.value || ""}
-                                      onChange={(e) => updateInlineEditValue(e.target.value)}
-                                      onKeyDown={(e) => {
-                                        if (e.key === "Enter") saveInlineEdit();
-                                        else if (e.key === "Escape") setInlineEdit(null);
-                                      }}
-                                      onBlur={() => saveInlineEdit()}
-                                      className="h-7 text-xs border-2 border-blue-500 rounded px-2 font-bold text-slate-900 outline-none w-full max-w-[240px]"
-                                    />
-                                  ) : (
-                                    <span
-                                      onClick={() =>
-                                        setInlineEdit({
-                                          itemType: "servicio",
-                                          itemId: row.id,
-                                          field: "nombre",
-                                          value: row.concepto_personalizado || row.servicios_taller?.nombre || "Servicio",
-                                        })
-                                      }
-                                      className="font-semibold text-slate-900 cursor-pointer hover:bg-blue-100/60 rounded px-1.5 py-0.5 transition-colors"
-                                      title="Clic para editar concepto"
-                                    >
-                                      {row.concepto_personalizado || row.servicios_taller?.nombre || "Servicio"}
-                                    </span>
-                                  )}
-                                  {row.paquete_operacion && (
-                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                                      {row.paquete_operacion}
-                                    </span>
-                                  )}
-                                  {isCortesia && (
-                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-0.5">
-                                      <Gift size={10} /> GRATIS
-                                    </span>
-                                  )}
-                                </div>
-                                {row.notas && (
-                                  <div className="text-[11px] text-slate-500">{row.notas}</div>
-                                )}
-                              </td>
-                              <td className="py-2.5 px-3 text-[11px]">
-                                {inlineEdit?.itemId === row.id && inlineEdit?.field === "mecanico" ? (
-                                  <select
-                                    autoFocus
-                                    value={inlineEdit?.value || ""}
-                                    onChange={(e) => {
-                                      saveInlineEdit({
-                                        itemType: "servicio",
-                                        itemId: row.id,
-                                        field: "mecanico",
-                                        value: e.target.value,
-                                      });
-                                    }}
-                                    onBlur={() => saveInlineEdit()}
-                                    className="text-xs h-7 border-2 border-blue-500 rounded px-1 text-slate-900 font-medium outline-none"
-                                  >
-                                    <option value="">Por asignar</option>
-                                    {mechanics
-                                      .filter((m) => m.rol === "Mecánico" || !m.rol)
-                                      .map((m) => (
-                                        <option key={m.id} value={m.id}>
-                                          {m.nombre} ({m.comision_porcentaje || 15}%)
-                                        </option>
-                                      ))}
-                                  </select>
-                                ) : (
-                                  <span
-                                    onClick={() =>
-                                      setInlineEdit({
-                                        itemType: "servicio",
-                                        itemId: row.id,
-                                        field: "mecanico",
-                                        value: row.mecanico_id || "",
-                                      })
-                                    }
-                                    className="cursor-pointer hover:bg-blue-100/60 rounded px-1.5 py-0.5 text-slate-700 font-medium transition-colors"
-                                    title="Clic para cambiar técnico"
-                                  >
-                                    {mech?.nombre || "Por asignar"}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="py-2.5 px-3 text-center font-mono tabular-nums text-[11px]">
-                                {inlineEdit?.itemId === row.id && inlineEdit?.field === "horas" ? (
-                                  <input
-                                    type="number"
-                                    step="0.1"
-                                    min="0.1"
-                                    autoFocus
-                                    value={inlineEdit?.value || ""}
-                                    onChange={(e) => updateInlineEditValue(e.target.value)}
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Enter") saveInlineEdit();
-                                      else if (e.key === "Escape") setInlineEdit(null);
-                                    }}
-                                    onBlur={() => saveInlineEdit()}
-                                    className="w-14 h-7 text-xs border-2 border-blue-500 rounded px-1 text-center font-bold outline-none"
-                                  />
-                                ) : (
-                                  <span
-                                    onClick={() =>
-                                      setInlineEdit({
-                                        itemType: "servicio",
-                                        itemId: row.id,
-                                        field: "horas",
-                                        value: String(row.horas_labor || 1.0),
-                                      })
-                                    }
-                                    className="cursor-pointer hover:bg-blue-100/60 rounded px-1.5 py-0.5 text-slate-700 transition-colors inline-block"
-                                    title="Clic para editar horas"
-                                  >
-                                    {Number(row.horas_labor || 1).toFixed(1)}h
-                                  </span>
-                                )}
-                              </td>
-                              <td className="py-2.5 px-3 text-right tabular-nums text-[11px] text-slate-600">
-                                ${comisionMonto.toLocaleString("es-MX", { minimumFractionDigits: 2 })}{" "}
-                                <span className="text-[10px] text-slate-400">({pct}%)</span>
-                              </td>
-                              <td className="py-2.5 px-3 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleServiceApproval(row)}
-                                  className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase cursor-pointer ${
-                                    row.estatus_aprobacion === "Diferido"
-                                      ? "bg-slate-200 text-slate-600"
-                                      : row.estatus_aprobacion === "Pendiente"
-                                      ? "bg-amber-100 text-amber-800"
-                                      : "bg-emerald-100 text-emerald-800"
-                                  }`}
-                                >
-                                  {row.estatus_aprobacion || "Aprobado"}
-                                </button>
-                              </td>
-                              <td className="py-2.5 px-3 text-right font-bold tabular-nums">
-                                {inlineEdit?.itemId === row.id && inlineEdit?.field === "precio" ? (
-                                  <input
-                                    type="number"
-                                    step="10"
-                                    autoFocus
-                                    value={inlineEdit?.value || ""}
-                                    onChange={(e) => updateInlineEditValue(e.target.value)}
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Enter") saveInlineEdit();
-                                      else if (e.key === "Escape") setInlineEdit(null);
-                                    }}
-                                    onBlur={() => saveInlineEdit()}
-                                    className="w-20 h-7 text-xs border-2 border-blue-500 rounded px-1 text-right font-bold outline-none"
-                                  />
-                                ) : (
-                                  <span
-                                    onClick={() =>
-                                      setInlineEdit({
-                                        itemType: "servicio",
-                                        itemId: row.id,
-                                        field: "precio",
-                                        value: String(row.precio_cobrado || 0),
-                                      })
-                                    }
-                                    className={`cursor-pointer hover:bg-blue-100/60 rounded px-1.5 py-0.5 transition-colors inline-block ${isCortesia ? "text-emerald-700 font-bold" : "text-slate-900 font-bold"}`}
-                                    title="Clic para editar precio"
-                                  >
-                                    {isCortesia ? "$0.00" : `$${importe.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="py-2.5 px-3 text-right">
-                                <div className="inline-flex items-center gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleToggleCortesia(row)}
-                                    title={isCortesia ? "Restaurar precio normal" : "Hacer cortesía ($0.00)"}
-                                    className={`px-1.5 py-0.5 rounded text-[10px] font-bold border cursor-pointer ${
-                                      isCortesia
-                                        ? "bg-emerald-600 text-white border-emerald-700"
-                                        : "bg-white hover:bg-emerald-50 text-emerald-700 border-emerald-300"
-                                    }`}
-                                  >
-                                    <Gift size={11} />
-                                  </button>
-                                  {!isDeferred && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeferService(row)}
-                                      title="Posponer para próxima visita (deslinde legal)"
-                                      className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 cursor-pointer"
-                                    >
-                                      <Clock size={10} /> Posponer
-                                    </button>
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveService(row.id)}
-                                    className="p-1 text-slate-400 hover:text-red-600 cursor-pointer"
-                                    title="Eliminar mano de obra"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
               </div>
-
-              {/* 2. REFACCIONES SOBRE PEDIDO / BUYOUTS (CON CALCULADORA DE MARGEN) */}
-              <div className="bg-white border border-slate-200 rounded-lg shadow-2xs overflow-hidden">
-                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <Package size={15} className="text-indigo-600" />
-                    <div>
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                        Refacciones Sobre Pedido / Buyouts ({partsList.length})
-                      </h3>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {partsList.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAttachingPartForEvidence(null);
-                          setIsRegistrarTicketModalOpen(true);
-                        }}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
-                        title="Subir 1 ticket que ampare varias refacciones con su foto y garantía"
-                      >
-                        <FileText size={13} /> + Registrar Ticket de Compra
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setIsAddingPart(!isAddingPart)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors cursor-pointer"
-                    >
-                      <Calculator size={13} /> + Cotizar Refacción Externa
-                    </button>
-                  </div>
-                </div>
-
-                {/* Resumen de Tickets de Compra Vinculados en esta Orden */}
-                {(() => {
-                  const ticketsMap = new Map<string, {
-                    folio: string;
-                    proveedor: string;
-                    garantia: string;
-                    evidenciaUrl: string | null;
-                    piezasCount: number;
-                    totalCosto: number;
-                    compraData: any;
-                  }>();
-
-                  partsList.forEach((p: any) => {
-                    const folio = p.compras_proveedores?.folio_ticket_nota || p.folio_ticket_nota;
-                    if (folio) {
-                      const key = p.compra_proveedor_id || folio;
-                      const existing = ticketsMap.get(key) || {
-                        folio,
-                        proveedor: p.compras_proveedores?.proveedores?.nombre_comercial || p.proveedor || "Proveedor",
-                        garantia: p.garantia_especifica || (p.compras_proveedores?.meses_garantia ? `${p.compras_proveedores.meses_garantia} meses` : "Garantía"),
-                        evidenciaUrl: p.compras_proveedores?.evidencia_url || p.evidencia_url || null,
-                        piezasCount: 0,
-                        totalCosto: 0,
-                        compraData: p.compras_proveedores,
-                      };
-                      existing.piezasCount += 1;
-                      existing.totalCosto += Number(p.costo_unitario || 0) * Number(p.cantidad || 1);
-                      ticketsMap.set(key, existing);
-                    }
-                  });
-
-                  const tickets = Array.from(ticketsMap.values());
-                  if (tickets.length === 0) return null;
-
-                  return (
-                    <div className="px-4 py-2 bg-slate-50/70 border-b border-slate-200/80 flex flex-wrap items-center gap-2">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                        <ShieldCheck size={12} className="text-emerald-600" /> Tickets de Compra ({tickets.length}):
-                      </span>
-                      {tickets.map((t, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => {
-                            if (t.evidenciaUrl) {
-                              setSelectedTicketEvidence({
-                                evidenciaUrl: t.evidenciaUrl,
-                                folio: t.folio,
-                                proveedorNombre: t.proveedor,
-                                descripcion: `${t.piezasCount} piezas amparadas`,
-                                monto: t.totalCosto,
-                                fechaCompra: t.compraData?.fecha_compra || new Date().toISOString().split("T")[0],
-                                fechaVencimientoGarantia: t.compraData?.fecha_vencimiento_garantia,
-                                estatusGarantia: t.compraData?.estatus_garantia || "VIGENTE",
-                              });
-                            }
-                          }}
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border transition-all ${
-                            t.evidenciaUrl
-                              ? "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100 cursor-pointer"
-                              : "bg-slate-100 text-slate-700 border-slate-200"
-                          }`}
-                          title="Ver ticket de compra y póliza de garantía"
-                        >
-                          <FileText size={11} className={t.evidenciaUrl ? "text-emerald-600" : "text-slate-400"} />
-                          <span>{t.proveedor} • #{t.folio}</span>
-                          <span className="text-[10px] text-emerald-700 font-mono">(${t.totalCosto.toFixed(2)})</span>
-                          <span className="px-1 py-0.2 rounded text-[9px] bg-white/70 text-slate-600 font-bold">
-                            {t.piezasCount} {t.piezasCount === 1 ? "pieza" : "piezas"}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  );
-                })()}
-
-                {isAddingPart && renderPartForm()}
-
-                {activeParts.length === 0 ? (
-                  <div className="p-6 text-center text-xs text-slate-400">
-                    No hay refacciones externas (buyouts) en esta orden.
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="border-b border-slate-200 bg-slate-50/60 text-[10px] uppercase font-bold text-slate-500">
-                          <th className="py-2 px-3">Concepto / Refacción</th>
-                          <th className="py-2 px-3">Paquete / Operación</th>
-                          <th className="py-2 px-3 text-center w-14">Cant.</th>
-                          <th className="py-2 px-3 text-right w-28">P. Unitario</th>
-                          <th className="py-2 px-3 text-right w-28">Subtotal</th>
-                          <th className="py-2 px-3 text-right w-24">Acciones</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 text-xs">
-                        {activeParts.map((part: any) => {
-                          const isDeferred = part.estatus_aprobacion === "Diferido";
-                          return (
-                            <tr
-                              key={part.id}
-                              className={isDeferred ? "bg-slate-50 opacity-60" : "hover:bg-slate-50/80"}
-                            >
-                              <td className="py-2.5 px-3">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  {inlineEdit?.itemId === part.id && inlineEdit?.field === "nombre" ? (
-                                    <input
-                                      type="text"
-                                      autoFocus
-                                      value={inlineEdit?.value || ""}
-                                      onChange={(e) => updateInlineEditValue(e.target.value)}
-                                      onKeyDown={(e) => {
-                                        if (e.key === "Enter") saveInlineEdit();
-                                        else if (e.key === "Escape") setInlineEdit(null);
-                                      }}
-                                      onBlur={() => saveInlineEdit()}
-                                      className="h-7 text-xs border-2 border-blue-500 rounded px-2 font-bold text-slate-900 outline-none w-full max-w-[240px]"
-                                    />
-                                  ) : (
-                                    <span
-                                      onClick={() =>
-                                        setInlineEdit({
-                                          itemType: "refaccion",
-                                          itemId: part.id,
-                                          field: "nombre",
-                                          value: part.nombre,
-                                        })
-                                      }
-                                      className="font-semibold text-slate-900 cursor-pointer hover:bg-blue-100/60 rounded px-1.5 py-0.5 transition-colors"
-                                      title="Clic para editar nombre"
-                                    >
-                                      {part.nombre}
-                                    </span>
-                                  )}
-                                  {part.garantia_especifica && part.garantia_especifica !== "Sin garantía" && (
-                                    <span className="text-[10px] text-slate-400 font-mono">
-                                      • Gtía: {part.garantia_especifica}
-                                    </span>
-                                  )}
-                                </div>
-                                {part.numero_parte && (
-                                  <span className="font-mono text-[10px] text-slate-400">
-                                    P/N: {part.numero_parte}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="py-2.5 px-3">
-                                <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-semibold">
-                                  {part.paquete_operacion || "Mecánica General"}
-                                </span>
-                              </td>
-                              <td className="py-2.5 px-3 text-center tabular-nums font-medium">
-                                {inlineEdit?.itemId === part.id && inlineEdit?.field === "cantidad" ? (
-                                  <input
-                                    type="number"
-                                    min="1"
-                                    autoFocus
-                                    value={inlineEdit?.value || ""}
-                                    onChange={(e) => updateInlineEditValue(e.target.value)}
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Enter") saveInlineEdit();
-                                      else if (e.key === "Escape") setInlineEdit(null);
-                                    }}
-                                    onBlur={() => saveInlineEdit()}
-                                    className="w-14 h-7 text-xs border-2 border-blue-500 rounded px-1 text-center font-bold outline-none"
-                                  />
-                                ) : (
-                                  <span
-                                    onClick={() =>
-                                      setInlineEdit({
-                                        itemType: "refaccion",
-                                        itemId: part.id,
-                                        field: "cantidad",
-                                        value: String(part.cantidad || 1),
-                                      })
-                                    }
-                                    className="cursor-pointer hover:bg-blue-100/60 rounded px-1.5 py-0.5 text-slate-900 transition-colors inline-block font-bold"
-                                    title="Clic para editar cantidad"
-                                  >
-                                    {part.cantidad}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="py-2.5 px-3 text-right tabular-nums">
-                                {inlineEdit?.itemId === part.id && inlineEdit?.field === "precio" ? (
-                                  <input
-                                    type="number"
-                                    step="10"
-                                    autoFocus
-                                    value={inlineEdit?.value || ""}
-                                    onChange={(e) => updateInlineEditValue(e.target.value)}
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Enter") saveInlineEdit();
-                                      else if (e.key === "Escape") setInlineEdit(null);
-                                    }}
-                                    onBlur={() => saveInlineEdit()}
-                                    className="w-20 h-7 text-xs border-2 border-blue-500 rounded px-1 text-right font-bold outline-none"
-                                  />
-                                ) : (
-                                  <span
-                                    onClick={() =>
-                                      setInlineEdit({
-                                        itemType: "refaccion",
-                                        itemId: part.id,
-                                        field: "precio",
-                                        value: String(part.precio_unitario || 0),
-                                      })
-                                    }
-                                    className="cursor-pointer hover:bg-blue-100/60 rounded px-1.5 py-0.5 text-slate-900 font-medium transition-colors inline-block"
-                                    title="Clic para editar precio de venta"
-                                  >
-                                    ${Number(part.precio_unitario).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="py-2.5 px-3 text-right font-bold text-slate-900 tabular-nums">
-                                ${Number(part.subtotal).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                              </td>
-                              <td className="py-2.5 px-3 text-right">
-                                <div className="inline-flex items-center gap-1">
-                                  {!isDeferred && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeferPart(part)}
-                                      title="Posponer para próxima visita (deslinde legal)"
-                                      className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 cursor-pointer"
-                                    >
-                                      <Clock size={10} /> Posponer
-                                    </button>
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemovePart(part.id)}
-                                    className="p-1 text-slate-400 hover:text-red-600 cursor-pointer"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-
-              {/* 3. NEUMÁTICOS: JUST-IN-TIME (SOBRE PEDIDO) & CATÁLOGO */}
-              <div className="bg-white border border-slate-200 rounded-lg shadow-2xs overflow-hidden">
-                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <CircleDot size={15} className="text-blue-600" />
-                    <div>
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                        Neumáticos ({tiresList.length})
-                      </h3>
-                      <span className="text-[10px] text-slate-500 font-medium">
-                        Cotización al Vuelo (Sobre Pedido / JIT) & Inventario
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleCopyWhatsAppTireQuote}
-                      title="Copiar cotización de neumáticos con formato para WhatsApp"
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-colors cursor-pointer border ${
-                        copiedWhatsAppTireQuote
-                          ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
-                          : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border-emerald-300"
-                      }`}
-                    >
-                      {copiedWhatsAppTireQuote ? (
-                        <>
-                          <CheckCheck size={14} className="text-white" /> ¡Copiado WhatsApp!
-                        </>
-                      ) : (
-                        <>
-                          <Copy size={13} /> Cotización WhatsApp
-                        </>
-                      )}
-                    </button>
-                    {order?.vehiculos?.clientes?.telefono && (
-                      <button
-                        type="button"
-                        onClick={handleSendWhatsAppTireQuoteDirect}
-                        title="Enviar cotización directo al WhatsApp del cliente"
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-2xs"
-                      >
-                        <MessageCircle size={13} /> Enviar WA
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setIsAddingTire(!isAddingTire)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-2xs"
-                    >
-                      <Plus size={13} strokeWidth={2.5} /> Cotizar Neumáticos
-                    </button>
-                  </div>
-                </div>
-
-                {isAddingTire && renderTireForm()}
-
-                {tiresList.length === 0 ? (
-                  <div className="p-6 text-center text-xs text-slate-400">
-                    No se han cotizado neumáticos en esta orden de servicio.
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="border-b border-slate-200 bg-slate-50/60 text-[10px] uppercase font-bold text-slate-500">
-                          <th className="py-2 px-3">Marca / Modelo / Medida</th>
-                          <th className="py-2 px-3">Modalidad</th>
-                          <th className="py-2 px-3 text-center">Cant</th>
-                          <th className="py-2 px-3 text-right">Costo U.</th>
-                          <th className="py-2 px-3 text-center">Margen</th>
-                          <th className="py-2 px-3 text-right">P. Unitario</th>
-                          <th className="py-2 px-3 text-right">Subtotal</th>
-                          <th className="py-2 px-3 text-right"></th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 text-xs">
-                        {tiresList.map((row: any) => {
-                          const t = row.inventario_llantas;
-                          const costoU = Number(t?.costo_adquisicion || Number(row.precio_unitario || 0) * 0.72);
-                          const pVenta = Number(row.precio_unitario || 0);
-                          const margenPct = costoU > 0 ? ((pVenta - costoU) / costoU) * 100 : 0;
-                          const utilRow = (pVenta - costoU) * Number(row.cantidad || 1);
-                          const isJit = Number(t?.stock_actual || 0) <= 0;
-
-                          return (
-                            <tr key={row.id} className="hover:bg-slate-50/80">
-                              <td className="py-2.5 px-3">
-                                <div className="font-semibold text-slate-900">
-                                  {t?.marca} {t?.modelo_llanta}
-                                </div>
-                                <span className="font-mono text-xs text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">
-                                  {t?.ancho}/{t?.perfil} R{t?.rin}
-                                </span>
-                              </td>
-                              <td className="py-2.5 px-3">
-                                {isJit ? (
-                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                                    Sobre Pedido (JIT)
-                                  </span>
-                                ) : (
-                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                    Stock Taller ({t?.stock_actual})
-                                  </span>
-                                )}
-                              </td>
-                              <td className="py-2.5 px-3 text-center tabular-nums font-bold">
-                                {inlineEdit?.itemId === row.id && inlineEdit?.field === "cantidad" ? (
-                                  <input
-                                    type="number"
-                                    min="1"
-                                    autoFocus
-                                    value={inlineEdit?.value || ""}
-                                    onChange={(e) => updateInlineEditValue(e.target.value)}
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Enter") saveInlineEdit();
-                                      else if (e.key === "Escape") setInlineEdit(null);
-                                    }}
-                                    onBlur={() => saveInlineEdit()}
-                                    className="w-14 h-7 text-xs border-2 border-blue-500 rounded px-1 text-center font-bold outline-none"
-                                  />
-                                ) : (
-                                  <span
-                                    onClick={() =>
-                                      setInlineEdit({
-                                        itemType: "llanta",
-                                        itemId: row.id,
-                                        field: "cantidad",
-                                        value: String(row.cantidad || 1),
-                                      })
-                                    }
-                                    className="cursor-pointer hover:bg-blue-100/60 rounded px-1.5 py-0.5 text-slate-900 transition-colors inline-block"
-                                    title="Clic para editar cantidad"
-                                  >
-                                    {row.cantidad}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="py-2.5 px-3 text-right tabular-nums text-slate-500">
-                                ${costoU.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                              </td>
-                              <td className="py-2.5 px-3 text-center">
-                                <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-mono text-[10px] font-bold tabular-nums">
-                                  +{margenPct.toFixed(0)}% (+${utilRow.toLocaleString("es-MX", { maximumFractionDigits: 0 })})
-                                </span>
-                              </td>
-                              <td className="py-2.5 px-3 text-right tabular-nums">
-                                {inlineEdit?.itemId === row.id && inlineEdit?.field === "precio" ? (
-                                  <input
-                                    type="number"
-                                    step="10"
-                                    autoFocus
-                                    value={inlineEdit?.value || ""}
-                                    onChange={(e) => updateInlineEditValue(e.target.value)}
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Enter") saveInlineEdit();
-                                      else if (e.key === "Escape") setInlineEdit(null);
-                                    }}
-                                    onBlur={() => saveInlineEdit()}
-                                    className="w-20 h-7 text-xs border-2 border-blue-500 rounded px-1 text-right font-bold outline-none"
-                                  />
-                                ) : (
-                                  <span
-                                    onClick={() =>
-                                      setInlineEdit({
-                                        itemType: "llanta",
-                                        itemId: row.id,
-                                        field: "precio",
-                                        value: String(pVenta),
-                                      })
-                                    }
-                                    className="cursor-pointer hover:bg-blue-100/60 rounded px-1.5 py-0.5 text-slate-900 font-medium transition-colors inline-block"
-                                    title="Clic para editar precio unitario"
-                                  >
-                                    ${pVenta.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="py-2.5 px-3 text-right font-bold text-slate-900 tabular-nums">
-                                ${Number(row.subtotal).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                              </td>
-                              <td className="py-2.5 px-3 text-right">
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveTire(row)}
-                                  className="p-1 text-slate-400 hover:text-red-600 cursor-pointer"
-                                  title="Eliminar neumático"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
           {/* SECCIÓN: RECOMENDACIONES TÉCNICAS DECLINADAS HOY · DESLINDE LEGAL */}
           {totalCurrentDeferredCount > 0 && (
             <div className="bg-slate-50/90 border border-slate-300 rounded-lg shadow-2xs overflow-hidden">
