@@ -280,6 +280,9 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   } | null>(null);
   const [attachingPartForEvidence, setAttachingPartForEvidence] = useState<any | null>(null);
   const [isRegistrarTicketModalOpen, setIsRegistrarTicketModalOpen] = useState(false);
+  const [isDeliveryWithBalanceModalOpen, setIsDeliveryWithBalanceModalOpen] = useState(false);
+  const [creditDeliveryNotes, setCreditDeliveryNotes] = useState("");
+  const [isDeliveringLoading, setIsDeliveringLoading] = useState(false);
   const [inlineEdit, setInlineEdit] = useState<{
     itemType: "servicio" | "refaccion" | "llanta";
     itemId: string;
@@ -1088,6 +1091,47 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
     }
     setOrder((prev: any) => ({ ...prev, estado: newStatus, version: res.nuevo_version ?? ((prev.version || 1) + 1) }));
     onUpdate();
+  };
+
+  const handleInitiateDelivery = async () => {
+    if (saldoPendiente > 0.01) {
+      setIsDeliveryWithBalanceModalOpen(true);
+      return;
+    }
+    await executeDelivery();
+  };
+
+  const executeDelivery = async (notaCredito?: string) => {
+    setIsDeliveringLoading(true);
+    try {
+      if (notaCredito) {
+        const updatePayload: any = {
+          estado: "Entregado",
+          sub_estado: "Entregado",
+        };
+        const extraNote = `[Salida a Crédito/Flotilla: ${notaCredito} · Saldo Pendiente: ${saldoPendiente.toLocaleString("es-MX", { minimumFractionDigits: 2 })}]`;
+        updatePayload.notas = order.notas ? `${order.notas}\n${extraNote}` : extraNote;
+
+        await supabase
+          .from("ordenes_servicio")
+          .update(updatePayload)
+          .eq("id", orderId);
+
+        toast.warning(
+          `Vehículo entregado con saldo pendiente de ${saldoPendiente.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN registrado a crédito/flotilla.`
+        );
+      } else {
+        await handleUpdateStatus("Entregado");
+        await handleUpdateSubStatus("Entregado");
+        toast.success("Vehículo entregado al cliente con éxito.");
+      }
+      setIsDeliveryWithBalanceModalOpen(false);
+      onClose();
+    } catch (err: any) {
+      toast.error("Error al entregar vehículo: " + (err.message || err));
+    } finally {
+      setIsDeliveringLoading(false);
+    }
   };
 
   const handleUpdateSubStatus = async (newSubStatus: string) => {
@@ -3431,7 +3475,14 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
               />
               <select
                 value={order.estado}
-                onChange={(e) => handleUpdateStatus(e.target.value)}
+                onChange={(e) => {
+                  const nextVal = e.target.value;
+                  if (nextVal === "Entregado") {
+                    handleInitiateDelivery();
+                  } else {
+                    handleUpdateStatus(nextVal);
+                  }
+                }}
                 className="h-7 text-xs font-bold bg-transparent text-slate-900 focus:outline-none cursor-pointer pr-1"
                 title="Fase del vehículo en el taller (cambia aquí para saltar etapas)"
               >
@@ -3490,18 +3541,9 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
           {order.estado === "Listo para Entrega" && (
             <button
               type="button"
-              onClick={async () => {
-                if (saldoPendiente > 0) {
-                  toast.warning(
-                    `Atención: La orden tiene un saldo pendiente de $${saldoPendiente.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN. Se marca como entregado.`
-                  );
-                }
-                await handleUpdateStatus("Entregado");
-                await handleUpdateSubStatus("Entregado");
-                toast.success("Vehículo marcado como entregado. La orden sale del tablero.");
-                onClose();
-              }}
+              onClick={handleInitiateDelivery}
               className="h-8 px-3.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+              title="Marcar como entregado y dar salida al vehículo"
             >
               <CheckCircle2 size={13} />
               <span>Entregar Auto</span>
@@ -4675,12 +4717,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
                       {order.estado !== "Entregado" ? (
                         <button
                           type="button"
-                          onClick={async () => {
-                            await handleUpdateStatus("Entregado");
-                            await handleUpdateSubStatus("Entregado");
-                            toast.success("Vehículo entregado al cliente con éxito.");
-                            onClose();
-                          }}
+                          onClick={handleInitiateDelivery}
                           className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
                         >
                           <Car size={15} /> Marcar como Entregado al Cliente
@@ -5740,6 +5777,103 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
           cashGiven={receiptCashGiven}
           changeDue={receiptChangeDue}
         />
+        {/* MODAL DE CONFIRMACIÓN: ENTREGA CON SALDO PENDIENTE */}
+        {isDeliveryWithBalanceModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-amber-300 overflow-hidden">
+              {/* Header de Alerta */}
+              <div className="bg-amber-500 text-white px-5 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <AlertTriangle size={22} className="text-white shrink-0" />
+                  <div>
+                    <h3 className="text-base font-black tracking-tight text-white">
+                      ¡Atención: Saldo Pendiente de Cobro!
+                    </h3>
+                    <p className="text-[11px] text-amber-100 font-medium">
+                      Orden #{folioStr} · {v.marca} {v.modelo} ({v.placas || "Sin Placa"})
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsDeliveryWithBalanceModalOpen(false)}
+                  className="text-amber-100 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Contenido Informativo */}
+              <div className="p-5 space-y-4">
+                {/* Card de Monto Pendiente */}
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center space-y-1">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-amber-900">
+                    Saldo No Liquidado en Caja
+                  </span>
+                  <div className="text-3xl font-mono font-black text-amber-950 tabular-nums">
+                    ${saldoPendiente.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
+                  </div>
+                  <p className="text-[11px] text-amber-800 font-medium">
+                    (Total de la Orden: ${granTotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })} • Pagado: ${totalPagado.toLocaleString("es-MX", { minimumFractionDigits: 2 })})
+                  </p>
+                </div>
+
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Este vehículo tiene refacciones o servicios autorizados que <strong>aún no han sido liquidados en caja</strong> (los trabajos pospuestos para después están excluidos). Si el cliente va a pagar en este momento (efectivo, tarjeta, transferencia), dirígete a la pestaña de caja antes de darle salida.
+                </p>
+
+                {/* Campo de justificación / crédito flotilla */}
+                <div className="space-y-1.5 pt-1">
+                  <label className="text-xs font-bold text-slate-800 flex items-center justify-between">
+                    <span>Motivo si es entrega a Crédito / Flotilla:</span>
+                    <span className="text-[10px] text-slate-400 font-normal">Opcional</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={creditDeliveryNotes}
+                    onChange={(e) => setCreditDeliveryNotes(e.target.value)}
+                    placeholder="Ej. Flotilla autorizada, crédito a 15 días, pago contra factura..."
+                    className="w-full text-xs border border-slate-300 rounded-lg p-2.5 outline-none focus:border-amber-500 font-medium"
+                  />
+                </div>
+              </div>
+
+              {/* Acciones de Confirmación */}
+              <div className="px-5 py-4 bg-slate-50 border-t border-slate-200 flex flex-col gap-2">
+                {/* Acción Primaria: Cobrar en Caja */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsDeliveryWithBalanceModalOpen(false);
+                    setActiveTab("pagos");
+                  }}
+                  className="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-emerald-600 text-white text-xs font-black flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
+                >
+                  <Banknote size={16} /> Ir a Cobrar a Caja Ahora
+                </button>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsDeliveryWithBalanceModalOpen(false)}
+                    className="flex-1 py-2 px-3 rounded-lg border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isDeliveringLoading}
+                    onClick={() => executeDelivery(creditDeliveryNotes || "Crédito / Cuenta por Cobrar autorizada")}
+                    className="flex-1 py-2 px-3 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
+                    title="Dar salida al auto registrando el saldo pendiente en el expediente"
+                  >
+                    {isDeliveringLoading ? "Entregando..." : "Entregar a Crédito"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Modal de Comprobante / Póliza de Garantía en Pantalla Completa */}
         {selectedTicketEvidence && (
