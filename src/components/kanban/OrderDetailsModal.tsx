@@ -3318,7 +3318,7 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
   return (
     <div className="flex flex-col bg-slate-50 text-slate-900">
       {/* Top Action Header Bar (Command Bar Unificada) */}
-      <div className="bg-white px-5 py-3.5 border-b border-slate-200 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+      <div className="relative bg-white px-5 py-3 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3 pr-14">
         {/* Lado Izquierdo: Ficha de Unidad y Cliente */}
         <div className="flex items-center gap-3">
           <div className="px-2.5 py-1 rounded-md bg-slate-900 text-white font-mono text-sm font-black tracking-tight tabular-nums shrink-0 shadow-2xs">
@@ -3337,14 +3337,9 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
               <span className="font-mono text-xs font-black uppercase bg-slate-100 text-slate-800 border border-slate-300 px-2 py-0.5 rounded shadow-2xs">
                 {v.placas || "SIN PLACA"}
               </span>
-              {order.aprobado_cliente_nombre && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                  <ShieldCheck size={11} /> Autorizado
-                </span>
-              )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-slate-600 mt-1">
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-slate-600 mt-0.5">
               <Link
                 href={`/clientes/${c.id}?vehiculoId=${v.id}`}
                 onClick={onClose}
@@ -3379,16 +3374,16 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
           </div>
         </div>
 
-        {/* Lado Derecho: Controles de Piso & Botón Cerrar */}
-        <div className="flex flex-wrap items-center gap-2 xl:self-center">
+        {/* Lado Derecho: Controles de Piso & Acción Inteligente */}
+        <div className="flex flex-wrap items-center gap-2">
           {/* Asignación de Piso: Técnico */}
           <select
             value={order.mecanico_id || ""}
             onChange={(e) => handleUpdateMechanic(e.target.value)}
-            className="h-8 text-xs font-semibold bg-white border border-slate-200 rounded-lg px-2.5 text-slate-800 focus:outline-none focus:border-blue-600 shadow-2xs"
-            title="Técnico Asignado"
+            className="h-8 text-xs font-medium bg-slate-100 hover:bg-slate-200/70 border border-slate-200 rounded-lg px-2.5 text-slate-700 focus:outline-none focus:border-blue-500 transition-colors cursor-pointer"
+            title="Técnico Asignado a esta orden"
           >
-            <option value="">Sin Técnico</option>
+            <option value="">🔧 Sin Técnico</option>
             {mechanics
               .filter((m) => m.rol === "Mecánico" || m.puesto?.toLowerCase().includes("técnico"))
               .map((m) => (
@@ -3402,10 +3397,10 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
           <select
             value={order.bahia_rampa || ""}
             onChange={(e) => handleUpdateBahia(e.target.value)}
-            className="h-8 text-xs font-semibold bg-white border border-slate-200 rounded-lg px-2.5 text-slate-800 focus:outline-none focus:border-blue-600 shadow-2xs"
+            className="h-8 text-xs font-medium bg-slate-100 hover:bg-slate-200/70 border border-slate-200 rounded-lg px-2.5 text-slate-700 focus:outline-none focus:border-blue-500 transition-colors cursor-pointer"
             title="Estación de Trabajo / Rampa"
           >
-            <option value="">Sin Estación</option>
+            <option value="">📍 Sin Estación</option>
             {estacionesList.map((b) => (
               <option key={b} value={b}>
                 📍 {b}
@@ -3413,13 +3408,14 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
             ))}
           </select>
 
-          <div className="hidden sm:block h-6 w-px bg-slate-200 mx-0.5" />
+          <div className="hidden sm:block h-5 w-px bg-slate-200 mx-0.5" />
 
-          {/* Flujo Kanban Principal */}
+          {/* Selector de Fase Kanban (Atajo rápido para saltar etapas) */}
           <select
             value={order.estado}
             onChange={(e) => handleUpdateStatus(e.target.value)}
-            className="h-8 text-xs font-bold bg-slate-900 text-white border border-slate-900 rounded-lg px-2.5 focus:outline-none cursor-pointer shadow-2xs"
+            className="h-8 text-xs font-semibold bg-slate-100 hover:bg-slate-200/70 text-slate-800 border border-slate-200 rounded-lg px-2.5 focus:outline-none cursor-pointer transition-colors"
+            title="Fase del vehículo en el tablero (cambia aquí si deseas saltar etapas)"
           >
             <option value="Citas del Día">1. Citas del Día</option>
             <option value="En Inspección">2. En Inspección</option>
@@ -3428,34 +3424,91 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
             <option value="Entregado">5. Entregado / Salida</option>
           </select>
 
+          {/* Botón de Acción Inteligente según Fase del Vehículo */}
+          {order.estado === "Citas del Día" && (
+            <button
+              type="button"
+              onClick={async () => {
+                await handleUpdateStatus("En Inspección");
+                toast.success("Vehículo pasado a Inspección.");
+              }}
+              className="h-8 px-2.5 text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+              title="Avanzar orden a Inspección & DVI"
+            >
+              <span>Iniciar Inspección</span>
+              <ArrowRight size={12} />
+            </button>
+          )}
+
+          {order.estado === "En Inspección" && (
+            <button
+              type="button"
+              onClick={async () => {
+                await handleUpdateStatus("En Rampa");
+                toast.success("Vehículo pasado a Rampa para trabajo de taller.");
+              }}
+              className="h-8 px-2.5 text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+              title="Avanzar orden a Rampa"
+            >
+              <span>Subir a Rampa</span>
+              <ArrowRight size={12} />
+            </button>
+          )}
+
+          {order.estado === "En Rampa" && (
+            <button
+              type="button"
+              onClick={async () => {
+                await handleUpdateStatus("Listo para Entrega");
+                toast.success("Vehículo marcado como Listo para Entrega.");
+              }}
+              className="h-8 px-2.5 text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+              title="Finalizar trabajo de piso y marcar listo para entrega"
+            >
+              <span>Marcar Listo</span>
+              <ArrowRight size={12} />
+            </button>
+          )}
+
           {order.estado === "Listo para Entrega" && (
             <button
               type="button"
               onClick={async () => {
+                if (saldoPendiente > 0) {
+                  toast.warning(
+                    `Atención: La orden tiene un saldo pendiente de ${saldoPendiente.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN. Se marca como entregado.`
+                  );
+                }
                 await handleUpdateStatus("Entregado");
                 await handleUpdateSubStatus("Entregado");
                 toast.success("Vehículo marcado como entregado. La orden sale del tablero.");
                 onClose();
               }}
-              className="h-8 px-2.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
+              className="h-8 px-3 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
               title="Marcar como entregado y archivar del tablero"
             >
-              <CheckCircle2 size={13} /> Entregar Auto
+              <CheckCircle2 size={13} />
+              <span>Entregar Auto</span>
             </button>
           )}
 
-          <div className="hidden sm:block h-6 w-px bg-slate-200 mx-0.5" />
-
-          {/* Botón de Cierre de Modal */}
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
-            title="Cerrar orden (Esc)"
-          >
-            <X size={18} strokeWidth={2} />
-          </button>
+          {order.estado === "Entregado" && (
+            <span className="h-8 px-2.5 text-xs font-semibold bg-slate-100 text-slate-500 border border-slate-200 rounded-lg flex items-center gap-1">
+              <CheckCircle2 size={12} className="text-emerald-600" />
+              <span>Entregado</span>
+            </span>
+          )}
         </div>
+
+        {/* Botón de Cierre de Modal - Anclado fijamente a la esquina superior derecha */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-3 right-3 w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer z-10"
+          title="Cerrar orden (Esc)"
+        >
+          <X size={18} strokeWidth={2} />
+        </button>
       </div>
 
       {/* Guided Lifecycle Stepper Navigation */}
