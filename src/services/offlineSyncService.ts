@@ -179,10 +179,25 @@ class OfflineSyncService {
 
     switch (mutation_type) {
       case "CREAR_ORDEN": {
-        // Si la orden ya existe por ID, es un replay idempotente
+        // Si la orden ya existe por ID, es un replay idempotente.
+        // Sanitizar folio: en Postgres es autoincremental integer, por lo que si viene
+        // un folio temporal offline tipo string (ej. 'ORD-T1-8F3A2B'), se guarda en checklist_recepcion
+        const cleanPayload = { ...payload };
+        if (typeof cleanPayload.folio === "string" || !cleanPayload.folio) {
+          const offlineFolio = cleanPayload.folio || cleanPayload.folio_offline;
+          delete cleanPayload.folio;
+          if (offlineFolio) {
+            cleanPayload.checklist_recepcion = {
+              ...(cleanPayload.checklist_recepcion || {}),
+              folio_offline: offlineFolio,
+            };
+          }
+        }
+        delete cleanPayload.folio_offline;
+
         const { error } = await supabase
           .from("ordenes_servicio")
-          .upsert(payload, { onConflict: "id" });
+          .upsert(cleanPayload, { onConflict: "id" });
         if (error) throw error;
         break;
       }

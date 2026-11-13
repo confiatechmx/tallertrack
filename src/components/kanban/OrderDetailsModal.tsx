@@ -15,6 +15,8 @@ import { TicketEvidenceLightbox } from "@/components/proveedores/TicketEvidenceL
 import { ProveedorEvidenceModal } from "@/components/proveedores/ProveedorEvidenceModal";
 import { ProveedorService, type Proveedor } from "@/services/proveedorService";
 import { TenantEstacionesService } from "@/services/tenantEstacionesService";
+import { offlineSyncService } from "@/services/offlineSyncService";
+import { localDB } from "@/lib/offline/db";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -545,6 +547,34 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
           setDeferredWorks(difData);
           setOrder((prev: any) => ({ ...prev, trabajos_diferidos: difData }));
         }
+      }
+    } else {
+      // Fallback offline: intentar recuperar snapshot de localDB
+      try {
+        const cached = await localDB.ordenes_activas.get(orderId);
+        if (cached) {
+          const fallbackOrder = {
+            id: cached.id,
+            empresa_id: cached.empresa_id,
+            sucursal_id: cached.sucursal_id,
+            folio: cached.folio,
+            estado: cached.estado,
+            vehiculos: {
+              placas: cached.placas,
+              clientes: { nombre: cached.cliente_nombre, telefono: cached.cliente_telefono }
+            },
+            orden_servicio_servicios: [],
+            orden_servicio_refacciones: [],
+            pagos_orden: [],
+            inspecciones_dvi: [],
+            ...(cached.raw_data || {}),
+          };
+          setOrder(fallbackOrder);
+          setRecProblema(cached.notas || "");
+          toast.info("Orden abierta desde memoria local (Modo contingencia)");
+        }
+      } catch (cacheErr) {
+        console.warn("No se pudo cargar orden localmente:", cacheErr);
       }
     }
 
@@ -1428,6 +1458,38 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
       es_cortesia: serviceIsCortesia,
     };
 
+    const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+
+    if (isOffline) {
+      const localId = crypto.randomUUID();
+      const localServiceItem = {
+        ...payload,
+        id: localId,
+        servicios_taller: { nombre: finalNombre },
+      };
+      setOrder((prev: any) => ({
+        ...prev,
+        orden_servicio_servicios: [...(prev.orden_servicio_servicios || []), localServiceItem],
+      }));
+      await offlineSyncService.enqueueMutation({
+        empresa_id: targetEmpId,
+        sucursal_id: order?.sucursal_id,
+        mutation_type: "AGREGAR_ITEM_ORDEN",
+        entity_id: localId,
+        payload: { tipo: "servicio", item: localServiceItem },
+      });
+      setIsAddingService(false);
+      setSelectedServiceId("");
+      setServiceCustomNombre("");
+      setServiceNotes("");
+      setServiceIsCortesia(false);
+      setGuardarEnCatalogo(false);
+      toast.info("Mano de obra guardada localmente (Modo sin conexión)");
+      onUpdate();
+      setAddingServiceLoading(false);
+      return;
+    }
+
     const { data, error } = await supabase
       .from("orden_servicio_servicios")
       .insert(payload)
@@ -1450,7 +1512,32 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
       toast.success("Mano de obra agregada a la orden");
       onUpdate();
     } else if (error) {
-      toast.error(error.message || "Error al agregar servicio");
+      // Fallback si la desconexión ocurrió en vuelo
+      const localId = crypto.randomUUID();
+      const localServiceItem = {
+        ...payload,
+        id: localId,
+        servicios_taller: { nombre: finalNombre },
+      };
+      setOrder((prev: any) => ({
+        ...prev,
+        orden_servicio_servicios: [...(prev.orden_servicio_servicios || []), localServiceItem],
+      }));
+      await offlineSyncService.enqueueMutation({
+        empresa_id: targetEmpId,
+        sucursal_id: order?.sucursal_id,
+        mutation_type: "AGREGAR_ITEM_ORDEN",
+        entity_id: localId,
+        payload: { tipo: "servicio", item: localServiceItem },
+      });
+      setIsAddingService(false);
+      setSelectedServiceId("");
+      setServiceCustomNombre("");
+      setServiceNotes("");
+      setServiceIsCortesia(false);
+      setGuardarEnCatalogo(false);
+      toast.info("Mano de obra respaldada localmente");
+      onUpdate();
     }
     setAddingServiceLoading(false);
   };
@@ -1875,6 +1962,36 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
         garantia_especifica: garantiaVal,
       };
 
+      const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+
+      if (isOffline) {
+        const localId = crypto.randomUUID();
+        const localItem = {
+          ...payload,
+          id: localId,
+        };
+        setOrder((prev: any) => ({
+          ...prev,
+          orden_servicio_refacciones: [...(prev.orden_servicio_refacciones || []), localItem],
+        }));
+        await offlineSyncService.enqueueMutation({
+          empresa_id: targetEmpresaId || "b2ad09db-0a34-4876-9ca3-d584c40bd294",
+          sucursal_id: order?.sucursal_id,
+          mutation_type: "AGREGAR_ITEM_ORDEN",
+          entity_id: localId,
+          payload: { tipo: "refaccion", item: localItem },
+        });
+        setIsAddingPart(false);
+        setPartNombre("");
+        setPartCantidad(1);
+        setPartPrecioVentaManual("");
+        setPartSubtotalManual("");
+        setPartGarantia("");
+        toast.info("Refacción guardada localmente (Modo sin conexión)");
+        onUpdate();
+        return;
+      }
+
       const { data, error } = await supabase
         .from("orden_servicio_refacciones")
         .insert(payload)
@@ -1895,7 +2012,28 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
         toast.success("Refacción agregada con éxito");
         onUpdate();
       } else if (error) {
-        toast.error("Error al guardar la refacción: " + error.message);
+        // Fallback si la desconexión ocurrió en vuelo
+        const localId = crypto.randomUUID();
+        const localItem = { ...payload, id: localId };
+        setOrder((prev: any) => ({
+          ...prev,
+          orden_servicio_refacciones: [...(prev.orden_servicio_refacciones || []), localItem],
+        }));
+        await offlineSyncService.enqueueMutation({
+          empresa_id: targetEmpresaId || "b2ad09db-0a34-4876-9ca3-d584c40bd294",
+          sucursal_id: order?.sucursal_id,
+          mutation_type: "AGREGAR_ITEM_ORDEN",
+          entity_id: localId,
+          payload: { tipo: "refaccion", item: localItem },
+        });
+        setIsAddingPart(false);
+        setPartNombre("");
+        setPartCantidad(1);
+        setPartPrecioVentaManual("");
+        setPartSubtotalManual("");
+        setPartGarantia("");
+        toast.info("Refacción respaldada localmente");
+        onUpdate();
       }
     } catch (err: any) {
       console.error("Error al procesar refacción:", err);
