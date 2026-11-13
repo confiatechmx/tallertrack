@@ -1,6 +1,7 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { TenantProvider } from "@/context/TenantContext";
+import { OfflineSyncProvider } from "@/context/OfflineSyncContext";
 import { DashboardContentWrapper } from "@/components/layout/DashboardContentWrapper";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -28,12 +29,14 @@ export default async function DashboardLayout({
 
   return (
     <TenantProvider>
-      <div className="flex h-screen w-full overflow-hidden bg-background">
-        <Sidebar />
-        <DashboardContentWrapper topbar={<Topbar />}>
-          {children}
-        </DashboardContentWrapper>
-      </div>
+      <OfflineSyncProvider>
+        <div className="flex h-screen w-full overflow-hidden bg-background">
+          <Sidebar />
+          <DashboardContentWrapper topbar={<Topbar />}>
+            {children}
+          </DashboardContentWrapper>
+        </div>
+      </OfflineSyncProvider>
     </TenantProvider>
   );
 }

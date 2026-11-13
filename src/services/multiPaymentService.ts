@@ -1,4 +1,6 @@
 import { supabase } from "@/lib/supabase";
+import { offlineSyncService } from "@/services/offlineSyncService";
+import { localDB } from "@/lib/offline/db";
 
 export type MetodoPagoTipo =
   | "Efectivo"
@@ -126,21 +128,57 @@ export const MultiPaymentService = {
     error?: string;
     message?: string;
   }> {
+    const formattedPagos = params.pagos.map((p) => ({
+      metodo: p.metodo,
+      monto: Number(p.monto || 0),
+      monto_recibido: Number(p.montoRecibido || p.monto || 0),
+      cambio: Number(p.cambio || 0),
+      referencia: p.referencia?.trim() || null,
+      detalle: p.detalle?.trim() || null,
+      cuenta_bancaria_id: p.cuentaBancariaId || null,
+      caja_fondo_id: p.cajaFondoId || null,
+      tenant_metodo_pago_id: p.tenantMetodoPagoId || null,
+      comision_monto: Number(p.comisionMonto || 0),
+      monto_neto: Number((p.montoNeto ?? p.monto).toFixed(2)),
+      plazo_msi: p.plazoMsi || null,
+    }));
+
     try {
-      const formattedPagos = params.pagos.map((p) => ({
-        metodo: p.metodo,
-        monto: Number(p.monto || 0),
-        monto_recibido: Number(p.montoRecibido || p.monto || 0),
-        cambio: Number(p.cambio || 0),
-        referencia: p.referencia?.trim() || null,
-        detalle: p.detalle?.trim() || null,
-        cuenta_bancaria_id: p.cuentaBancariaId || null,
-        caja_fondo_id: p.cajaFondoId || null,
-        tenant_metodo_pago_id: p.tenantMetodoPagoId || null,
-        comision_monto: Number(p.comisionMonto || 0),
-        monto_neto: Number((p.montoNeto ?? p.monto).toFixed(2)),
-        plazo_msi: p.plazoMsi || null,
-      }));
+      // Si estamos sin conexión de antemano o la llamada falla por error de red
+      const isNetworkOffline = typeof navigator !== "undefined" && !navigator.onLine;
+
+      if (isNetworkOffline) {
+        await offlineSyncService.enqueueMutation({
+          empresa_id: "b2ad09db-0a34-4876-9ca3-d584c40bd294",
+          sucursal_id: params.sucursalId || null,
+          mutation_type: "REGISTRAR_PAGO_ORDEN",
+          entity_id: params.ordenId,
+          payload: {
+            orden_id: params.ordenId,
+            sucursal_id: params.sucursalId,
+            pagos: formattedPagos,
+          },
+        });
+
+        // Actualización optimista en IndexedDB
+        const cached = await localDB.ordenes_activas.get(params.ordenId);
+        const montoTotalPagos = formattedPagos.reduce((acc, p) => acc + (p.monto || 0), 0);
+        if (cached) {
+          const nuevoPagado = (cached.pagado || 0) + montoTotalPagos;
+          const nuevoSaldo = Math.max(0, (cached.total || 0) - nuevoPagado);
+          await localDB.ordenes_activas.update(params.ordenId, {
+            pagado: nuevoPagado,
+            saldo_pendiente: nuevoSaldo,
+            estado: nuevoSaldo === 0 ? "Listo para Entrega" : cached.estado,
+          });
+        }
+
+        return {
+          success: true,
+          orden_id: params.ordenId,
+          message: "Pago registrado localmente en modo contingencia (pendiente de sincronizar)",
+        };
+      }
 
       const { data, error } = await supabase.rpc("fn_registrar_pagos_orden_multi", {
         p_orden_id: params.ordenId,
@@ -158,6 +196,31 @@ export const MultiPaymentService = {
 
       return data as any;
     } catch (err: any) {
+      // Si el error fue por falla de red durante la petición en vuelo
+      const isFetchErr = err?.message?.includes("fetch") || err?.name === "TypeError";
+      if (isFetchErr) {
+        try {
+          await offlineSyncService.enqueueMutation({
+            empresa_id: "b2ad09db-0a34-4876-9ca3-d584c40bd294",
+            sucursal_id: params.sucursalId || null,
+            mutation_type: "REGISTRAR_PAGO_ORDEN",
+            entity_id: params.ordenId,
+            payload: {
+              orden_id: params.ordenId,
+              sucursal_id: params.sucursalId,
+              pagos: formattedPagos,
+            },
+          });
+          return {
+            success: true,
+            orden_id: params.ordenId,
+            message: "Pago respaldado localmente (desconexión detectada)",
+          };
+        } catch {
+          // ignore
+        }
+      }
+
       return {
         success: false,
         error: "UNEXPECTED_ERROR",

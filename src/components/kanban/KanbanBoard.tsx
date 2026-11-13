@@ -36,6 +36,8 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useTenant } from "@/context/TenantContext";
+import { localDB } from "@/lib/offline/db";
+import { offlineSyncService } from "@/services/offlineSyncService";
 import dynamic from "next/dynamic";
 import { Modal } from "../ui/Modal";
 import { ErrorBoundary } from "../common/ErrorBoundary";
@@ -212,7 +214,45 @@ export function KanbanBoard() {
     }
 
     if (error) {
-      console.error("Error fetching orders:", error);
+      console.warn("Error consultando órdenes en red, recurriendo a caché local offline:", error);
+      try {
+        const cached = await localDB.ordenes_activas.toArray();
+        if (cached && cached.length > 0) {
+          const fallbackOrders: Order[] = cached.map((c) => ({
+            id: c.id,
+            folio: c.folio || "OFFLINE",
+            columnId: c.estado,
+            subEstado: "Activa",
+            sucursalId: c.sucursal_id || null,
+            sucursalCodigo: null,
+            vehicleId: c.vehiculo_id || "",
+            customerId: c.cliente_id || "",
+            carModel: c.vehiculo_resumen || "Vehículo en Taller",
+            carYear: null,
+            plates: c.placas || "S/P",
+            customerName: c.cliente_nombre || "Cliente Mostrador",
+            customerPhone: c.cliente_telefono || null,
+            priority: "normal",
+            services: c.items_resumen ? [c.items_resumen] : ["Servicio en Taller"],
+            createdAt: new Date(c.updated_at).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }),
+            fechaIngresoRaw: c.updated_at,
+            mechanicId: null,
+            mechanicName: null,
+            mechanicColor: null,
+            bahiaRampa: null,
+            estatusPago: c.saldo_pendiente === 0 ? "Pagado" : "Pendiente",
+            totalAmount: c.total,
+            paidAmount: c.pagado,
+            aprobadoClienteNombre: null,
+            isExpress: false,
+            dviCounts: { rojo: 0, amarillo: 0, verde: 0 },
+          }));
+          setOrders(fallbackOrders);
+          toast.info("Modo contingencia: Mostrando órdenes guardadas en esta terminal", { duration: 3500 });
+        }
+      } catch (cacheErr) {
+        console.error("Error leyendo caché local:", cacheErr);
+      }
     } else if (data) {
       const empMap = new Map((empData || []).map((e: any) => [e.id, e]));
       const sucMap = new Map((sucursales || []).map((s) => [s.id, s]));
@@ -367,21 +407,51 @@ export function KanbanBoard() {
     }
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     setActiveOrder(null);
     const { active } = event;
     const order = orders.find((o) => o.id === active.id);
 
     if (order && initialColumn !== null && order.columnId !== initialColumn) {
-      supabase
-        .from("ordenes_servicio")
-        .update({ estado: order.columnId })
-        .eq("id", order.id)
-        .then(({ error }) => {
-          if (error) {
-            console.error("Error updating order state in Supabase:", error);
-          }
+      const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+
+      if (isOffline) {
+        await offlineSyncService.enqueueMutation({
+          empresa_id: empresa?.id || "b2ad09db-0a34-4876-9ca3-d584c40bd294",
+          sucursal_id: order.sucursalId || sucursalActiva?.id,
+          mutation_type: "ACTUALIZAR_ESTADO_ORDEN",
+          entity_id: order.id,
+          payload: { orden_id: order.id, nuevo_estado: order.columnId },
         });
+        await localDB.ordenes_activas.update(order.id, { estado: order.columnId }).catch(() => {});
+        toast.info("Estado actualizado en contingencia local");
+      } else {
+        try {
+          const { error } = await supabase
+            .from("ordenes_servicio")
+            .update({ estado: order.columnId })
+            .eq("id", order.id);
+
+          if (error) {
+            console.warn("Fallo en red al mover orden, encolando en Outbox:", error);
+            await offlineSyncService.enqueueMutation({
+              empresa_id: empresa?.id || "b2ad09db-0a34-4876-9ca3-d584c40bd294",
+              sucursal_id: order.sucursalId || sucursalActiva?.id,
+              mutation_type: "ACTUALIZAR_ESTADO_ORDEN",
+              entity_id: order.id,
+              payload: { orden_id: order.id, nuevo_estado: order.columnId },
+            });
+          }
+        } catch {
+          await offlineSyncService.enqueueMutation({
+            empresa_id: empresa?.id || "b2ad09db-0a34-4876-9ca3-d584c40bd294",
+            sucursal_id: order.sucursalId || sucursalActiva?.id,
+            mutation_type: "ACTUALIZAR_ESTADO_ORDEN",
+            entity_id: order.id,
+            payload: { orden_id: order.id, nuevo_estado: order.columnId },
+          });
+        }
+      }
     }
     setInitialColumn(null);
   };
@@ -390,7 +460,30 @@ export function KanbanBoard() {
     setOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, columnId: newStage } : o))
     );
-    await supabase.from("ordenes_servicio").update({ estado: newStage }).eq("id", orderId);
+    const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+
+    if (isOffline) {
+      await offlineSyncService.enqueueMutation({
+        empresa_id: empresa?.id || "b2ad09db-0a34-4876-9ca3-d584c40bd294",
+        sucursal_id: sucursalActiva?.id,
+        mutation_type: "ACTUALIZAR_ESTADO_ORDEN",
+        entity_id: orderId,
+        payload: { orden_id: orderId, nuevo_estado: newStage },
+      });
+      await localDB.ordenes_activas.update(orderId, { estado: newStage }).catch(() => {});
+    } else {
+      const { error } = await supabase.from("ordenes_servicio").update({ estado: newStage }).eq("id", orderId);
+      if (error) {
+        await offlineSyncService.enqueueMutation({
+          empresa_id: empresa?.id || "b2ad09db-0a34-4876-9ca3-d584c40bd294",
+          sucursal_id: sucursalActiva?.id,
+          mutation_type: "ACTUALIZAR_ESTADO_ORDEN",
+          entity_id: orderId,
+          payload: { orden_id: orderId, nuevo_estado: newStage },
+        });
+      }
+    }
+
     if (newStage === "Entregado") {
       toast.success("Vehículo marcado como entregado. La orden sale del tablero.");
     }
@@ -402,14 +495,32 @@ export function KanbanBoard() {
 
   const handleDeliverOrder = useCallback(async (orderId: string) => {
     try {
-      const { error } = await supabase
-        .from("ordenes_servicio")
-        .update({ estado: "Entregado", sub_estado: "Entregado" })
-        .eq("id", orderId);
+      const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
 
-      if (error) {
-        toast.error("Error al marcar la orden como entregada");
-        return;
+      if (isOffline) {
+        await offlineSyncService.enqueueMutation({
+          empresa_id: empresa?.id || "b2ad09db-0a34-4876-9ca3-d584c40bd294",
+          sucursal_id: sucursalActiva?.id,
+          mutation_type: "ACTUALIZAR_ESTADO_ORDEN",
+          entity_id: orderId,
+          payload: { orden_id: orderId, nuevo_estado: "Entregado" },
+        });
+        await localDB.ordenes_activas.update(orderId, { estado: "Entregado" }).catch(() => {});
+      } else {
+        const { error } = await supabase
+          .from("ordenes_servicio")
+          .update({ estado: "Entregado", sub_estado: "Entregado" })
+          .eq("id", orderId);
+
+        if (error) {
+          await offlineSyncService.enqueueMutation({
+            empresa_id: empresa?.id || "b2ad09db-0a34-4876-9ca3-d584c40bd294",
+            sucursal_id: sucursalActiva?.id,
+            mutation_type: "ACTUALIZAR_ESTADO_ORDEN",
+            entity_id: orderId,
+            payload: { orden_id: orderId, nuevo_estado: "Entregado" },
+          });
+        }
       }
 
       setOrders((prev) =>
@@ -422,7 +533,7 @@ export function KanbanBoard() {
       console.error("Error entregando vehículo:", err);
       toast.error("Error al procesar la entrega");
     }
-  }, []);
+  }, [empresa?.id, sucursalActiva?.id]);
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {

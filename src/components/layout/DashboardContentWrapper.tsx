@@ -4,6 +4,7 @@ import React from "react";
 import { useTenant } from "@/context/TenantContext";
 import ImpersonationBanner from "@/components/hq/ImpersonationBanner";
 import SuspendedTenantView from "@/components/hq/SuspendedTenantView";
+import { OfflineStatusBar } from "@/components/layout/OfflineStatusBar";
 
 export function DashboardContentWrapper({
   topbar,
@@ -23,6 +24,7 @@ export function DashboardContentWrapper({
     <div className="flex-1 flex flex-col h-full overflow-hidden relative">
       {impersonation && <ImpersonationBanner impersonation={impersonation} />}
       {topbar}
+      <OfflineStatusBar />
       <main className="flex-1 overflow-y-auto bg-background p-4 md:p-6 pb-20 md:pb-6">
         {children}
       </main>

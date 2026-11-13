@@ -129,6 +129,7 @@ export const DEFAULT_EMPRESA: EmpresaConfig = {
 };
 
 const CURRENT_EMPRESA_CACHE_KEY = "tallertrack_cached_empresa";
+const CURRENT_USER_PROFILE_CACHE_KEY = "tallertrack_cached_perfil";
 
 function getInitialEmpresa(): EmpresaConfig {
   if (typeof window !== "undefined") {
@@ -246,9 +247,32 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
             email: user.email,
           };
           setPerfil(userProfile);
+          if (typeof window !== "undefined") {
+            try {
+              localStorage.setItem(CURRENT_USER_PROFILE_CACHE_KEY, JSON.stringify(userProfile));
+            } catch {
+              // ignore
+            }
+          }
         }
       } else {
-        setPerfil(null);
+        // Tolerancia a contingencia offline: si no hay respuesta de auth por falta de conexión,
+        // no expulsar al usuario; recuperar perfil persistido de la sesión activa previa.
+        if (typeof window !== "undefined" && (!navigator.onLine || !authData)) {
+          try {
+            const cachedRaw = localStorage.getItem(CURRENT_USER_PROFILE_CACHE_KEY);
+            if (cachedRaw) {
+              userProfile = JSON.parse(cachedRaw);
+              setPerfil(userProfile);
+            } else {
+              setPerfil(null);
+            }
+          } catch {
+            setPerfil(null);
+          }
+        } else {
+          setPerfil(null);
+        }
       }
 
       const isSuper =

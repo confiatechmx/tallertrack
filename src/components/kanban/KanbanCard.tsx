@@ -18,7 +18,7 @@ export type OrderPriority = "low" | "normal" | "high" | "urgent";
 
 export interface Order {
   id: string;
-  folio: number;
+  folio: number | string;
   columnId: string;
   subEstado?: string | null;
   sucursalId?: string | null;
@@ -94,7 +94,12 @@ export const KanbanCard = memo(function KanbanCard({ order, onClick, onDeliverOr
     );
   }
 
-  const folioStr = `#${1000 + Number(order.folio || 1)}`;
+  const folioStr =
+    typeof order.folio === "number"
+      ? `#${1000 + order.folio}`
+      : String(order.folio).startsWith("#") || String(order.folio).startsWith("ORD")
+      ? String(order.folio)
+      : `#${order.folio}`;
   const borderAccent = priorityBorders[order.priority] || priorityBorders.normal;
 
   return (

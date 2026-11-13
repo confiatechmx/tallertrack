@@ -4,10 +4,15 @@ import { useEffect } from "react";
 
 export function RegisterServiceWorker() {
   useEffect(() => {
+    const isLocalhost =
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1" ||
+      window.location.hostname.endsWith(".localhost");
+
     if (
       typeof window !== "undefined" &&
       "serviceWorker" in navigator &&
-      window.location.protocol === "https:"
+      (window.location.protocol === "https:" || isLocalhost)
     ) {
       window.addEventListener("load", () => {
         navigator.serviceWorker

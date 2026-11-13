@@ -4,6 +4,9 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useTenant } from "@/context/TenantContext";
 import { TenantEstacionesService } from "@/services/tenantEstacionesService";
+import { generateOfflineFolio } from "@/lib/offline/terminalConfig";
+import { offlineSyncService } from "@/services/offlineSyncService";
+import { localDB } from "@/lib/offline/db";
 import {
   Loader2,
   Car,
@@ -160,12 +163,29 @@ export function OrderForm({
         }));
       }
 
+      let finalClients: Client[] = [];
       if (clientsData) {
-        const typedClients = clientsData as Client[];
-        setClients(typedClients);
+        finalClients = clientsData as Client[];
+        setClients(finalClients);
+      } else {
+        // Fallback contingencia local
+        try {
+          const cachedClients = await localDB.clientes.toArray();
+          if (cachedClients && cachedClients.length > 0) {
+            finalClients = cachedClients.map((c) => ({
+              id: c.id,
+              nombre: c.nombre,
+              telefono: c.telefono,
+              vehiculos: [],
+            }));
+            setClients(finalClients);
+          }
+        } catch {}
+      }
 
+      if (finalClients.length > 0) {
         if (initialVehicleId && !initialClientId) {
-          const owner = typedClients.find((c) =>
+          const owner = finalClients.find((c) =>
             c.vehiculos?.some((v) => v.id === initialVehicleId)
           );
           if (owner) {
@@ -180,7 +200,7 @@ export function OrderForm({
           }
         } else if (initialClientId) {
           setSelectedClientId(initialClientId);
-          const owner = typedClients.find((c) => c.id === initialClientId);
+          const owner = finalClients.find((c) => c.id === initialClientId);
           if (initialVehicleId) {
             setSelectedVehicleId(initialVehicleId);
             const veh = owner?.vehiculos?.find((v) => v.id === initialVehicleId);
@@ -272,6 +292,8 @@ export function OrderForm({
     let targetVehicleId = selectedVehicleId;
     const kmIngreso = parseInt(formData.kilometraje_ingreso) || 0;
 
+    const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+
     // Express New Ingestion Logic
     if (isExpressMode) {
       if (!expressClientName.trim() || !expressClientPhone.trim()) {
@@ -295,25 +317,12 @@ export function OrderForm({
         clientPayload.empresa_id = empresa.id;
       }
 
-      const { data: newClient, error: clientErr } = await supabase
-        .from("clientes")
-        .insert(clientPayload)
-        .select("id")
-        .single();
-
-      if (clientErr || !newClient) {
-        setError(clientErr?.message || "Error al crear el cliente.");
-        setLoading(false);
-        return;
-      }
-
       // 2. Create vehicle
       const cleanPlacas = expressVehiclePlacas.trim().toUpperCase();
       const normalizedPlacas =
         cleanPlacas && cleanPlacas !== "MOSTRADOR" ? cleanPlacas : null;
 
       const vehiclePayload: Record<string, any> = {
-        cliente_id: newClient.id,
         marca: expressVehicleMarca.trim(),
         modelo: expressVehicleModelo.trim(),
         placas: normalizedPlacas,
@@ -324,19 +333,70 @@ export function OrderForm({
         vehiclePayload.empresa_id = empresa.id;
       }
 
-      const { data: newVehicle, error: vehicleErr } = await supabase
-        .from("vehiculos")
-        .insert(vehiclePayload)
-        .select("id")
-        .single();
+      if (isOffline) {
+        const localCliId = crypto.randomUUID();
+        const localVehId = crypto.randomUUID();
+        clientPayload.id = localCliId;
+        vehiclePayload.id = localVehId;
+        vehiclePayload.cliente_id = localCliId;
 
-      if (vehicleErr || !newVehicle) {
-        setError(vehicleErr?.message || "Error al registrar el vehículo.");
-        setLoading(false);
-        return;
+        await localDB.clientes.put({
+          id: localCliId,
+          empresa_id: empresa?.id || "b2ad09db-0a34-4876-9ca3-d584c40bd294",
+          nombre: clientPayload.nombre,
+          telefono: clientPayload.telefono,
+          updated_at: new Date().toISOString(),
+        });
+
+        await localDB.vehiculos.put({
+          id: localVehId,
+          cliente_id: localCliId,
+          empresa_id: empresa?.id || "b2ad09db-0a34-4876-9ca3-d584c40bd294",
+          placas: vehiclePayload.placas || "S/P",
+          marca: vehiclePayload.marca,
+          modelo: vehiclePayload.modelo,
+          anio: vehiclePayload.anio,
+          updated_at: new Date().toISOString(),
+        });
+
+        await offlineSyncService.enqueueMutation({
+          empresa_id: empresa?.id || "b2ad09db-0a34-4876-9ca3-d584c40bd294",
+          sucursal_id: formData.sucursal_id || sucursalActiva?.id,
+          mutation_type: "CREAR_CLIENTE_EXPRESS",
+          entity_id: localCliId,
+          payload: { cliente: clientPayload, vehiculo: vehiclePayload },
+        });
+
+        targetVehicleId = localVehId;
+      } else {
+        const { data: newClient, error: clientErr } = await supabase
+          .from("clientes")
+          .insert(clientPayload)
+          .select("id")
+          .single();
+
+        if (clientErr || !newClient) {
+          setError(clientErr?.message || "Error al crear el cliente.");
+          setLoading(false);
+          return;
+        }
+
+        vehiclePayload.cliente_id = newClient.id;
+
+        const { data: newVehicle, error: vehicleErr } = await supabase
+          .from("vehiculos")
+          .insert(vehiclePayload)
+          .select("id")
+          .single();
+
+        if (vehicleErr || !newVehicle) {
+          setError(vehicleErr?.message || "Error al registrar el vehículo.");
+          setLoading(false);
+          return;
+        }
+
+        targetVehicleId = newVehicle.id;
       }
-
-      targetVehicleId = newVehicle.id;
     } else {
       if (!targetVehicleId) {
         setError("Debes seleccionar un vehículo para crear la orden.");
@@ -371,6 +431,43 @@ export function OrderForm({
       orderPayload.empresa_id = empresa.id;
     }
 
+    if (isOffline) {
+      const localOrderId = crypto.randomUUID();
+      const offlineFolio = generateOfflineFolio("ORD");
+
+      await localDB.ordenes_activas.put({
+        id: localOrderId,
+        empresa_id: empresa?.id || "b2ad09db-0a34-4876-9ca3-d584c40bd294",
+        sucursal_id: orderPayload.sucursal_id,
+        folio: offlineFolio,
+        cliente_nombre: isExpressMode ? expressClientName : (selectedClient?.nombre || "Cliente Mostrador"),
+        cliente_telefono: isExpressMode ? expressClientPhone : (selectedClient?.telefono || null),
+        vehiculo_resumen: isExpressMode ? `${expressVehicleMarca} ${expressVehicleModelo} ${expressVehiclePlacas || ""}`.trim() : "Vehículo en Taller",
+        placas: isExpressMode ? expressVehiclePlacas : null,
+        estado: initialEstado,
+        total: 0,
+        saldo_pendiente: 0,
+        pagado: 0,
+        notas: orderPayload.notas_recepcion,
+        updated_at: new Date().toISOString(),
+      });
+
+      await offlineSyncService.enqueueMutation({
+        empresa_id: empresa?.id || "b2ad09db-0a34-4876-9ca3-d584c40bd294",
+        sucursal_id: orderPayload.sucursal_id,
+        mutation_type: "CREAR_ORDEN",
+        entity_id: localOrderId,
+        payload: {
+          ...orderPayload,
+          id: localOrderId,
+        },
+      });
+
+      setLoading(false);
+      onSuccess(localOrderId);
+      return;
+    }
+
     const { data: createdOrder, error: dbError } = await supabase
       .from("ordenes_servicio")
       .insert(orderPayload)
@@ -378,6 +475,44 @@ export function OrderForm({
       .single();
 
     if (dbError || !createdOrder) {
+      // Fallback si la conexión se cortó justo en el click de enviar
+      if (dbError?.message?.includes("fetch") || !navigator.onLine) {
+        const localOrderId = crypto.randomUUID();
+        const offlineFolio = generateOfflineFolio("ORD");
+
+        await localDB.ordenes_activas.put({
+          id: localOrderId,
+          empresa_id: empresa?.id || "b2ad09db-0a34-4876-9ca3-d584c40bd294",
+          sucursal_id: orderPayload.sucursal_id,
+          folio: offlineFolio,
+          cliente_nombre: isExpressMode ? expressClientName : (selectedClient?.nombre || "Cliente Mostrador"),
+          cliente_telefono: isExpressMode ? expressClientPhone : (selectedClient?.telefono || null),
+          vehiculo_resumen: isExpressMode ? `${expressVehicleMarca} ${expressVehicleModelo} ${expressVehiclePlacas || ""}`.trim() : "Vehículo en Taller",
+          placas: isExpressMode ? expressVehiclePlacas : null,
+          estado: initialEstado,
+          total: 0,
+          saldo_pendiente: 0,
+          pagado: 0,
+          notas: orderPayload.notas_recepcion,
+          updated_at: new Date().toISOString(),
+        });
+
+        await offlineSyncService.enqueueMutation({
+          empresa_id: empresa?.id || "b2ad09db-0a34-4876-9ca3-d584c40bd294",
+          sucursal_id: orderPayload.sucursal_id,
+          mutation_type: "CREAR_ORDEN",
+          entity_id: localOrderId,
+          payload: {
+            ...orderPayload,
+            id: localOrderId,
+          },
+        });
+
+        setLoading(false);
+        onSuccess(localOrderId);
+        return;
+      }
+
       setLoading(false);
       setError(dbError?.message || "No se pudo crear la orden.");
       return;
