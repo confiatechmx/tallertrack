@@ -412,6 +412,75 @@ export function OrderDetailsModal({ orderId, onClose, onUpdate }: OrderDetailsMo
     if (!orderId) return;
     setLoading(true);
 
+    const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+
+    // Si estamos desconectados, ir DIRECTAMENTE al almacenamiento local (cero lag de red)
+    if (isOffline) {
+      try {
+        const cached = await localDB.ordenes_activas.get(orderId);
+        if (cached) {
+          const raw = cached.raw_data || {};
+          const fallbackOrder = {
+            id: cached.id,
+            empresa_id: cached.empresa_id,
+            sucursal_id: cached.sucursal_id,
+            folio: cached.folio,
+            estado: cached.estado,
+            vehiculos: raw.vehiculos || {
+              placas: cached.placas,
+              clientes: { nombre: cached.cliente_nombre, telefono: cached.cliente_telefono },
+            },
+            orden_servicio_servicios: raw.orden_servicio_servicios || [],
+            orden_servicio_refacciones: raw.orden_servicio_refacciones || [],
+            pagos_orden: (raw.pagos_orden || []).filter((p: any) => !p.deleted_at),
+            inspecciones_dvi: raw.inspecciones_dvi || [],
+            ...raw,
+          };
+          setOrder(fallbackOrder);
+          setRecProblema(cached.notas || raw.problema_reportado || "");
+          setRecDiagnostico(raw.diagnostico_tecnico || "");
+          setRecNotasInternas(raw.notas || "");
+          setRecBahia(raw.bahia_rampa || "");
+          setRecKilometraje(String(raw.kilometraje_ingreso || ""));
+          setRecGasolina(raw.nivel_gasolina || "1/2");
+          setDviItems(raw.inspecciones_dvi || []);
+        }
+
+        const [cachedSrvs, cachedLlantas] = await Promise.all([
+          localDB.servicios.toArray().catch(() => []),
+          localDB.productos.where("tipo").equals("llanta").toArray().catch(() => []),
+        ]);
+
+        if (cachedSrvs && cachedSrvs.length > 0) {
+          setAvailableServices(
+            cachedSrvs.map((s) => ({
+              id: s.id,
+              nombre: s.nombre,
+              categoria: s.categoria,
+              precio: s.precio_sugerido,
+              activo: true,
+            }))
+          );
+        }
+
+        if (cachedLlantas && cachedLlantas.length > 0) {
+          setAvailableTires(
+            cachedLlantas.map((l) => ({
+              id: l.id,
+              marca: l.marca || "Llantas",
+              precio_venta: l.precio_venta,
+              stock_actual: l.stock_actual,
+            }))
+          );
+        }
+      } catch (err) {
+        console.warn("Fallo cargando orden localmente:", err);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     const [
       { data: orderData, error: orderError },
       { data: mechData },

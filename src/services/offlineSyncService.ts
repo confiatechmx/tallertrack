@@ -323,7 +323,7 @@ class OfflineSyncService {
         await localDB.clientes.bulkPut(clientes);
       }
 
-      // 4. Órdenes activas del día / semana (no terminadas ni canceladas)
+      // 4. Órdenes activas del día / semana con refacciones, servicios y pagos completos
       let queryOrdenes = supabase
         .from("ordenes_servicio")
         .select(`
@@ -332,13 +332,36 @@ class OfflineSyncService {
           sucursal_id,
           folio,
           estado,
+          sub_estado,
           total,
           saldo_pendiente,
           pagado,
           notas,
+          notas_recepcion,
+          problema_reportado,
+          diagnostico_tecnico,
+          bahia_rampa,
+          mecanico_id,
+          prioridad,
+          nivel_gasolina,
+          kilometraje_ingreso,
+          checklist_recepcion,
           updated_at,
-          clientes:cliente_id (nombre, telefono),
-          vehiculos:vehiculo_id (placas, marca, modelo, anio)
+          clientes:cliente_id (id, nombre, telefono, correo, rfc),
+          vehiculos:vehiculo_id (id, marca, modelo, anio, color, placas, vin, kilometraje_actual),
+          orden_servicio_servicios (
+            id, servicio_id, concepto_personalizado, mecanico_id, cantidad, horas_labor, precio_cobrado, comision_porcentaje, estatus_aprobacion, notas, paquete_operacion, es_cortesia, garantia_especifica,
+            servicios_taller ( id, nombre, categoria, precio )
+          ),
+          orden_servicio_refacciones (
+            id, nombre, numero_parte, proveedor, cantidad, costo_unitario, margen_porcentaje, precio_unitario, subtotal, estatus_aprobacion, paquete_operacion, es_cortesia, garantia_especifica
+          ),
+          pagos_orden (
+            id, monto_total, proveedor_pago, metodo_detalle, referencia, estatus, fecha_pago, deleted_at
+          ),
+          inspecciones_dvi (
+            id, orden_servicio_id, item_key, categoria, severidad, notas
+          )
         `)
         .eq("empresa_id", empresaId)
         .not("estado", "in", '("entregado","cancelado")')

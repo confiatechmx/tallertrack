@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useOfflineSync } from "@/context/OfflineSyncContext";
-import { Wifi, WifiOff, RefreshCw, Smartphone, CheckCircle2, AlertCircle } from "lucide-react";
+import { WifiOff, RefreshCw, Smartphone, CheckCircle2, AlertCircle, ChevronUp, ChevronDown } from "lucide-react";
 
 export function OfflineStatusBar() {
   const {
@@ -17,123 +17,125 @@ export function OfflineStatusBar() {
     syncNow,
   } = useOfflineSync();
 
-  const [showConfig, setShowConfig] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
-  // Si está online y no hay mutaciones pendientes ni fallidas, no mostrar ruido visual en el header
+  // Si está 100% online y no hay mutaciones pendientes ni fallidas, CERO ruido visual
   if (isOnline && pendingCount === 0 && failedCount === 0) {
     return null;
   }
 
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      className={`w-full px-4 py-2 border-b transition-colors flex flex-wrap items-center justify-between gap-3 text-sm z-40 ${
-        !isOnline
-          ? "bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200"
-          : isSyncing
-          ? "bg-blue-500/10 border-blue-500/30 text-blue-900 dark:text-blue-200"
-          : failedCount > 0
-          ? "bg-rose-500/10 border-rose-500/30 text-rose-900 dark:text-rose-200"
-          : "bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-200"
-      }`}
+    <aside
+      aria-label="Estado de conectividad y sincronización"
+      className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-2 animate-in fade-in slide-in-from-bottom-3 duration-200"
     >
-      {/* Indicador Izquierdo */}
-      <div className="flex items-center gap-2 font-medium">
-        {!isOnline ? (
-          <>
-            <WifiOff className="w-5 h-5 text-amber-600 dark:text-amber-400 animate-pulse shrink-0" />
-            <span>
-              <strong>Modo Contingencia (Sin Internet):</strong> Operando localmente en terminal{" "}
-              <span className="font-mono bg-amber-500/20 px-1.5 py-0.5 rounded text-amber-950 dark:text-amber-100 font-bold">
-                {terminalId} - {terminalName}
-              </span>
-            </span>
-          </>
-        ) : isSyncing ? (
-          <>
-            <RefreshCw className="w-5 h-5 text-blue-600 dark:text-blue-400 animate-spin shrink-0" />
-            <span>Sincronizando cambios pendientes con la nube...</span>
-          </>
-        ) : failedCount > 0 ? (
-          <>
-            <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
-            <span>
-              {failedCount} cambio(s) con error al subir.{" "}
-              <span className="font-normal">Revisa la conexión o intenta de nuevo.</span>
-            </span>
-          </>
-        ) : (
-          <>
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            <span>
-              Conexión restablecida • {pendingCount} cambio(s) listos para sincronizar.
-            </span>
-          </>
-        )}
-      </div>
-
-      {/* Controles y Botones (Dirty Hands UX: min 48px touch friendly) */}
-      <div className="flex items-center gap-2">
-        {pendingCount > 0 && (
-          <span className="bg-amber-600 text-white dark:bg-amber-500 dark:text-zinc-950 text-xs font-bold px-2 py-1 rounded-full">
-            {pendingCount} pendiente{pendingCount > 1 ? "s" : ""}
-          </span>
-        )}
-
-        {/* Botón Selector de Terminal */}
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setShowConfig(!showConfig)}
-            className="h-10 px-3 flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-semibold shadow-xs"
-            title="Cambiar Terminal de Trabajo"
-          >
-            <Smartphone className="w-3.5 h-3.5 text-zinc-500" />
-            <span>Terminal {terminalId}</span>
-          </button>
-
-          {showConfig && (
-            <div className="absolute right-0 mt-2 w-64 p-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl z-50 text-left">
-              <p className="text-xs font-bold text-zinc-500 uppercase px-2 py-1">Estación de Trabajo</p>
-              {presetTerminales.map((term) => (
-                <button
-                  key={term.id}
-                  type="button"
-                  onClick={() => {
-                    cambiarTerminal(term.id);
-                    setShowConfig(false);
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex flex-col ${
-                    terminalId === term.id
-                      ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold"
-                      : "text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                  }`}
-                >
-                  <span className="flex items-center justify-between">
-                    <span>{term.nombre}</span>
-                    <span className="font-mono text-[10px] bg-zinc-200 dark:bg-zinc-800 px-1 rounded">{term.id}</span>
+      {/* Selector Desplegable de Estación (si se expande) */}
+      {expanded && (
+        <div className="w-72 p-3 bg-zinc-950 text-white border border-zinc-800 rounded-2xl shadow-2xl text-left mb-1">
+          <div className="flex items-center justify-between pb-2 mb-2 border-b border-zinc-800">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Estación de Trabajo</p>
+            <span className="text-[10px] font-mono text-zinc-500">ID: {terminalId}</span>
+          </div>
+          <div className="space-y-1">
+            {presetTerminales.map((term) => (
+              <button
+                key={term.id}
+                type="button"
+                onClick={() => {
+                  cambiarTerminal(term.id);
+                  setExpanded(false);
+                }}
+                className={`w-full text-left px-3 py-2 rounded-xl text-xs transition-colors flex flex-col cursor-pointer ${
+                  terminalId === term.id
+                    ? "bg-blue-600 text-white font-bold"
+                    : "text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span>{term.nombre}</span>
+                  <span className={`font-mono text-[10px] px-1.5 py-0.2 rounded ${
+                    terminalId === term.id ? "bg-blue-700 text-white" : "bg-zinc-800 text-zinc-400"
+                  }`}>
+                    {term.id}
                   </span>
-                  <span className="text-[10px] text-zinc-400 font-normal mt-0.5">{term.descripcion}</span>
-                </button>
-              ))}
-            </div>
+                </div>
+                <span className={`text-[10px] mt-0.5 ${
+                  terminalId === term.id ? "text-blue-100" : "text-zinc-400"
+                }`}>
+                  {term.descripcion}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Pastilla Flotante de Alto Contraste (No empuja el tablero) */}
+      <div className="flex items-center gap-2 bg-zinc-950 text-white border border-zinc-800/80 shadow-2xl rounded-full px-3.5 py-2">
+        {/* Indicador de Estado */}
+        <div className="flex items-center gap-2">
+          {!isOnline ? (
+            <>
+              <div className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
+              <div className="flex items-center gap-1.5 text-xs">
+                <WifiOff className="w-4 h-4 text-amber-400 shrink-0" />
+                <span className="font-bold text-amber-300">Modo Contingencia:</span>
+                <span className="font-medium text-zinc-200">Terminal {terminalId}</span>
+              </div>
+            </>
+          ) : isSyncing ? (
+            <>
+              <RefreshCw className="w-4 h-4 text-blue-400 animate-spin shrink-0" />
+              <span className="text-xs font-semibold text-blue-300">Sincronizando cambios...</span>
+            </>
+          ) : failedCount > 0 ? (
+            <>
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+              <span className="text-xs font-semibold text-rose-300">{failedCount} error(es)</span>
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span className="text-xs font-semibold text-emerald-300">Conectado</span>
+            </>
           )}
         </div>
 
-        {/* Botón de Sincronizar Ahora (Touch target 48px friendly) */}
+        {/* Contador de pendientes */}
+        {pendingCount > 0 && (
+          <span className="bg-amber-500 text-zinc-950 text-[11px] font-black px-2 py-0.5 rounded-full tabular-nums">
+            {pendingCount}
+          </span>
+        )}
+
+        {/* Separador */}
+        <div className="w-px h-4 bg-zinc-800" />
+
+        {/* Botón de Estación */}
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          className="flex items-center gap-1 text-[11px] font-semibold text-zinc-300 hover:text-white px-2 py-1 rounded-lg hover:bg-zinc-900 transition-colors cursor-pointer"
+          title="Cambiar Terminal"
+        >
+          <Smartphone className="w-3.5 h-3.5 text-zinc-400" />
+          <span>{terminalId}</span>
+          {expanded ? <ChevronDown className="w-3 h-3 text-zinc-500" /> : <ChevronUp className="w-3 h-3 text-zinc-500" />}
+        </button>
+
+        {/* Botón manual de sincronizar si hay red y pendientes */}
         {isOnline && (pendingCount > 0 || failedCount > 0) && (
           <button
             type="button"
             onClick={() => syncNow()}
             disabled={isSyncing}
-            className="h-10 px-4 min-w-[48px] flex items-center justify-center gap-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs shadow-sm disabled:opacity-50 transition-all cursor-pointer active:scale-95"
+            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full cursor-pointer transition-transform active:scale-95 disabled:opacity-50"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} />
-            <span>{isSyncing ? "Subiendo..." : "Subir Cambios"}</span>
+            <RefreshCw className={`w-3 h-3 ${isSyncing ? "animate-spin" : ""}`} />
+            <span>Subir</span>
           </button>
         )}
       </div>
-    </div>
+    </aside>
   );
 }
